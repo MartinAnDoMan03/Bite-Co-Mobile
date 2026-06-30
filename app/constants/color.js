@@ -1,0 +1,20 @@
+const COLORS = {
+    PRIMARY: '#711330',
+    WHITE: '#FFFFFF',
+    BACKGROUND: '#F4F4F4',
+    TEXT: '#272727',
+    TEXTSECONDARY: '#27272780',
+    BACKGROUNDDARKER: '#D9D9D9',
+    GREEN: '#5FB567',
+    BLUELINK: '#007AFF',
+    YELLOW: '#F49619',
+    BLUE: '#43B3FF',
+    GREEN2: '#AFB73D',
+    RED: '#F45151',
+    YELLOW2: '#FCC81F',
+    GREEN3: '#711330',
+    GREEN4: '#34A853',
+    BLUE2: "#00B4D8",
+}
+
+export default COLORS;
