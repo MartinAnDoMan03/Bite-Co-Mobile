@@ -163,6 +163,8 @@ const Detail = ({ setScreenNow, ktpImage, selfieImage, setLoading }) => {
       data.append("bankAccountNumber", formData.bankAccountNumber);
       data.append("password", formData.password);
 
+      console.log('KTP size:', ktpImage.fileSize);
+console.log('Selfie size:', selfieImage.fileSize);
       // Post to API
       const response = await axios.post(
         `${config.API_URL}/seller/register`,
@@ -522,10 +524,10 @@ const Identitas = ({
 
     // Launch camera
     let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.8,
+      quality: 0.5,
     });
 
     if (!result.canceled) {
