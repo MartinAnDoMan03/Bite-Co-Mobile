@@ -9,82 +9,64 @@ import {
   Image,
   Alert,
   ScrollView,
+  Dimensions,
 } from "react-native";
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import HeaderTitleBack from '../../components/HeaderTitleBack';
-import COLORS from '../constants/color';
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import axios from "axios";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import config from '../constants/config';
+import { Ionicons } from "@expo/vector-icons";
 
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const BURGUNDY = "#711330";
+
+// Helper responsif sederhana biar ukuran nggak "kekunci" di satu device
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const CARD_MARGIN_H = Math.max(14, SCREEN_WIDTH * 0.045);
+
+/* ---------- Reusable step header (burgundy + step badge) ---------- */
+const StepHeader = ({ step, title, subtitle, containerStyle }) => (
+  <View style={[styles.stepHeader, containerStyle]}>
+    <View style={styles.stepBadge}>
+      <Text style={styles.stepBadgeText}>{step}</Text>
+    </View>
+    <Text style={styles.stepTitle}>{title}</Text>
+    <Text style={styles.stepSubtitle}>{subtitle}</Text>
+  </View>
+);
+
+/* ---------- Success screen ---------- */
 const Success = () => {
   const router = useRouter();
   return (
-    <View
-      style={{
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "#711330",
-        padding: 20,
-      }}
-    >
-      <Text
-        style={{
-          color: "white",
-          fontSize: 24,
-          marginTop: 20,
-        }}
-      >
-        Selamat!
-      </Text>
-      <Text
-        style={{
-          color: "white",
-          fontSize: 16,
-          marginTop: 20,
-          textAlign: "center",
-          paddingHorizontal: 20,
-        }}
-      >
+    <View style={styles.successContainer}>
+      <View style={styles.successIconWrap}>
+        <Ionicons name="checkmark" size={40} color={BURGUNDY} />
+      </View>
+      <Text style={styles.successTitle}>Selamat!</Text>
+      <Text style={styles.successText}>
         Anda telah berhasil mendaftar sebagai penjual di Bite&Co. Silakan tunggu
         konfirmasi dari tim kami. Jika ada pertanyaan, silakan hubungi kami di
-        [info@biteandco.com]
+        info@biteandco.com
       </Text>
       <TouchableOpacity
-        style={{
-          backgroundColor: "#FFB800",
-          paddingVertical: 15,
-          borderRadius: 5,
-          width: "100%",
-          alignItems: "center",
-          justifyContent: "center",
-          marginTop: 20,
-        }}
-        onPress={() => {
-          router.push("/");
-        }}
+        style={styles.successBtn}
+        onPress={() => router.push("/")}
       >
-        <Text
-          style={{
-            color: "white",
-            fontSize: 16,
-            fontWeight: "bold",
-          }}
-        >
-          Kembali ke Beranda
-        </Text>
+        <Text style={styles.successBtnText}>Kembali ke Beranda</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
+/* ---------- Step 2: Detail Usaha (form) ---------- */
 const Detail = ({ setScreenNow, ktpImage, selfieImage, setLoading }) => {
   const [selectedBank, setSelectedBank] = useState(null);
   const [showBankModal, setShowBankModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState({
     outletName: "",
     outletPhone: "",
@@ -102,14 +84,10 @@ const Detail = ({ setScreenNow, ktpImage, selfieImage, setLoading }) => {
   ];
 
   const handleInputChange = (name, value) => {
-    setFormData({
-      ...formData,
-      [name]: value,
-    });
+    setFormData({ ...formData, [name]: value });
   };
 
   const handleSubmit = async () => {
-    // Validate form
     if (
       !formData.outletName ||
       !formData.outletPhone ||
@@ -138,23 +116,9 @@ const Detail = ({ setScreenNow, ktpImage, selfieImage, setLoading }) => {
     setLoading(true);
 
     try {
-      // Create FormData for multipart upload
       const data = new FormData();
-
-      // Append images
-      data.append("ktp", {
-        uri: ktpImage.uri,
-        type: "image/jpeg",
-        name: "ktp.jpg",
-      });
-
-      data.append("selfie", {
-        uri: selfieImage.uri,
-        type: "image/jpeg",
-        name: "selfie.jpg",
-      });
-
-      // Append other form data
+      data.append("ktp", { uri: ktpImage.uri, type: "image/jpeg", name: "ktp.jpg" });
+      data.append("selfie", { uri: selfieImage.uri, type: "image/jpeg", name: "selfie.jpg" });
       data.append("outletName", formData.outletName);
       data.append("outletPhone", formData.outletPhone);
       data.append("outletEmail", formData.outletEmail);
@@ -165,16 +129,10 @@ const Detail = ({ setScreenNow, ktpImage, selfieImage, setLoading }) => {
 
       console.log('KTP size:', ktpImage.fileSize);
 console.log('Selfie size:', selfieImage.fileSize);
-      // Post to API
       const response = await axios.post(
         `${config.API_URL}/seller/register`,
         data,
-        {
-          headers: {
-            "Content-Type": "multipart/form-data",
-          },
-          timeout: config.TIMEOUT,
-        }
+        { headers: { "Content-Type": "multipart/form-data" }, timeout: config.TIMEOUT }
       );
 
       if (response.data.success) {
@@ -186,57 +144,31 @@ console.log('Selfie size:', selfieImage.fileSize);
               .join("\n")
           : response.data.message || "Tidak ada detail error tambahan";
 
-        Alert.alert(
-          "Gagal Mendaftar",
-          `Terjadi kesalahan saat mengirim data:\n\n${errorDetails}`
-        );
+        Alert.alert("Gagal Mendaftar", `Terjadi kesalahan saat mengirim data:\n\n${errorDetails}`);
       }
     } catch (error) {
       let errorMessage = "Terjadi kesalahan saat mendaftar. Silakan coba lagi.";
 
       if (error.response) {
-        // Server responded with error status (4xx, 5xx)
         const serverError = error.response.data;
-        errorMessage = `Error ${error.response.status}: ${
-          serverError.message || "Kesalahan Server"
-        }\n`;
-
+        errorMessage = `Error ${error.response.status}: ${serverError.message || "Kesalahan Server"}\n`;
         if (serverError.errors) {
           errorMessage += Object.entries(serverError.errors)
             .map(([field, messages]) => `• ${field}: ${messages.join(", ")}`)
             .join("\n");
         }
       } else if (error.request) {
-        // Request was made but no response received
-        if (error.code === "ECONNABORTED") {
-          errorMessage =
-            "Koneksi timeout. Silakan cek koneksi internet Anda dan coba lagi.";
-        } else {
-          errorMessage =
-            "Tidak ada respon dari server. Silakan cek koneksi internet Anda.";
-        }
+        errorMessage =
+          error.code === "ECONNABORTED"
+            ? "Koneksi timeout. Silakan cek koneksi internet Anda dan coba lagi."
+            : "Tidak ada respon dari server. Silakan cek koneksi internet Anda.";
+      } else if (error.message.includes("Network Error")) {
+        errorMessage = "Tidak dapat terhubung ke server. Silakan cek koneksi internet Anda.";
       } else {
-        // Something happened in setting up the request
-        if (error.message.includes("Network Error")) {
-          errorMessage =
-            "Tidak dapat terhubung ke server. Silakan cek koneksi internet Anda.";
-        } else {
-          errorMessage = `Error: ${error.message}`;
-        }
+        errorMessage = `Error: ${error.message}`;
       }
 
-      console.error("Registration error details:", {
-        message: error.message,
-        code: error.code,
-        config: error.config,
-        response: error.response?.data,
-        stack: error.stack,
-      });
-
-      Alert.alert(
-        "Error Sistem",
-        errorMessage + "\n\nKode Error: " + (error.code || "UNKNOWN")
-      );
+      Alert.alert("Error Sistem", errorMessage + "\n\nKode Error: " + (error.code || "UNKNOWN"));
     } finally {
       setLoading(false);
     }
@@ -244,285 +176,211 @@ console.log('Selfie size:', selfieImage.fileSize);
 
   return (
     <>
-      <HeaderTitleBack title="Detail Usaha" textColor="white" />
-      <KeyboardAvoidingView
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
-        style={{ flex: 1 }}
-      >
-        <ScrollView
-          contentContainerStyle={{
-            padding: 20,
-            paddingBottom: 100,
-          }}
-          keyboardShouldPersistTaps="handled"
+      <StepHeader
+        step={2}
+        title="Siapkan Detail Usaha Anda"
+        subtitle="Lengkapi informasi usaha kamu untuk melanjutkan proses verifikasi."
+      />
+
+      <View style={styles.whiteCard}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === "ios" ? "padding" : "height"}
+          style={{ flex: 1 }}
         >
-          <View
-            style={{
-              flex: 1,
-              justifyContent: "space-between",
-              padding: 20,
-            }}
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 40 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
-            <View
-              style={{
-                backgroundColor: "white",
-                padding: 20,
-                borderRadius: 20,
-                marginBottom: 20,
-              }}
-            >
-              <Text style={{ color: COLORS.TEXT, fontWeight: "bold" }}>
-                Nama Outlet
-              </Text>
+            <Text style={styles.cardTitle}>Detail Usaha</Text>
+
+            <Text style={styles.fieldLabel}>Nama Outlet</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Masukan nama lengkap Anda..."
+              placeholderTextColor="#aaa"
+              value={formData.outletName}
+              onChangeText={(text) => handleInputChange("outletName", text)}
+            />
+
+            <Text style={styles.fieldLabel}>Nomor Telpon Outlet</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="0813..."
+              placeholderTextColor="#aaa"
+              keyboardType="phone-pad"
+              value={formData.outletPhone}
+              onChangeText={(text) => handleInputChange("outletPhone", text)}
+            />
+
+            <Text style={styles.fieldLabel}>Email Outlet</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Masukan email outlet Anda..."
+              placeholderTextColor="#aaa"
+              keyboardType="email-address"
+              autoCapitalize="none"
+              value={formData.outletEmail}
+              onChangeText={(text) => handleInputChange("outletEmail", text)}
+            />
+
+            <Text style={styles.fieldLabel}>Password</Text>
+            <View style={styles.passwordFieldWrap}>
               <TextInput
-                style={{
-                  height: 40,
-                  borderColor: "gray",
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}
-                placeholder="Masukkan nama outlet"
-                placeholderTextColor="gray"
-                value={formData.outletName}
-                onChangeText={(text) => handleInputChange("outletName", text)}
-              />
-              <Text
-                style={{
-                  color: COLORS.TEXT,
-                  fontWeight: "bold",
-                  marginTop: 10,
-                }}
-              >
-                Nomor telepon outlet
-              </Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderColor: "gray",
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}
-                placeholder="Contoh: 081234567890"
-                placeholderTextColor="gray"
-                keyboardType="phone-pad"
-                value={formData.outletPhone}
-                onChangeText={(text) => handleInputChange("outletPhone", text)}
-              />
-              <Text
-                style={{
-                  color: COLORS.TEXT,
-                  fontWeight: "bold",
-                  marginTop: 10,
-                }}
-              >
-                Email outlet
-              </Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderColor: "gray",
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}
-                placeholder="Contoh: myresto@gmail.com"
-                placeholderTextColor="gray"
-                keyboardType="email-address"
-                value={formData.outletEmail}
-                onChangeText={(text) => handleInputChange("outletEmail", text)}
-              />
-              <Text
-                style={{
-                  color: COLORS.TEXT,
-                  fontWeight: "bold",
-                  marginTop: 10,
-                }}
-              >
-                Password
-              </Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderColor: "gray",
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}
-                placeholder="Password"
-                placeholderTextColor="gray"
-                secureTextEntry={true} // This makes it a password field
+                style={[styles.fieldInput, { paddingRight: scale(44) }]}
+                placeholder="Min. 8 Karakter..."
+                placeholderTextColor="#aaa"
+                secureTextEntry={!showPassword}
                 value={formData.password}
                 onChangeText={(text) => handleInputChange("password", text)}
               />
-              <Text
-                style={{
-                  color: COLORS.TEXT,
-                  fontWeight: "bold",
-                  marginTop: 10,
-                }}
-              >
-                Masukan pajak restoran/PB1 yang berlaku (opsional)
-              </Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderColor: "gray",
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}
-                placeholder="Contoh: 11"
-                placeholderTextColor="gray"
-                keyboardType="numeric"
-                value={formData.taxRate}
-                onChangeText={(text) => handleInputChange("taxRate", text)}
-              />
-
-              {/* Bank Selection */}
-              <Text
-                style={{
-                  color: COLORS.TEXT,
-                  fontWeight: "bold",
-                  marginTop: 10,
-                }}
-              >
-                Pilih Bank
-              </Text>
               <TouchableOpacity
-                style={{
-                  height: 40,
-                  borderColor: "gray",
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                  justifyContent: "center",
-                }}
-                onPress={() => setShowBankModal(true)}
+                style={styles.passwordEyeBtn}
+                onPress={() => setShowPassword(!showPassword)}
               >
-                <Text style={{ color: selectedBank ? "black" : "gray" }}>
-                  {selectedBank || "Pilih bank Anda"}
-                </Text>
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#888"
+                />
               </TouchableOpacity>
-
-              <Text
-                style={{
-                  color: COLORS.TEXT,
-                  fontWeight: "bold",
-                  marginTop: 10,
-                }}
-              >
-                Nomor Rekening Bank
-              </Text>
-              <TextInput
-                style={{
-                  height: 40,
-                  borderColor: "gray",
-                  borderWidth: 1,
-                  borderRadius: 10,
-                  padding: 10,
-                  marginTop: 10,
-                }}
-                placeholder="Contoh: 1234567890"
-                placeholderTextColor="gray"
-                keyboardType="numeric"
-                value={formData.bankAccountNumber}
-                onChangeText={(text) =>
-                  handleInputChange("bankAccountNumber", text)
-                }
-              />
             </View>
-            {/* Bank Selection Modal */}
 
-            <TouchableOpacity
-              style={{
-                backgroundColor: "#FFB800",
-                paddingVertical: 15,
-                borderRadius: 5,
-                width: "100%",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-              onPress={handleSubmit}
-            >
-              <Text
-                style={{ color: "white", fontSize: 16, fontWeight: "bold" }}
-              >
-                Lanjut
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+            <Text style={styles.fieldLabel}>Masukan Pajak Restoran/PB1 yang Berlaku (Opsional)</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Contoh: 10 (dalam %)"
+              placeholderTextColor="#aaa"
+              keyboardType="numeric"
+              value={formData.taxRate}
+              onChangeText={(text) => handleInputChange("taxRate", text)}
+            />
 
-      <Modal
-        visible={showBankModal}
-        transparent={true}
-        animationType="slide"
-        onRequestClose={() => setShowBankModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowBankModal(false)}>
-          <View style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)" }} />
-        </TouchableWithoutFeedback>
+            <Text style={styles.fieldLabel}>Pilih Bank</Text>
+<View style={styles.bankFieldWrap}>
+  <TouchableOpacity
+    style={styles.fieldInput}
+    onPress={() => setShowBankModal(!showBankModal)}
+    activeOpacity={0.8}
+  >
+    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <Text style={{ color: selectedBank ? "#1a1a1a" : "#aaa", fontSize: scale(14.5) }}>
+        {selectedBank || "Pilih bank Anda"}
+      </Text>
+      <Ionicons
+        name={showBankModal ? "chevron-up" : "chevron-down"}
+        size={18}
+        color={BURGUNDY}
+      />
+    </View>
+  </TouchableOpacity>
 
-        <View
-          style={{
-            backgroundColor: "white",
-            padding: 20,
-            borderTopLeftRadius: 20,
-            borderTopRightRadius: 20,
+  {showBankModal && (
+    <View style={styles.bankDropdown}>
+      {banks.map((bank, index) => (
+        <TouchableOpacity
+          key={bank.id}
+          style={[
+            styles.bankDropdownItem,
+            index === banks.length - 1 && { borderBottomWidth: 0 },
+          ]}
+          onPress={() => {
+            setSelectedBank(bank.name);
+            setShowBankModal(false);
           }}
         >
-          {banks.map((bank) => (
-            <TouchableOpacity
-              key={bank.id}
-              style={{
-                paddingVertical: 15,
-                borderBottomWidth: 1,
-                borderBottomColor: "#eee",
-              }}
-              onPress={() => {
-                setSelectedBank(bank.name);
-                setShowBankModal(false);
-              }}
-            >
-              <Text style={{ fontSize: 16 }}>{bank.name}</Text>
-            </TouchableOpacity>
-          ))}
+          <Text
+            style={{
+              fontSize: scale(14),
+              color: selectedBank === bank.name ? BURGUNDY : "#1a1a1a",
+              fontWeight: selectedBank === bank.name ? "700" : "400",
+            }}
+          >
+            {bank.name}
+          </Text>
+          {selectedBank === bank.name && (
+            <Ionicons name="checkmark" size={16} color={BURGUNDY} />
+          )}
+        </TouchableOpacity>
+      ))}
         </View>
-      </Modal>
+      )}
+    </View>
+
+            <Text style={styles.fieldLabel}>Nomor Rekening Bank</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Contoh: 1234567890"
+              placeholderTextColor="#aaa"
+              keyboardType="numeric"
+              value={formData.bankAccountNumber}
+              onChangeText={(text) => handleInputChange("bankAccountNumber", text)}
+            />
+
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleSubmit} activeOpacity={0.85}>
+              <Text style={styles.btnPrimaryText}>Lanjut</Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </KeyboardAvoidingView>
+      </View>
+
+      
     </>
   );
 };
 
-const Identitas = ({
-  setScreenNow,
-  setKtpImage,
-  setSelfieImage,
-  ktpImage,
-  selfieImage,
-}) => {
-  const [step, setStep] = useState(1); // 1 for KTP, 2 for selfie
+/* ---------- Step 1: Identitas (KTP + selfie) ---------- */
+const UploadItem = ({ number, title, subtitle, image, onPress, locked }) => {
+  if (image) {
+    return (
+      <View style={styles.uploadCard}>
+        <View style={styles.uploadCardHeader}>
+          <View style={styles.checkCircleActive}>
+            <Ionicons name="checkmark" size={14} color="#fff" />
+          </View>
+          <Text style={styles.uploadCardTitle}>{title}</Text>
+        </View>
 
-  const pickImage = async (isKtp) => {
-    // Request camera permissions
-    const { status } = await ImagePicker.requestCameraPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert(
-        "Izin diperlukan",
-        "Kami memerlukan izin kamera untuk mengambil foto"
-      );
-      return;
-    }
+        <View style={styles.uploadBox}>
+          <Image source={{ uri: image.uri }} style={styles.uploadPreview} resizeMode="cover" />
+        </View>
 
-    // Launch camera
+        <TouchableOpacity style={styles.retakeBtn} onPress={onPress} activeOpacity={0.85}>
+          <Text style={styles.retakeBtnText}>Ambil Ulang Foto</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  return (
+    <TouchableOpacity
+      style={styles.listRow}
+      onPress={onPress}
+      activeOpacity={locked ? 1 : 0.7}
+      disabled={locked}
+    >
+      <View style={[styles.listNumberCircle, locked && styles.listNumberCircleLocked]}>
+        <Text style={[styles.listNumberText, locked && styles.listNumberTextLocked]}>{number}</Text>
+      </View>
+      <View style={{ flex: 1 }}>
+        <Text style={[styles.listRowTitle, locked && styles.listRowTitleLocked]}>{title}</Text>
+        <Text style={styles.listRowSubtitle}>{subtitle}</Text>
+      </View>
+      {!locked && (
+        <View style={styles.listArrowCircle}>
+          <Ionicons name="arrow-forward" size={16} color="#fff" />
+        </View>
+      )}
+    </TouchableOpacity>
+  );
+};
+
+const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfieImage }) => {
+  const [showPermissionModal, setShowPermissionModal] = useState(false);
+  const [pendingIsKtp, setPendingIsKtp] = useState(true);
+  const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
+
+  const openCameraFor = async (isKtp) => {
     let result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -533,173 +391,138 @@ const Identitas = ({
     if (!result.canceled) {
       if (isKtp) {
         setKtpImage(result.assets[0]);
-        setStep(2); // Move to selfie step
       } else {
         setSelfieImage(result.assets[0]);
       }
     }
   };
+  const requestPickImage = async (isKtp) => {
+    const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
+    if (currentStatus === "granted" || cameraPermissionGranted) {
+      openCameraFor(isKtp);
+      return;
+    }
+    setPendingIsKtp(isKtp);
+    setShowPermissionModal(true);
+  };
+
+  const confirmAndPickImage = () => {
+    setShowPermissionModal(false);
+
+    setTimeout(async () => {
+      const { status } = await ImagePicker.requestCameraPermissionsAsync();
+      if (status !== "granted") {
+        Alert.alert(
+          "Izin Ditolak",
+          "Kami memerlukan izin kamera untuk mengambil foto. Silakan aktifkan izin kamera di pengaturan aplikasi."
+        );
+        return;
+      }
+
+      setCameraPermissionGranted(true);
+      openCameraFor(pendingIsKtp);
+    }, Platform.OS === "android" ? 500 : 0);
+  };
 
   const handleContinue = () => {
     if (!ktpImage || !selfieImage) {
-      Alert.alert(
-        "Perhatian",
-        "Harap ambil foto KTP dan selfie terlebih dahulu"
-      );
+      Alert.alert("Perhatian", "Harap ambil foto KTP dan selfie terlebih dahulu");
       return;
     }
     setScreenNow("detail");
   };
 
-  return (
-    <>
-      <HeaderTitleBack title="Siapkan Identitas Anda" textColor="white" />
-      <View
-        style={{
-          flex: 1,
-          justifyContent: "space-between",
-          padding: 20,
-        }}
-      >
-        <View
-          style={{
-            backgroundColor: "#f7f7f7",
-            padding: 15,
-            borderRadius: 10,
-            width: "100%",
-            marginVertical: 20,
-            flexDirection: "column",
-            gap: 15,
-          }}
-        >
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <View
-              style={{
-                borderColor: step === 1 ? "#FFB800" : COLORS.TEXTSECONDARY,
-                borderWidth: 1,
-                borderRadius: 99,
-                width: 40,
-                padding: 10,
-                backgroundColor: step === 1 ? "#FFB800" : "transparent",
-              }}
-            >
-              <Text
-                style={{
-                  color: step === 1 ? "white" : "black",
-                  fontSize: 14,
-                  textAlign: "center",
-                }}
-              >
-                1
-              </Text>
-            </View>
-            <Text>Ambil Foto e-KTP</Text>
-            {ktpImage && (
-              <Image
-                source={{ uri: ktpImage.uri }}
-                style={{ width: 40, height: 40, borderRadius: 5 }}
-              />
-            )}
-          </View>
+return (
+  <>
+    <View style={{ flex: 1 }}>
+      <StepHeader
+        step={1}
+        title="Siapkan Identitas Anda"
+        subtitle="Unggah foto KTP dan foto diri sambil memegang KTP untuk proses verifikasi identitas."
+        containerStyle={styles.stepHeaderFlex}
+      />
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#FFB800",
-              padding: 10,
-              borderRadius: 5,
-              alignSelf: "flex-start",
-              marginLeft: 50,
-            }}
-            onPress={() => pickImage(true)}
-          >
-            <Text style={{ color: "white" }}>
-              {ktpImage ? "Ambil Ulang" : "Ambil Foto"}
-            </Text>
-          </TouchableOpacity>
+      <View style={styles.whiteCardAuto}>
+        <Text style={styles.cardTitle}>Siapkan Identitas Anda</Text>
 
-          <View
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 10,
-            }}
-          >
-            <View
-              style={{
-                borderColor: step === 2 ? "#FFB800" : COLORS.TEXTSECONDARY,
-                borderWidth: 1,
-                borderRadius: 99,
-                width: 40,
-                padding: 10,
-                backgroundColor: step === 2 ? "#FFB800" : "transparent",
-              }}
-            >
-              <Text
-                style={{
-                  color: step === 2 ? "white" : "black",
-                  fontSize: 14,
-                  textAlign: "center",
-                }}
-              >
-                2
-              </Text>
-            </View>
-            <Text>Ambil Foto Selfie dengan KTP</Text>
-            {selfieImage && (
-              <Image
-                source={{ uri: selfieImage.uri }}
-                style={{ width: 40, height: 40, borderRadius: 5 }}
-              />
-            )}
-          </View>
+        <UploadItem
+          number={1}
+          title="Ambil Foto e-KTP"
+          subtitle="Ambil foto KTP yang jelas & tidak buram"
+          image={ktpImage}
+          onPress={() => requestPickImage(true)}
+          locked={false}
+        />
 
-          {step === 2 && (
-            <TouchableOpacity
-              style={{
-                backgroundColor: "#FFB800",
-                padding: 10,
-                borderRadius: 5,
-                alignSelf: "flex-start",
-                marginLeft: 50,
-              }}
-              onPress={() => pickImage(false)}
-            >
-              <Text style={{ color: "white" }}>
-                {selfieImage ? "Ambil Ulang" : "Ambil Foto"}
-              </Text>
-            </TouchableOpacity>
-          )}
-        </View>
+        <UploadItem
+          number={2}
+          title="Ambil Foto Selfie bersama e-KTP"
+          subtitle="Foto wajah sambil memegang KTP Anda"
+          image={selfieImage}
+          onPress={() => requestPickImage(false)}
+          locked={!ktpImage}
+        />
 
         <TouchableOpacity
-          style={{
-            backgroundColor: "#FFB800",
-            paddingVertical: 15,
-            borderRadius: 5,
-            width: "100%",
-            alignItems: "center",
-            justifyContent: "center",
-            marginBottom: 20,
-            opacity: ktpImage && selfieImage ? 1 : 0.5,
-          }}
+          style={[
+            styles.btnPrimary,
+            styles.btnPrimaryIdentitas,
+            { opacity: ktpImage && selfieImage ? 1 : 0.5 },
+          ]}
           onPress={handleContinue}
           disabled={!ktpImage || !selfieImage}
+          activeOpacity={0.85}
         >
-          <Text style={{ color: "white", fontSize: 16, fontWeight: "bold" }}>
-            Lanjut
-          </Text>
+          <Text style={styles.btnPrimaryText}>Lanjut</Text>
         </TouchableOpacity>
       </View>
-    </>
-  );
+    </View>
+
+    {/* ---------- Modal custom izin kamera (Bahasa Indonesia, tema burgundy) ---------- */}
+    <Modal
+      visible={showPermissionModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowPermissionModal(false)}
+    >
+      <View style={styles.permissionOverlay}>
+        <View style={styles.permissionCard}>
+          <View style={styles.permissionIconWrap}>
+            <Ionicons name="camera" size={28} color={BURGUNDY} />
+          </View>
+
+          <Text style={styles.permissionTitle}>Izin Akses Kamera</Text>
+          <Text style={styles.permissionText}>
+            {pendingIsKtp
+              ? "Kami memerlukan akses kamera untuk mengambil foto e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."
+              : "Kami memerlukan akses kamera untuk mengambil foto selfie bersama e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."}
+          </Text>
+
+          <View style={styles.permissionBtnRow}>
+            <TouchableOpacity
+              style={styles.permissionBtnSecondary}
+              onPress={() => setShowPermissionModal(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.permissionBtnSecondaryText}>Nanti</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.permissionBtnPrimary}
+              onPress={confirmAndPickImage}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.permissionBtnPrimaryText}>Izinkan</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  </>
+);
 };
 
+/* ---------- Root screen ---------- */
 const DetailUsaha = () => {
   const [screenNow, setScreenNow] = useState("identitas");
   const [ktpImage, setKtpImage] = useState(null);
@@ -707,7 +530,7 @@ const DetailUsaha = () => {
   const [loading, setLoading] = useState(false);
 
   return (
-    <SafeAreaView style={{ backgroundColor: "#711330", height: "100%" }}>
+    <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {loading && (
         <View style={styles.loadingOverlay}>
           <View style={styles.loadingContainer}>
@@ -716,7 +539,7 @@ const DetailUsaha = () => {
         </View>
       )}
 
-      {screenNow === "identitas" ? (
+      {screenNow === "identitas" && (
         <Identitas
           setScreenNow={setScreenNow}
           setKtpImage={setKtpImage}
@@ -724,23 +547,418 @@ const DetailUsaha = () => {
           ktpImage={ktpImage}
           selfieImage={selfieImage}
         />
-      ) : null}
+      )}
 
-      {screenNow === "detail" ? (
+      {screenNow === "detail" && (
         <Detail
           setScreenNow={setScreenNow}
           ktpImage={ktpImage}
           selfieImage={selfieImage}
           setLoading={setLoading}
         />
-      ) : null}
+      )}
 
-      {screenNow === "success" ? <Success /> : null}
+      {screenNow === "success" && <Success />}
     </SafeAreaView>
   );
 };
 
+export default DetailUsaha;
+
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: BURGUNDY,
+  },
+  stepHeader: {
+  backgroundColor: BURGUNDY,
+  alignItems: "center",
+  paddingTop: scale(28),
+  paddingBottom: scale(24),
+  paddingHorizontal: 28,
+},
+stepHeaderFlex: {
+  flex: 1, 
+  justifyContent: "center", 
+  paddingBottom: scale(24), 
+},
+  stepBadge: {
+    width: scale(50),
+    height: scale(50),
+    borderRadius: scale(30),
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  stepBadgeText: {
+    color: "#fff",
+    fontSize: scale(28),
+    fontWeight: "700",
+    marginTop: -5,
+  },
+  stepTitle: {
+    color: "#fff",
+    fontSize: scale(19),
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  stepSubtitle: {
+    color: "#f0d9df",
+    fontSize: scale(14.5),
+    textAlign: "center",
+    lineHeight: scale(20),
+    paddingHorizontal: 6,
+  },
+  whiteCard: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    marginHorizontal: CARD_MARGIN_H,
+    marginTop: 0,
+    marginBottom: 0,
+    padding: scale(20),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 6,
+  },
+  whiteCardAuto: {
+  backgroundColor: "#ffffff",
+  borderTopLeftRadius: 26,
+  borderTopRightRadius: 26,
+  marginHorizontal: CARD_MARGIN_H,
+  marginTop: 0,
+  marginBottom: 0, 
+  paddingTop: scale(20),
+  paddingHorizontal: scale(20),
+  paddingBottom: scale(28), 
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: -2 },
+  shadowOpacity: 0.08,
+  shadowRadius: 10,
+  elevation: 6,
+},
+  cardTitle: {
+    color: BURGUNDY,
+    fontSize: scale(17),
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 18,
+  },
+
+  /* Form fields (Detail step) */
+  fieldLabel: {
+    color: BURGUNDY,
+    fontSize: scale(12.5),
+    fontWeight: "700",
+    marginBottom: 6,
+    marginTop: 12,
+  },
+  fieldInput: {
+    backgroundColor: "#fff",
+    borderWidth: 1.2,
+    borderColor: "#ddd",
+    borderRadius: 12,
+    paddingVertical: scale(12),
+    paddingHorizontal: scale(16),
+    fontSize: scale(14.5),
+    color: "#1a1a1a",
+    justifyContent: "center",
+  },
+  passwordFieldWrap: {
+  position: "relative",
+  justifyContent: "center",
+  },
+  passwordEyeBtn: {
+    position: "absolute",
+    right: scale(14),
+    height: "100%",
+    justifyContent: "center",
+  },
+  /* List row (belum diambil) */
+  listRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  listNumberCircle: {
+    width: scale(30),
+    height: scale(30),
+    borderRadius: scale(15),
+    backgroundColor: BURGUNDY,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 12,
+  },
+  listNumberCircleLocked: {
+    backgroundColor: "#e0e0e0",
+  },
+  listNumberText: {
+    color: "#fff",
+    fontSize: scale(13),
+    fontWeight: "700",
+  },
+  listNumberTextLocked: {
+    color: "#999",
+  },
+  listRowTitle: {
+    color: BURGUNDY,
+    fontSize: scale(14),
+    fontWeight: "700",
+    marginBottom: 2,
+  },
+  listRowTitleLocked: {
+    color: "#aaa",
+  },
+  listRowSubtitle: {
+    color: "#999",
+    fontSize: scale(12),
+    lineHeight: scale(16),
+  },
+  listArrowCircle: {
+    width: scale(30),
+    height: scale(30),
+    borderRadius: scale(15),
+    backgroundColor: BURGUNDY,
+    alignItems: "center",
+    justifyContent: "center",
+    marginLeft: 8,
+  },
+
+  /* Upload cards (sudah diambil) */
+  uploadCard: {
+    borderWidth: 1,
+    borderColor: "#eee",
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 14,
+  },
+  uploadCardHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 12,
+  },
+  checkCircleActive: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: BURGUNDY,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+  },
+  uploadCardTitle: {
+    color: "#1a1a1a",
+    fontSize: scale(14),
+    fontWeight: "600",
+    flex: 1,
+  },
+  uploadBox: {
+    height: Math.max(90, SCREEN_HEIGHT * 0.12),
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#eee",
+    backgroundColor: "#fafafa",
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    marginBottom: 10,
+  },
+  uploadPreview: {
+    width: "100%",
+    height: "100%",
+  },
+  retakeBtn: {
+    alignSelf: "center",
+    backgroundColor: "#fdf1f4",
+    borderWidth: 1,
+    borderColor: BURGUNDY,
+    borderRadius: 20,
+    paddingVertical: 6,
+    paddingHorizontal: 16,
+  },
+  retakeBtnText: {
+    color: BURGUNDY,
+    fontSize: scale(12),
+    fontWeight: "600",
+  },
+
+  /* Shared pill button */
+  btnPrimary: {
+    width: "100%",
+    backgroundColor: BURGUNDY,
+    paddingVertical: 15,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 120,
+    shadowColor: BURGUNDY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  btnPrimaryIdentitas: {
+    marginTop: 20,
+  },
+  btnPrimaryText: {
+    color: "#fff",
+    fontSize: scale(15),
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+
+bankFieldWrap: {
+  position: "relative",
+  zIndex: 10,
+},
+bankDropdown: {
+  position: "absolute",
+  top: "100%",
+  left: 0,
+  right: 0,
+  marginTop: 6,
+  backgroundColor: "#fff",
+  borderRadius: 12,
+  borderWidth: 1.2,
+  borderColor: "#eee",
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.12,
+  shadowRadius: 10,
+  elevation: 8,
+  overflow: "hidden",
+  zIndex: 20,
+},
+bankDropdownItem: {
+  flexDirection: "row",
+  justifyContent: "space-between",
+  alignItems: "center",
+  paddingVertical: scale(13),
+  paddingHorizontal: scale(16),
+  borderBottomWidth: 1,
+  borderBottomColor: "#f2f2f2",
+},
+
+  /* Permission modal custom (Bahasa Indonesia, tema burgundy) */
+  permissionOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 28,
+  },
+  permissionCard: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+  },
+  permissionIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#fdf1f4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  permissionTitle: {
+    color: BURGUNDY,
+    fontSize: scale(17),
+    fontWeight: "700",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  permissionText: {
+    color: "#555",
+    fontSize: scale(13.5),
+    textAlign: "center",
+    lineHeight: scale(19),
+    marginBottom: 22,
+  },
+  permissionBtnRow: {
+    flexDirection: "row",
+    width: "100%",
+    gap: 10,
+  },
+  permissionBtnSecondary: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#ddd",
+    alignItems: "center",
+  },
+  permissionBtnSecondaryText: {
+    color: "#888",
+    fontSize: scale(14),
+    fontWeight: "600",
+  },
+  permissionBtnPrimary: {
+    flex: 1,
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: BURGUNDY,
+    alignItems: "center",
+  },
+  permissionBtnPrimaryText: {
+    color: "#fff",
+    fontSize: scale(14),
+    fontWeight: "700",
+  },
+
+  /* Success screen */
+  successContainer: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: BURGUNDY,
+    padding: 24,
+  },
+  successIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "#fff",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+  },
+  successTitle: {
+    color: "#fff",
+    fontSize: 22,
+    fontWeight: "700",
+    marginBottom: 12,
+  },
+  successText: {
+    color: "#f0d9df",
+    fontSize: 14,
+    textAlign: "center",
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  successBtn: {
+    backgroundColor: "#fff",
+    paddingVertical: 15,
+    borderRadius: 14,
+    width: "100%",
+    alignItems: "center",
+  },
+  successBtnText: {
+    color: BURGUNDY,
+    fontSize: 15,
+    fontWeight: "700",
+  },
+
+  /* Loading overlay */
   loadingOverlay: {
     position: "absolute",
     top: 0,
@@ -759,7 +977,6 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 16,
+    color: "#1a1a1a",
   },
 });
-
-export default DetailUsaha;

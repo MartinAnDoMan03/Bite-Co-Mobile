@@ -5,15 +5,22 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  Dimensions,
+  Keyboard,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
-import AntDesign from "@expo/vector-icons/AntDesign";
+import { Ionicons } from "@expo/vector-icons";
 import config from '../constants/config';
+
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const BURGUNDY = "#711330";
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const CARD_MARGIN_H = Math.max(14, SCREEN_WIDTH * 0.045);
 
 const BuyerRegister = () => {
   const router = useRouter();
@@ -25,6 +32,41 @@ const BuyerRegister = () => {
     confirmPassword: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  // Kunci scroll selama keyboard belum muncul, aktifkan saat keyboard muncul
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const showSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow",
+      () => setIsKeyboardVisible(true)
+    );
+    const hideSub = Keyboard.addListener(
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide",
+      () => setIsKeyboardVisible(false)
+    );
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
+
+  // Modal alert custom (pengganti alert() bawaan)
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertTitle, setAlertTitle] = useState("");
+  const [alertMessage, setAlertMessage] = useState("");
+
+  // Modal sukses registrasi
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successPayload, setSuccessPayload] = useState(null);
+
+  const showCustomAlert = (title, message) => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setShowAlertModal(true);
+  };
 
   const handleInputChange = (field, value) => {
     setFormData(prev => ({
@@ -35,41 +77,39 @@ const BuyerRegister = () => {
 
   const validateForm = () => {
     if (!formData.name.trim()) {
-      Alert.alert("Error", "Nama harus diisi");
+      showCustomAlert("Form Tidak Lengkap", "Nama harus diisi");
       return false;
     }
     if (!formData.email.trim()) {
-      Alert.alert("Error", "Email harus diisi");
+      showCustomAlert("Form Tidak Lengkap", "Email harus diisi");
       return false;
     }
     if (!formData.phone.trim()) {
-      Alert.alert("Error", "Nomor telepon harus diisi");
+      showCustomAlert("Form Tidak Lengkap", "Nomor telepon harus diisi");
       return false;
     }
     if (!formData.password) {
-      Alert.alert("Error", "Password harus diisi");
+      showCustomAlert("Form Tidak Lengkap", "Password harus diisi");
       return false;
     }
     if (formData.password !== formData.confirmPassword) {
-      Alert.alert("Error", "Password dan konfirmasi password tidak sama");
+      showCustomAlert("Form Tidak Lengkap", "Password dan konfirmasi password tidak sama");
       return false;
     }
     if (formData.password.length < 6) {
-      Alert.alert("Error", "Password minimal 6 karakter");
+      showCustomAlert("Form Tidak Lengkap", "Password minimal 6 karakter");
       return false;
     }
 
-    // Email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      Alert.alert("Error", "Format email tidak valid");
+      showCustomAlert("Form Tidak Lengkap", "Format email tidak valid");
       return false;
     }
 
-    // Phone validation (Indonesian format)
     const phoneRegex = /^(\+62|62|0)[0-9]{9,13}$/;
     if (!phoneRegex.test(formData.phone)) {
-      Alert.alert("Error", "Format nomor telepon tidak valid");
+      showCustomAlert("Form Tidak Lengkap", "Format nomor telepon tidak valid");
       return false;
     }
 
@@ -105,31 +145,27 @@ const BuyerRegister = () => {
         throw new Error('Invalid response from server');
       }
 
-      Alert.alert(
-        "Success", 
-        "Registrasi berhasil! Kode OTP telah dikirim ke email Anda.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              // Navigate to OTP verification screen
-              router.push({
-                pathname: "/buyer/BuyerOTPVerification",
-                params: {
-                  email: formData.email,
-                  userId: result.userId,
-                }
-              });
-            }
-          }
-        ]
-      );
+      setSuccessPayload({ email: formData.email, userId: result.userId });
+      setShowSuccessModal(true);
 
     } catch (error) {
       console.error("Registration error:", error);
-      Alert.alert("Error", error.message || "Terjadi kesalahan saat registrasi");
+      showCustomAlert("Gagal Mendaftar", error.message || "Terjadi kesalahan saat registrasi");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleSuccessConfirm = () => {
+    setShowSuccessModal(false);
+    if (successPayload) {
+      router.push({
+        pathname: "/buyer/BuyerOTPVerification",
+        params: {
+          email: successPayload.email,
+          userId: successPayload.userId,
+        }
+      });
     }
   };
 
@@ -140,105 +176,175 @@ const BuyerRegister = () => {
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
         <ScrollView
-          style={{ flex: 1 }}
           contentContainerStyle={{ flexGrow: 1 }}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          scrollEnabled={isKeyboardVisible}
+          bounces={false}
         >
-          <View style={styles.header}>
-            <TouchableOpacity
-              style={styles.backButton}
-              onPress={() => router.back()}
-            >
-              <AntDesign name="left" size={20} color="white" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Daftar Akun</Text>
+          {/* Top section — burgundy header */}
+          <View style={styles.stepHeader}>
+            <View style={styles.stepBadge}>
+              <Ionicons name="person-add" size={22} color="#fff" />
+            </View>
+            <Text style={styles.stepTitle}>Buat Akun Baru</Text>
           </View>
 
-          <View style={styles.content}>
-            <Text style={styles.title}>Buat Akun Baru</Text>
-            <Text style={styles.subtitle}>
-              Isi data diri Anda untuk membuat akun
-            </Text>
+          {/* White card — form */}
+          <View style={styles.whiteCard}>
+            <Text style={styles.cardTitle}>Data Diri</Text>
 
-            <View style={styles.form}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nama Lengkap</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Masukkan nama lengkap"
-                  value={formData.name}
-                  onChangeText={(value) => handleInputChange("name", value)}
-                  autoCapitalize="words"
-                />
-              </View>
+            <Text style={styles.fieldLabel}>Nama Lengkap</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Masukkan nama lengkap"
+              placeholderTextColor="#aaa"
+              value={formData.name}
+              onChangeText={(value) => handleInputChange("name", value)}
+              autoCapitalize="words"
+            />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Email</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Masukkan email"
-                  value={formData.email}
-                  onChangeText={(value) => handleInputChange("email", value)}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                />
-              </View>
+            <Text style={styles.fieldLabel}>Email</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="Masukkan email"
+              placeholderTextColor="#aaa"
+              value={formData.email}
+              onChangeText={(value) => handleInputChange("email", value)}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Nomor Telepon</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Masukkan nomor telepon"
-                  value={formData.phone}
-                  onChangeText={(value) => handleInputChange("phone", value)}
-                  keyboardType="phone-pad"
-                />
-              </View>
+            <Text style={styles.fieldLabel}>Nomor Telepon</Text>
+            <TextInput
+              style={styles.fieldInput}
+              placeholder="0813..."
+              placeholderTextColor="#aaa"
+              value={formData.phone}
+              onChangeText={(value) => handleInputChange("phone", value)}
+              keyboardType="phone-pad"
+            />
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Masukkan password"
-                  value={formData.password}
-                  onChangeText={(value) => handleInputChange("password", value)}
-                  secureTextEntry
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.label}>Konfirmasi Password</Text>
-                <TextInput
-                  style={styles.input}
-                  placeholder="Konfirmasi password"
-                  value={formData.confirmPassword}
-                  onChangeText={(value) => handleInputChange("confirmPassword", value)}
-                  secureTextEntry
-                />
-              </View>
-
+            <Text style={styles.fieldLabel}>Password</Text>
+            <View style={styles.passwordFieldWrap}>
+              <TextInput
+                style={[styles.fieldInput, { paddingRight: scale(44) }]}
+                placeholder="Min. 6 karakter"
+                placeholderTextColor="#aaa"
+                value={formData.password}
+                onChangeText={(value) => handleInputChange("password", value)}
+                secureTextEntry={!showPassword}
+              />
               <TouchableOpacity
-                style={[styles.registerButton, isLoading && styles.disabledButton]}
-                onPress={handleRegister}
-                disabled={isLoading}
+                style={styles.passwordEyeBtn}
+                onPress={() => setShowPassword(!showPassword)}
               >
-                <Text style={styles.registerButtonText}>
-                  {isLoading ? "Mendaftar..." : "Daftar"}
-                </Text>
+                <Ionicons
+                  name={showPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#888"
+                />
               </TouchableOpacity>
+            </View>
 
-              <View style={styles.loginPrompt}>
-                <Text style={styles.loginPromptText}>
-                  Sudah punya akun?{" "}
-                </Text>
-                <TouchableOpacity onPress={() => router.back()}>
-                  <Text style={styles.loginLink}>Masuk di sini</Text>
-                </TouchableOpacity>
-              </View>
+            <Text style={styles.fieldLabel}>Konfirmasi Password</Text>
+            <View style={styles.passwordFieldWrap}>
+              <TextInput
+                style={[styles.fieldInput, { paddingRight: scale(44) }]}
+                placeholder="Ulangi password"
+                placeholderTextColor="#aaa"
+                value={formData.confirmPassword}
+                onChangeText={(value) => handleInputChange("confirmPassword", value)}
+                secureTextEntry={!showConfirmPassword}
+              />
+              <TouchableOpacity
+                style={styles.passwordEyeBtn}
+                onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+              >
+                <Ionicons
+                  name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                  size={20}
+                  color="#888"
+                />
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.btnPrimary, { opacity: isLoading ? 0.7 : 1 }]}
+              onPress={handleRegister}
+              disabled={isLoading}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.btnPrimaryText}>
+                {isLoading ? "Mendaftar..." : "Daftar"}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.loginPrompt}>
+              <Text style={styles.loginPromptText}>Sudah punya akun? </Text>
+              <TouchableOpacity onPress={() => router.back()}>
+                <Text style={styles.loginLink}>Masuk di sini</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ---------- Modal alert custom (error / validasi) ---------- */}
+      <Modal
+        visible={showAlertModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowAlertModal(false)}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertCard}>
+            <View style={styles.alertIconWrap}>
+              <Ionicons name="alert-circle" size={28} color={BURGUNDY} />
+            </View>
+
+            <Text style={styles.alertTitle}>{alertTitle}</Text>
+            <Text style={styles.alertText}>{alertMessage}</Text>
+
+            <TouchableOpacity
+              style={styles.alertBtn}
+              onPress={() => setShowAlertModal(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.alertBtnText}>Mengerti</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ---------- Modal sukses registrasi ---------- */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={handleSuccessConfirm}
+      >
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertCard}>
+            <View style={[styles.alertIconWrap, { backgroundColor: "#e9f7ee" }]}>
+              <Ionicons name="checkmark-circle" size={28} color="#2e9152" />
+            </View>
+
+            <Text style={styles.alertTitle}>Registrasi Berhasil</Text>
+            <Text style={styles.alertText}>
+              Kode OTP telah dikirim ke email Anda. Silakan verifikasi untuk melanjutkan.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.alertBtn}
+              onPress={handleSuccessConfirm}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.alertBtnText}>Lanjut Verifikasi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -248,91 +354,178 @@ export default BuyerRegister;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#711330",
+    backgroundColor: BURGUNDY,
   },
-  header: {
-    flexDirection: "row",
+
+  // Header
+  stepHeader: {
+    backgroundColor: BURGUNDY,
     alignItems: "center",
-    padding: 20,
-    paddingTop: 10,
+    paddingTop: scale(20),
+    paddingBottom: scale(22),
+    paddingHorizontal: 28,
   },
-  backButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+  stepBadge: {
+    width: scale(50),
+    height: scale(50),
+    borderRadius: scale(30),
+    backgroundColor: "rgba(255,255,255,0.15)",
+    alignItems: "center",
     justifyContent: "center",
-    alignItems: "center",
-    marginRight: 15,
+    marginTop: scale(36),
+    marginBottom: 12,
   },
-  headerTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 30,
-    paddingTop: 20,
-  },
-  title: {
-    color: "white",
-    fontSize: 32,
-    fontWeight: "bold",
+  stepTitle: {
+    color: "#fff",
+    fontSize: scale(19),
+    fontWeight: "700",
+    textAlign: "center",
     marginBottom: 8,
   },
-  subtitle: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-    marginBottom: 30,
-  },
-  form: {
+
+  // White card
+  whiteCard: {
     flex: 1,
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    marginHorizontal: CARD_MARGIN_H,
+    marginTop: 0,
+    marginBottom: 0,
+    padding: scale(18),
+    paddingBottom: scale(22),
+    justifyContent: "center",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 6,
   },
-  inputGroup: {
-    marginBottom: 20,
+  cardTitle: {
+    color: BURGUNDY,
+    fontSize: scale(16),
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 12,
   },
-  label: {
-    color: "white",
-    fontSize: 16,
-    fontWeight: "500",
-    marginBottom: 8,
+
+  // Fields
+  fieldLabel: {
+    color: BURGUNDY,
+    fontSize: scale(12),
+    fontWeight: "700",
+    marginBottom: 5,
+    marginTop: 8,
   },
-  input: {
-    backgroundColor: "#f7f7f7",
-    padding: 15,
-    borderRadius: 10,
-    fontSize: 16,
+  fieldInput: {
+    backgroundColor: "#fff",
+    borderWidth: 1.2,
+    borderColor: "#ddd",
+    borderRadius: 12,
+    paddingVertical: scale(10),
+    paddingHorizontal: scale(16),
+    fontSize: scale(14),
+    color: "#1a1a1a",
+    justifyContent: "center",
   },
-  registerButton: {
-    backgroundColor: "#FFB800",
-    paddingVertical: 15,
-    borderRadius: 10,
+  passwordFieldWrap: {
+    position: "relative",
+    justifyContent: "center",
+  },
+  passwordEyeBtn: {
+    position: "absolute",
+    right: scale(14),
+    height: "100%",
+    justifyContent: "center",
+  },
+
+  // Button
+  btnPrimary: {
+    width: "100%",
+    backgroundColor: BURGUNDY,
+    paddingVertical: 14,
+    borderRadius: 14,
     alignItems: "center",
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 22,
+    shadowColor: BURGUNDY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  disabledButton: {
-    opacity: 0.7,
+  btnPrimaryText: {
+    color: "#fff",
+    fontSize: scale(15),
+    fontWeight: "700",
+    letterSpacing: 0.3,
   },
-  registerButtonText: {
-    color: "#711330",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+
+  // Login prompt
   loginPrompt: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
+    marginTop: 14,
   },
   loginPromptText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
+    color: "#666",
+    fontSize: scale(13),
   },
   loginLink: {
-    color: "#FFB800",
-    fontSize: 16,
-    fontWeight: "600",
+    color: BURGUNDY,
+    fontSize: scale(13),
+    fontWeight: "700",
+    textDecorationLine: "underline",
+  },
+
+  // Alert / success modal
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 28,
+  },
+  alertCard: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 24,
+    alignItems: "center",
+  },
+  alertIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: "#fdf1f4",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 14,
+  },
+  alertTitle: {
+    color: BURGUNDY,
+    fontSize: scale(17),
+    fontWeight: "700",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+  alertText: {
+    color: "#555",
+    fontSize: scale(13.5),
+    textAlign: "center",
+    lineHeight: scale(19),
+    marginBottom: 22,
+  },
+  alertBtn: {
+    width: "100%",
+    paddingVertical: 13,
+    borderRadius: 12,
+    backgroundColor: BURGUNDY,
+    alignItems: "center",
+  },
+  alertBtnText: {
+    color: "#fff",
+    fontSize: scale(14),
+    fontWeight: "700",
   },
 });

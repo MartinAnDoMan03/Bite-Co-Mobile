@@ -8,12 +8,14 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
+import AnimatedSplash from '../components/AnimatedSplash';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const [appIsReady, setAppIsReady] = useState(false);
+  const [showSplash, setShowSplash] = useState(true);
   const [appState, setAppState] = useState(AppState.currentState);
 
   const [loaded] = useFonts({
@@ -119,9 +121,13 @@ export default function RootLayout() {
     }
   }, [appIsReady]);
 
-  if (!appIsReady) {
-    return null;
-  }
+  if (!appIsReady || showSplash) {
+  return (
+    <AnimatedSplash
+      onFinish={() => setShowSplash(false)}
+    />
+  );
+}
 
   return (
     <ErrorBoundary>

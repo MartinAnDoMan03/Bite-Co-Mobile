@@ -1,95 +1,121 @@
 import {
-    Image,
-    SafeAreaView,
-    StyleSheet,
-    Text,
-    TouchableOpacity,
-    View,
-  } from "react-native";
-  import React from "react";
-  import logo from "../assets/images/logo.png";
+  Image,
+  SafeAreaView,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  Dimensions,
+} from "react-native";
+import React from "react";
+import logo from "../assets/images/logo.png";
 import { useRouter } from "expo-router";
-  
-  const index = () => {
-    const router = useRouter();
-    return (
-      <SafeAreaView style={{ backgroundColor: "#711330", height: "100%" }}>
-        <View
-          style={{
-            justifyContent: "center",
-            alignItems: "center",
-            height: "100%",
-          }}
-        >
-          <Image source={logo} alt="logo" style={{ width: 100, height: 140 }} />
-          <Text
-            style={{
-              color: "white",
-              fontSize: 24,
-              marginTop: 20,
-            }}
-          >
-            Siapakah anda?
-          </Text>
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#FFB800",
-              paddingVertical: 10,
-              paddingHorizontal: 20,
-              borderRadius: 5,
-              marginTop: 20,
-              width: "80%",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={() => {
-              router.push("/buyer/BuyerIndex");
-            }
-          }
-          >
-            <Text
-              style={{
-                color: "#711330",
-                fontSize: 18,
-                fontWeight: "bold",
-              }}
-            >
-              Saya Pembeli
-            </Text>
-          </TouchableOpacity>
 
-          <TouchableOpacity
-            style={{
-              backgroundColor: "#FFB800",
-              paddingVertical: 10,
-              paddingHorizontal: 20,
-              borderRadius: 5,
-              marginTop: 20,
-              width: "80%",
-              alignItems: "center",
-              justifyContent: "center",
-            }}
-            onPress={() => {
-              router.push("/seller/SellerIndex");
-            }
-          }
-          >
-            <Text
-              style={{
-                color: "#711330",
-                fontSize: 18,
-                fontWeight: "bold",
-              }}
-            >
-              Saya Penjual
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  };
-  
-  export default index;
-  
-  const styles = StyleSheet.create({});
-  
+const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
+
+const Started = () => {
+  const router = useRouter();
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Top section — burgundy, proporsi 55% layar */}
+      <View style={styles.topSection}>
+        <Image source={logo} style={styles.logo} resizeMode="contain" />
+        <Text style={styles.title}>Mulai Sebagai...</Text>
+        <Text style={styles.subtitle}>Pilih peranmu untuk melanjutkan</Text>
+      </View>
+
+      {/* Bottom section — putih */}
+      <View style={styles.bottomSection}>
+        <TouchableOpacity
+          style={styles.button}
+          activeOpacity={0.85}
+          onPress={() => router.push("/buyer/BuyerIndex")}
+        >
+          <Text style={styles.buttonText}>Saya Pembeli</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.button}
+          activeOpacity={0.85}
+          onPress={() => router.push("/seller/SellerIndex")}
+        >
+          <Text style={styles.buttonText}>Saya Penjual</Text>
+        </TouchableOpacity>
+      </View>
+    </SafeAreaView>
+  );
+};
+
+export default Started;
+
+const BURGUNDY = "#711330";
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+  },
+
+  topSection: {
+    height: SCREEN_HEIGHT * 0.55, // fix 55% tinggi layar
+    backgroundColor: BURGUNDY,
+    borderBottomLeftRadius: 40,
+    borderBottomRightRadius: 40,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 32,
+    paddingBottom: 24,
+  },
+
+  logo: {
+    width: SCREEN_WIDTH * 0.38, // responsive ke lebar layar
+    height: SCREEN_WIDTH * 0.38,
+    marginBottom: 24,
+  },
+
+  title: {
+    fontSize: 24,
+    fontWeight: "700",
+    color: "#ffffff",
+    marginBottom: 8,
+    textAlign: "center",
+  },
+
+  subtitle: {
+    fontSize: 14,
+    color: "rgba(255, 255, 255, 0.7)",
+    textAlign: "center",
+    lineHeight: 20,
+  },
+
+  bottomSection: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    paddingHorizontal: 28,
+    paddingTop: 100,
+    alignItems: "center",
+    gap: 12,
+  },
+
+  button: {
+    width: "100%",
+    backgroundColor: BURGUNDY,
+    paddingVertical: 16,
+    borderRadius: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    shadowColor: BURGUNDY,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+
+  buttonText: {
+    color: "#ffffff",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
+});
