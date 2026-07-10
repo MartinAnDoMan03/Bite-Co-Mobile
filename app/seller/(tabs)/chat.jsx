@@ -27,7 +27,7 @@ const ChatItem = ({ chat, onPress }) => (
   <TouchableOpacity style={styles.chatItem} onPress={onPress}>
     <View style={styles.avatarContainer}>
       <View style={styles.avatar}>
-        <Text style={styles.avatarText}>{(chat.name ? chat.name.charAt(0).toUpperCase() : '?')}</Text>
+        <MaterialIcons name="person" size={24} color="#fff" />
       </View>
       {chat.unreadCount > 0 && (
         <View style={styles.unreadBadge}>
@@ -97,15 +97,14 @@ const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={30}
     >
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }} edges={["bottom"]}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F6FA' }} edges={["bottom"]}>
         <View style={styles.chatHeader}>
           <TouchableOpacity style={styles.backButton} onPress={onBack}>
-            <AntDesign name="left" size={20} color={COLORS.TEXT} />
+            <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
           </TouchableOpacity>
           <View style={styles.chatHeaderInfo}>
-            {/* Always show initial capital if no sellerIcon */}
             <View style={styles.smallAvatar}>
-              <Text style={styles.smallAvatarText}>{(selectedChat.buyerName ? selectedChat.buyerName.charAt(0).toUpperCase() : (selectedChat.name ? selectedChat.name.charAt(0).toUpperCase() : (selectedChat.buyerId ? selectedChat.buyerId.charAt(0).toUpperCase() : '?')))}</Text>
+              <MaterialIcons name="person" size={20} color="#fff" />
             </View>
             <View>
               <Text style={styles.chatHeaderName}>{selectedChat.buyerName || selectedChat.name || selectedChat.buyerId || '-'}</Text>
@@ -113,7 +112,7 @@ const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
             </View>
           </View>
           <TouchableOpacity style={styles.moreButton} onPress={handleGoToOrderDetail}>
-            <MaterialIcons name="receipt" size={24} color={COLORS.TEXT} />
+            <MaterialIcons name="receipt" size={22} color={COLORS.PRIMARY} />
           </TouchableOpacity>
         </View>
         <FlatList
@@ -156,6 +155,7 @@ const Chat = () => {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(true); // <-- add loading state
   const isFocused = useIsFocused();
+  const router = useRouter();
 
   useEffect(() => {
     // Get sellerId from JWT token in AsyncStorage
@@ -365,23 +365,24 @@ const Chat = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Chat</Text>
-        <TouchableOpacity style={styles.searchButton}>
-          <AntDesign name="search1" size={20} color={COLORS.TEXT} />
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
         </TouchableOpacity>
+        <Text style={styles.headerTitle}>Pesan</Text>
+        <View style={{ width: 26 }} />
       </View>
 
       <View style={styles.searchContainer}>
-        <AntDesign name="search1" size={16} color="#666" style={styles.searchIcon} />
+        <MaterialIcons name="search" size={20} color="#c2c2c2" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
           placeholder="Cari percakapan..."
+          placeholderTextColor="#999"
           value={searchText}
           onChangeText={setSearchText}
         />
       </View>
 
-      {console.log("[DEBUG] Displaying chats:", displayChats)}
       {loading ? (
         <Text style={{textAlign:'center',marginTop:40,color:'#888'}}>Sedang memuat percakapan...</Text>
       ) : (
@@ -401,6 +402,7 @@ const Chat = () => {
             />
           )}
           style={styles.chatList}
+          contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={<Text style={{textAlign:'center',marginTop:40,color:'#888'}}>Tidak ada chat ditemukan</Text>}
         />
@@ -414,43 +416,44 @@ export default Chat;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F6FA",
   },
+  // Header selaras dengan halaman Pesanan (SellerOrder.jsx)
   header: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    justifyContent: "space-between",
     backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
-  headerTitle: {
-    fontSize: 24,
-    fontWeight: "bold",
-  },
-  searchButton: {
-    padding: 8,
-  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
   searchContainer: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    marginHorizontal: 20,
-    marginVertical: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 25,
-    borderWidth: 1,
-    borderColor: "#eee",
+    marginHorizontal: 24,
+    marginTop: 16,
+    marginBottom: 10,
+    paddingHorizontal: 18,
+    paddingVertical: 2,
+    borderRadius: 30,
+    shadowColor: '#000',
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
   },
   searchIcon: {
     marginRight: 12,
   },
   searchInput: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 14.5,
+    color: '#555',
   },
   chatList: {
     flex: 1,
@@ -459,37 +462,28 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    paddingHorizontal: 20,
+    paddingHorizontal: 14,
     paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: "#f0f0f0",
-    borderRadius: 12,
-    marginHorizontal: 8,
-    marginVertical: 4,
+    borderRadius: 14,
+    marginHorizontal: 14,
+    marginVertical: 5,
     shadowColor: '#000',
     shadowOpacity: 0.04,
-    shadowRadius: 4,
+    shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 1,
   },
   avatarContainer: {
     position: "relative",
-    marginRight: 16,
+    marginRight: 14,
   },
   avatar: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: COLORS.GREEN3,
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#F5B342",
     justifyContent: "center",
     alignItems: "center",
-    borderWidth: 2,
-    borderColor: '#e0e0e0',
-  },
-  avatarText: {
-    color: "#fff",
-    fontSize: 20,
-    fontWeight: "700",
   },
   unreadBadge: {
     position: "absolute",
@@ -518,41 +512,41 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   chatName: {
-    fontSize: 16,
-    fontWeight: "600",
+    fontSize: 15,
+    fontWeight: "700",
     color: "#23272f",
     flex: 1,
     marginRight: 8,
   },
   chatTime: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: "#aaa",
     minWidth: 60,
     textAlign: 'right',
   },
   lastMessage: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 13.5,
+    color: "#888",
     marginTop: 2,
     flexShrink: 1,
   },
   // Chat Screen Styles
   chatScreen: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F6FA",
   },
   chatHeader: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
   backButton: {
-    padding: 8,
-    marginRight: 12,
+    padding: 4,
+    marginRight: 8,
   },
   chatHeaderInfo: {
     flex: 1,
@@ -563,31 +557,26 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: COLORS.GREEN3,
+    backgroundColor: "#F5B342",
     justifyContent: "center",
     alignItems: "center",
     marginRight: 12,
   },
-  smallAvatarText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
   chatHeaderName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#23272f",
   },
   chatHeaderStatus: {
     fontSize: 12,
-    color: COLORS.GREEN3,
+    color: COLORS.PRIMARY,
   },
   moreButton: {
     padding: 8,
   },
   messagesList: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#F5F6FA",
   },
   messagesContent: {
     paddingVertical: 16,
@@ -609,7 +598,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
   },
   ownBubble: {
-    backgroundColor: COLORS.GREEN3,
+    backgroundColor: COLORS.PRIMARY,
     borderBottomRightRadius: 4,
   },
   otherBubble: {
@@ -653,7 +642,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   sendButton: {
-    backgroundColor: COLORS.GREEN3,
+    backgroundColor: COLORS.PRIMARY,
     width: 44,
     height: 44,
     borderRadius: 22,

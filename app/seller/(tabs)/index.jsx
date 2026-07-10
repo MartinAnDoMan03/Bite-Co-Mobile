@@ -34,7 +34,8 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import config from "../../constants/config";
 
-const { width } = Dimensions.get("window");
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
+const scale = (size) => (SCREEN_WIDTH / 375) * size;
 
 // Enable LayoutAnimation for Android
 if (
@@ -113,65 +114,6 @@ const QuickActionCard = ({ title, description, icon, color, onPress }) => (
     <MaterialIcons name="chevron-right" size={24} color="#ccc" />
   </TouchableOpacity>
 );
-
-const MenuSection = ({ router }) => {
-  const additionalMenus = [
-    {
-      icon: riwayat,
-      iconType: "image",
-      label: "Riwayat",
-      onPress: () => router.push("seller/riwayat"),
-    },
-    {
-      icon: gizi,
-      iconType: "image",
-      label: "GiziPro",
-      onPress: () => router.push("seller/gizipro"),
-    },
-    {
-      icon: biteeco,
-      iconType: "image",
-      label: "Bite Eco",
-      onPress: () => router.push("seller/biteeco/management"),
-    },
-    {
-      icon: ulasan,
-      iconType: "image",
-      label: "Ulasan",
-      onPress: () => router.push("seller/ulasan"),
-    },
-    {
-      iconType: "material",
-      iconName: "help",
-      label: "Bantuan",
-      color: "#FF9800",
-      onPress: () => router.push("seller/bantuan"),
-    },
-    {
-      iconType: "material",
-      iconName: "settings",
-      label: "Pengaturan",
-      color: "#607D8B",
-      onPress: () => router.push("seller/settings"),
-    },
-  ];
-
-  return (
-    <View style={styles.additionalMenuContainer}>
-      {additionalMenus.map((item, index) => (
-        <MenuItem
-          key={index}
-          icon={item.icon}
-          iconType={item.iconType}
-          iconName={item.iconName}
-          label={item.label}
-          color={item.color || "white"}
-          onPress={item.onPress}
-        />
-      ))}
-    </View>
-  );
-};
 
 const ExpandableMenu = () => {
   const [expanded, setExpanded] = useState(false);
@@ -338,6 +280,47 @@ const ExpandableMenu = () => {
     },
   ];
 
+  // Menu tambahan (muncul saat expanded). Digabung dengan mainMenuItems saat
+  // dirender supaya semua icon berada dalam satu grid 4 kolom yang selaras.
+  const additionalMenuItems = [
+    {
+      icon: riwayat,
+      iconType: "image",
+      label: "Riwayat",
+      onPress: () => router.push("seller/riwayat"),
+    },
+    {
+      icon: gizi,
+      iconType: "image",
+      label: "GiziPro",
+      onPress: () => router.push("seller/gizipro"),
+    },
+    {
+      icon: biteeco,
+      iconType: "image",
+      label: "Bite Eco",
+      onPress: () => router.push("seller/biteeco/management"),
+    },
+    {
+      icon: ulasan,
+      iconType: "image",
+      label: "Ulasan",
+      onPress: () => router.push("seller/ulasan"),
+    },
+    {
+      iconType: "material",
+      iconName: "help",
+      label: "Bantuan",
+      onPress: () => router.push("seller/bantuan"),
+    },
+    {
+      iconType: "material",
+      iconName: "settings",
+      label: "Pengaturan",
+      onPress: () => router.push("seller/settings"),
+    },
+  ];
+
   const quickActions = [
     {
       title: "Tambah Menu Baru",
@@ -376,19 +359,12 @@ const ExpandableMenu = () => {
     >
       {/* Header Section */}
       <View style={styles.headerContainer}>
-        <SafeAreaView>
+        <SafeAreaView style={styles.headerSafeArea}>
           {/* Top Bar */}
           <View style={styles.topBar}>
-            <View>
-              <Text style={styles.welcomeText}>Selamat Datang!</Text>
-              <Text style={styles.timeText}>
-                {new Date().toLocaleDateString("id-ID", {
-                  weekday: "long",
-                  year: "numeric",
-                  month: "long",
-                  day: "numeric",
-                })}
-              </Text>
+            <View style={{ flex: 1, transform: [{ translateY: scale(24) }] }}>
+              <Text style={styles.welcomeText}>Selamat Datang</Text>
+              <Text style={styles.storeNameText}>{storeName}!</Text>
             </View>
             <TouchableOpacity 
               style={styles.notificationButton}
@@ -405,54 +381,50 @@ const ExpandableMenu = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Restaurant Info Card */}
-          <View style={styles.restaurantCard}>
-            <View style={styles.restaurantInfo}>
-              <View style={styles.restaurantIconContainer}>
-                <MaterialIcons
-                  name="restaurant"
-                  size={32}
-                  color={COLORS.PRIMARY}
-                />
-              </View>
-              <View style={styles.restaurantDetails}>
-                <Text style={styles.restaurantName}>{storeName}</Text>
-                <View style={styles.addressContainer}>
-                  <MaterialIcons name="location-on" size={16} color="#666" />
-                  <Text style={styles.restaurantAddress}>{storeAddress}</Text>
-                </View>
-                <View style={styles.statusContainer}>
-                  <View style={styles.onlineIndicator} />
-                  <Text style={styles.onlineText}>Online</Text>
-                </View>
-              </View>
-            </View>
-          </View>
+          {/* Tanggal — diposisikan sendiri di pojok kanan bawah header */}
+          <Text style={styles.dateText}>
+            {new Date().toLocaleDateString("id-ID", {
+              weekday: "long",
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+            })}
+          </Text>
+        </SafeAreaView>
+      </View>
 
-          {/* Main Menu Grid */}
-          <View style={styles.mainMenuContainer}>
-            {mainMenuItems.map((item, index) => (
+      {/* Menu Grid — di luar header burgundy, di atas background putih/abu-abu */}
+      <View style={styles.menuSection}>
+        <View style={styles.menuGrid}>
+          {mainMenuItems.map((item, index) => (
+            <MenuItem
+              key={`main-${index}`}
+              icon={item.icon}
+              iconType={item.iconType}
+              label={item.label}
+              onPress={item.onPress}
+            />
+          ))}
+          {expanded &&
+            additionalMenuItems.map((item, index) => (
               <MenuItem
-                key={index}
+                key={`additional-${index}`}
                 icon={item.icon}
                 iconType={item.iconType}
+                iconName={item.iconName}
                 label={item.label}
                 onPress={item.onPress}
               />
             ))}
-          </View>
-
-          {/* Expandable Section */}
-          {expanded && <MenuSection router={router} />}
-        </SafeAreaView>
+        </View>
 
         {/* Expand Button */}
         <TouchableOpacity onPress={toggleExpand} style={styles.expandButton}>
           <Animated.View style={{ transform: [{ rotate }] }}>
             <MaterialIcons
               name={expanded ? "keyboard-arrow-up" : "keyboard-arrow-down"}
-              size={24}
-              color="white"
+              size={22}
+              color={COLORS.PRIMARY}
             />
           </Animated.View>
         </TouchableOpacity>
@@ -556,33 +528,46 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     backgroundColor: COLORS.PRIMARY,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
-    paddingBottom: 10,
+    borderBottomLeftRadius: scale(30),
+    borderBottomRightRadius: scale(30),
+    minHeight: SCREEN_HEIGHT * 0.16,
+    paddingBottom: scale(14),
+  },
+  headerSafeArea: {
+    flex: 1,
+    justifyContent: "center",
   },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingHorizontal: 20,
-    paddingTop: 10,
-    paddingBottom: 15,
+    paddingHorizontal: scale(20),
   },
   welcomeText: {
     color: "white",
-    fontSize: 24,
-    fontWeight: "bold",
+    fontSize: scale(18),
+    fontWeight: "600",
   },
-  timeText: {
+  storeNameText: {
+    color: "white",
+    fontSize: scale(24),
+    fontWeight: "bold",
+    marginTop: scale(2),
+  },
+  dateText: {
     color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 14,
-    marginTop: 2,
+    fontSize: scale(12.5),
+    textAlign: "right",
+    paddingHorizontal: scale(20),
+    marginTop: scale(14),
+    transform: [{ translateY: scale(14) }]
   },
   notificationButton: {
     backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: 25,
-    padding: 12,
+    borderRadius: scale(25),
+    padding: scale(12),
     position: "relative",
+    transform: [{ translateY: scale(18) }],
   },
   notificationBadge: {
     position: "absolute",
@@ -600,82 +585,22 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "bold",
   },
-  restaurantCard: {
-    backgroundColor: "white",
-    marginHorizontal: 20,
-    borderRadius: 20,
-    padding: 20,
-    marginBottom: 20,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+  menuSection: {
+    backgroundColor: "#f8f9fa",
+    paddingTop: 18,
+    paddingBottom: 6,
   },
-  restaurantInfo: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  restaurantIconContainer: {
-    backgroundColor: COLORS.PRIMARY + "20",
-    borderRadius: 15,
-    padding: 12,
-    marginRight: 15,
-  },
-  restaurantDetails: {
-    flex: 1,
-  },
-  restaurantName: {
-    fontSize: 20,
-    fontWeight: "bold",
-    color: "#333",
-    marginBottom: 4,
-  },
-  addressContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginBottom: 8,
-  },
-  restaurantAddress: {
-    fontSize: 14,
-    color: "#666",
-    marginLeft: 6,
-    flex: 1,
-  },
-  statusContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-  },
-  onlineIndicator: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: "#4CAF50",
-    marginRight: 6,
-  },
-  onlineText: {
-    fontSize: 12,
-    color: "#4CAF50",
-    fontWeight: "600",
-  },
-  mainMenuContainer: {
+  menuGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-around",
-    paddingHorizontal: 20,
-    marginBottom: 10,
-  },
-  additionalMenuContainer: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    justifyContent: "space-around",
-    paddingHorizontal: 20,
-    marginTop: 10,
+    justifyContent: "flex-start",
+    paddingHorizontal: 14,
   },
   menuItem: {
     alignItems: "center",
-    width: "22%",
+    width: "25%",
     marginVertical: 8,
+    paddingHorizontal: 6,
   },
   menuItemPressed: {
     transform: [{ scale: 0.95 }],
@@ -699,17 +624,18 @@ const styles = StyleSheet.create({
   },
   menuLabel: {
     textAlign: "center",
-    color: "white",
+    color: COLORS.PRIMARY,
     fontSize: 13,
     fontWeight: "600",
     marginTop: 6,
   },
   expandButton: {
     alignSelf: "center",
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
+    backgroundColor: COLORS.PRIMARY + "15",
     borderRadius: 20,
     padding: 8,
-    marginTop: 5,
+    marginTop: 2,
+    marginBottom: 6,
   },
   contentContainer: {
     padding: 20,

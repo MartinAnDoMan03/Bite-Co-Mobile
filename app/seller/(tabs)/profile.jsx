@@ -16,10 +16,46 @@ import axios from "axios";
 import config from "../../constants/config";
 import { useRouter } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
 import * as Linking from 'expo-linking';
 import PinPointMapModal from '../../../components/PinPointMapModal';
 import MapPreview from '../../../components/MapPreview'; //Map Preview
+
+// ---------------------------------------------------------------------------
+// Small reusable row: icon + label on the left, value on the right
+// ---------------------------------------------------------------------------
+const InfoRow = ({ icon, label, value, isLast }) => (
+  <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
+    <View style={styles.infoRowLeft}>
+      <MaterialIcons name={icon} size={16} color="#999" />
+      <Text style={styles.infoRowLabel}>{label}</Text>
+    </View>
+    <Text style={styles.infoRowValue} numberOfLines={1}>{value || "-"}</Text>
+  </View>
+);
+
+// ---------------------------------------------------------------------------
+// Address grid field: label kecil abu-abu di atas, value/input di bawah
+// ---------------------------------------------------------------------------
+const AddressField = ({ label, value, editable, onChangeText, keyboardType, multiline }) => (
+  <View style={styles.addressField}>
+    <Text style={styles.addressLabel}>{label}</Text>
+    {editable ? (
+      <TextInput
+        style={[styles.addressInput, multiline && styles.addressInputMultiline]}
+        value={value}
+        onChangeText={onChangeText}
+        keyboardType={keyboardType}
+        multiline={multiline}
+      />
+    ) : (
+      <Text style={styles.addressValue} numberOfLines={multiline ? 3 : 1}>
+        {value || "No provided"}
+      </Text>
+    )}
+  </View>
+);
 
 const profile = () => {
   const router = useRouter();
@@ -113,8 +149,8 @@ const profile = () => {
 
   if (loading) {
     return (
-      <SafeAreaView>
-        <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.PRIMARY} />
         </View>
       </SafeAreaView>
@@ -123,17 +159,17 @@ const profile = () => {
 
   if (error) {
     return (
-      <SafeAreaView>
-        <View style={styles.container}>
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.button} onPress={fetchProfileData}>
-            <Text style={styles.buttonText}>Retry</Text>
+          <TouchableOpacity style={[styles.pillButton, styles.solidButton]} onPress={fetchProfileData}>
+            <Text style={styles.solidButtonText}>Retry</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.button, styles.signOutButton]}
+            style={[styles.pillButton, styles.outlineButton, { marginTop: 10 }]}
             onPress={handleSignOut}
           >
-            <Text style={styles.buttonText}>Sign Out</Text>
+            <Text style={styles.outlineButtonText}>Sign Out</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -264,380 +300,390 @@ const profile = () => {
   };
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.profileHeader}>
-        <Text style={styles.headerText}>Profile</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+      {/* Header selaras dengan halaman lain (Pesanan, Pesan) */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Profil</Text>
+        <View style={{ width: 26 }} />
       </View>
 
-      <View style={[styles.profileInfo, styles.shadow]}>
-        <Text style={styles.sectionTitle}>Outlet Information</Text>
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Store Icon:</Text>
-          <TouchableOpacity onPress={() => handleImagePicker("storeIcon")}>
-            {storeIcon ? (
-              <Image
-                source={{
-                  uri:
-                    typeof storeIcon === "string" ? storeIcon : storeIcon.uri,
-                }}
-                style={styles.storeIcon}
-              />
-            ) : (
-              <View style={styles.noImageIcon}>
-                <Text style={styles.noImageIconText}>No Icon</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Store Banner:</Text>
-          <TouchableOpacity onPress={() => handleImagePicker("storeBanner")}>
-            {storeBanner ? (
-              <Image
-                source={{
-                  uri:
-                    typeof storeBanner === "string"
-                      ? storeBanner
-                      : storeBanner.uri,
-                }}
-                style={styles.storeBanner}
-              />
-            ) : (
-              <View style={styles.noImageIcon}>
-                <Text style={styles.noImageIconText}>No Banner</Text>
-              </View>
-            )}
-          </TouchableOpacity>
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Name:</Text>
-          <Text style={styles.value}>{userData.name}</Text>
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Email:</Text>
-          <Text style={styles.value}>{userData.email}</Text>
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Phone:</Text>
-          <Text style={styles.value}>{userData.phone}</Text>
-        </View>
-
-        <Text style={styles.sectionTitle}>Address Details</Text>
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Alamat:</Text>
-          {isEditing ? (
-            <TextInput
-              style={[styles.input, styles.multilineInput]}
-              value={userData.address}
-              onChangeText={(value) => handleInputChange("address", value)}
-              multiline
-              numberOfLines={3}
-            />
-          ) : (
-            <Text style={styles.value}>
-              {userData.address || "Not provided"}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Kelurahan:</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={userData.kelurahan}
-              onChangeText={(value) => handleInputChange("kelurahan", value)}
-            />
-          ) : (
-            <Text style={styles.value}>
-              {userData.kelurahan || "Not provided"}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Kecamatan:</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={userData.kecamatan}
-              onChangeText={(value) => handleInputChange("kecamatan", value)}
-            />
-          ) : (
-            <Text style={styles.value}>
-              {userData.kecamatan || "Not provided"}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Provinsi:</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={userData.provinsi}
-              onChangeText={(value) => handleInputChange("provinsi", value)}
-            />
-          ) : (
-            <Text style={styles.value}>
-              {userData.provinsi || "Not provided"}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Kode Pos:</Text>
-          {isEditing ? (
-            <TextInput
-              style={styles.input}
-              value={userData.kodePos}
-              onChangeText={(value) => handleInputChange("kodePos", value)}
-              keyboardType="numeric"
-            />
-          ) : (
-            <Text style={styles.value}>
-              {userData.kodePos || "Not provided"}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Catatan:</Text>
-          {isEditing ? (
-            <TextInput
-              style={[styles.input, styles.multilineInput]}
-              value={userData.catatan}
-              onChangeText={(value) => handleInputChange("catatan", value)}
-              multiline
-              numberOfLines={3}
-            />
-          ) : (
-            <Text style={styles.value}>
-              {userData.catatan || "Not provided"}
-            </Text>
-          )}
-        </View>
-
-        <View style={styles.infoColumn}>
-          <Text style={styles.label}>Tentukan Pin Poin:</Text>
-          {isEditing ? (
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-              <TextInput
-                style={[styles.input, { flex: 1 }]}
-                placeholder="Contoh: -6.200000, 106.816666"
-                value={
-                  pinPoint.lat && pinPoint.lng
-                    ? `${pinPoint.lat}, ${pinPoint.lng}`
-                    : ''
-                }
-                onChangeText={handlePinPointInput}
-              />
-              <TouchableOpacity
-                style={{ backgroundColor: COLORS.PRIMARY, padding: 8, borderRadius: 8 }}
-                onPress={openPinPointMap}
-              >
-                <Text style={{ color: '#fff', fontWeight: '600' }}>Buka Map</Text>
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
+        {/* ---------------- Informasi Outlet ---------------- */}
+        <Text style={styles.sectionTitle}>Informasi Outlet</Text>
+        <View style={[styles.card, styles.shadow]}>
+          <View style={styles.imageRow}>
+            <View style={styles.imageCol}>
+              <Text style={styles.imageLabel}>Ikon Outlet</Text>
+              <TouchableOpacity style={styles.imageBox} onPress={() => handleImagePicker("storeIcon")}>
+                {storeIcon ? (
+                  <Image
+                    source={{ uri: typeof storeIcon === "string" ? storeIcon : storeIcon.uri }}
+                    style={styles.imageBoxImg}
+                  />
+                ) : (
+                  <MaterialIcons name="add-photo-alternate" size={22} color="#bbb" />
+                )}
               </TouchableOpacity>
             </View>
-          ) : (
-            <Text style={styles.value}>
-              {pinPoint.lat && pinPoint.lng
-                ? `${pinPoint.lat}, ${pinPoint.lng}`
-                : 'Belum ditentukan'}
-            </Text>
-          )}
-          {/* Show map preview if pinPoint is set */}
-          {pinPoint.lat && pinPoint.lng && (
-            <View style={{ marginTop: 12, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: '#eee' }}>
-              <MapPreview latitude={pinPoint.lat} longitude={pinPoint.lng} style={{ width: '100%', height: 180 }} />
+            <View style={styles.imageCol}>
+              <Text style={styles.imageLabel}>Banner Outlet</Text>
+              <TouchableOpacity style={styles.imageBox} onPress={() => handleImagePicker("storeBanner")}>
+                {storeBanner ? (
+                  <Image
+                    source={{ uri: typeof storeBanner === "string" ? storeBanner : storeBanner.uri }}
+                    style={styles.imageBoxImg}
+                  />
+                ) : (
+                  <MaterialIcons name="add-photo-alternate" size={22} color="#bbb" />
+                )}
+              </TouchableOpacity>
             </View>
+          </View>
+
+          <InfoRow icon="edit" label="Nama Outlet" value={userData.name} />
+          <InfoRow icon="mail-outline" label="Email" value={userData.email} />
+          <InfoRow icon="phone" label="No. HP" value={userData.phone} isLast />
+        </View>
+
+        {/* ---------------- Detail Alamat ---------------- */}
+        <Text style={styles.sectionTitle}>Detail Alamat</Text>
+        <View style={[styles.card, styles.shadow]}>
+          <View style={styles.addressRow}>
+            <AddressField
+              label="Alamat"
+              value={userData.address}
+              editable={isEditing}
+              onChangeText={(v) => handleInputChange("address", v)}
+              multiline
+            />
+            <AddressField
+              label="Kelurahan"
+              value={userData.kelurahan}
+              editable={isEditing}
+              onChangeText={(v) => handleInputChange("kelurahan", v)}
+            />
+          </View>
+          <View style={styles.addressRow}>
+            <AddressField
+              label="Kecamatan"
+              value={userData.kecamatan}
+              editable={isEditing}
+              onChangeText={(v) => handleInputChange("kecamatan", v)}
+            />
+            <AddressField
+              label="Provinsi"
+              value={userData.provinsi}
+              editable={isEditing}
+              onChangeText={(v) => handleInputChange("provinsi", v)}
+            />
+          </View>
+          <View style={styles.addressRow}>
+            <AddressField
+              label="Kode Pos"
+              value={userData.kodePos}
+              editable={isEditing}
+              onChangeText={(v) => handleInputChange("kodePos", v)}
+              keyboardType="numeric"
+            />
+            <AddressField
+              label="Catatan"
+              value={userData.catatan}
+              editable={isEditing}
+              onChangeText={(v) => handleInputChange("catatan", v)}
+              multiline
+            />
+          </View>
+        </View>
+
+        {/* ---------------- Tentukan Pin Poin ---------------- */}
+        <View style={[styles.card, styles.shadow, { marginTop: 14 }]}>
+          <Text style={styles.pinLabel}>Tentukan Pin Poin</Text>
+          <TouchableOpacity
+            style={styles.pinBox}
+            onPress={openPinPointMap}
+            activeOpacity={0.8}
+          >
+            {pinPoint.lat && pinPoint.lng ? (
+              <MapPreview
+                latitude={pinPoint.lat}
+                longitude={pinPoint.lng}
+                style={{ width: "100%", height: "100%" }}
+              />
+            ) : (
+              <View style={styles.pinPlaceholder}>
+                <MaterialIcons name="map" size={22} color="#bbb" />
+                <Text style={styles.pinPlaceholderText}>GMaps</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+          {isEditing && (
+            <TextInput
+              style={styles.pinManualInput}
+              placeholder="Contoh: -6.200000, 106.816666"
+              placeholderTextColor="#aaa"
+              value={pinPoint.lat && pinPoint.lng ? `${pinPoint.lat}, ${pinPoint.lng}` : ""}
+              onChangeText={handlePinPointInput}
+            />
           )}
         </View>
-      </View>
 
-      <View style={styles.buttonContainer}>
-        {isEditing ? (
-          <>
-            <TouchableOpacity
-              style={[styles.button, styles.saveButton]}
-              onPress={handleSave}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>
-                {loading ? "Saving..." : "Save Changes"}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.cancelButton]}
-              onPress={() => setIsEditing(false)}
-              disabled={loading}
-            >
-              <Text style={styles.buttonText}>Cancel</Text>
-            </TouchableOpacity>
-          </>
-        ) : (
-          <>
-            <TouchableOpacity
-              style={[styles.button, styles.editButton]}
-              onPress={() => setIsEditing(true)}
-            >
-              <Text style={styles.buttonText}>Edit Profile</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.button, styles.signOutButton]}
-              onPress={handleSignOut}
-            >
-              <Text style={styles.buttonText}>Sign Out</Text>
-            </TouchableOpacity>
-          </>
-        )}
-      </View>
+        {/* ---------------- Tombol Aksi ---------------- */}
+        <View style={styles.buttonContainer}>
+          {isEditing ? (
+            <>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.solidButton]}
+                onPress={handleSave}
+                disabled={loading}
+              >
+                <Text style={styles.solidButtonText}>
+                  {loading ? "Menyimpan..." : "Simpan Perubahan"}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.outlineButton]}
+                onPress={() => setIsEditing(false)}
+                disabled={loading}
+              >
+                <Text style={styles.outlineButtonText}>Batal</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.outlineButton]}
+                onPress={() => setIsEditing(true)}
+              >
+                <Text style={styles.outlineButtonText}>Edit Profil</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.pillButton, styles.solidButton]}
+                onPress={handleSignOut}
+              >
+                <Text style={styles.solidButtonText}>Keluar</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </ScrollView>
+
       <PinPointMapModal
         visible={showPinModal}
         onClose={() => setShowPinModal(false)}
         onSelect={handlePinPointSelect}
         initialPin={pinPoint.lat && pinPoint.lng ? { latitude: pinPoint.lat, longitude: pinPoint.lng } : undefined}
       />
-    </ScrollView>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
+  // Header selaras dengan halaman lain
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: "#f8f8f8",
+    paddingHorizontal: 16,
   },
-  profileHeader: {
-    marginBottom: 30,
+  loadingContainer: {
+    flex: 1,
+    justifyContent: "center",
     alignItems: "center",
+    padding: 20,
   },
-  headerText: {
-    fontSize: 24,
-    fontWeight: "bold",
+
+  sectionTitle: {
+    fontSize: 15,
+    fontWeight: "700",
     color: COLORS.PRIMARY,
+    marginTop: 18,
+    marginBottom: 10,
   },
-  profileInfo: {
-    marginBottom: 30,
-    padding: 20,
+
+  card: {
     backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
+  },
+  shadow: {
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  // Image pickers (Ikon Outlet / Banner Outlet)
+  imageRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 14,
+  },
+  imageCol: {
+    flex: 1,
+  },
+  imageLabel: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 6,
+  },
+  imageBox: {
+    height: 64,
     borderRadius: 10,
-  },
-  infoColumn: {
-    marginBottom: 15,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#555",
-    marginBottom: 5,
-  },
-  value: {
-    fontSize: 16,
-    color: "#333",
-  },
-  button: {
-    backgroundColor: COLORS.PRIMARY,
-    padding: 15,
-    borderRadius: 8,
+    borderWidth: 1,
+    borderStyle: "dashed",
+    borderColor: "#ddd",
+    backgroundColor: "#fafafa",
+    justifyContent: "center",
     alignItems: "center",
-    marginTop: 20,
+    overflow: "hidden",
   },
-  buttonText: {
+  imageBoxImg: {
+    width: "100%",
+    height: "100%",
+  },
+
+  // Info row (icon + label + value)
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  infoRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  infoRowLabel: {
+    fontSize: 13.5,
+    color: "#777",
+  },
+  infoRowValue: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: "#23272f",
+    maxWidth: "60%",
+    textAlign: "right",
+  },
+
+  // Address grid
+  addressRow: {
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 14,
+  },
+  addressField: {
+    flex: 1,
+  },
+  addressLabel: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 4,
+  },
+  addressValue: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#23272f",
+  },
+  addressInput: {
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13.5,
+    color: "#23272f",
+  },
+  addressInputMultiline: {
+    height: 60,
+    textAlignVertical: "top",
+  },
+
+  // Pin point
+  pinLabel: {
+    fontSize: 12,
+    color: "#999",
+    marginBottom: 8,
+  },
+  pinBox: {
+    height: 110,
+    borderRadius: 10,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
+  },
+  pinPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 4,
+  },
+  pinPlaceholderText: {
+    fontSize: 12,
+    color: "#bbb",
+  },
+  pinManualInput: {
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    fontSize: 13,
+    color: "#23272f",
+  },
+
+  // Buttons
+  buttonContainer: {
+    marginTop: 22,
+    gap: 10,
+  },
+  pillButton: {
+    paddingVertical: 13,
+    borderRadius: 30,
+    alignItems: "center",
+  },
+  solidButton: {
+    backgroundColor: COLORS.PRIMARY,
+  },
+  solidButtonText: {
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "bold",
+    fontSize: 14.5,
+    fontWeight: "700",
   },
+  outlineButton: {
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: COLORS.PRIMARY,
+  },
+  outlineButtonText: {
+    color: COLORS.PRIMARY,
+    fontSize: 14.5,
+    fontWeight: "700",
+  },
+
   errorText: {
     color: "red",
     fontSize: 16,
     textAlign: "center",
     marginBottom: 20,
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 4,
-    padding: 8,
-    fontSize: 16,
-  },
-  multilineInput: {
-    height: 60,
-    textAlignVertical: "top",
-  },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: COLORS.PRIMARY,
-    marginTop: 20,
-    marginBottom: 10,
-  },
-  buttonContainer: {
-    marginTop: 20,
-    marginBottom: 40,
-  },
-  saveButton: {
-    backgroundColor: COLORS.GREEN3,
-  },
-  cancelButton: {
-    backgroundColor: "#666",
-    marginTop: 10,
-  },
-  editButton: {
-    backgroundColor: COLORS.PRIMARY,
-  },
-  signOutButton: {
-    backgroundColor: "#dc3545",
-    marginTop: 10,
-  },
-  shadow: {
-    shadowColor: "#000",
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
-    elevation: 5,
-  },
-  imagePicker: {
-    backgroundColor: COLORS.GRAY2,
-    padding: 10,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  imagePickerText: {
-    color: COLORS.WHITE,
-    fontSize: 14,
-    fontWeight: "bold",
-  },
-  storeIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  storeBanner: {
-    width: "100%",
-    height: 200,
-    borderRadius: 10,
-  },
-  noImageIcon: {
-    width: 80,
-    height: 80,
-    borderRadius: 8,
-    backgroundColor: "gray",
-    justifyContent: "center",
-    alignItems: "center",
-    opacity: 0.2,
-  },
-  noImageIconText: {
-    color: COLORS.WHITE,
-    fontSize: 12,
-    fontWeight: "bold",
   },
 });
 

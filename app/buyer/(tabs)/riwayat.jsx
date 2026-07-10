@@ -80,8 +80,10 @@ const Riwayat = () => {
         setPaymentSnapUrl(order.snapUrl);
         setShowPaymentModal(true);
       } else if (res.data && (res.data.transaction_status === 'settlement' || res.data.transaction_status === 'capture')) {
-        // If payment is actually success, update order status in backend
-        await axios.patch(`${config.API_URL}/buyer/orders/${order.id}`, { status: 'success', statusProgress: 'completed' });
+        // Pembayaran berhasil — cukup update status pembayaran.
+        // statusProgress TIDAK diubah di sini, biar tetap ikut alur
+        // Terima -> Proses -> Kirim -> Selesai yang dikontrol seller.
+        await axios.patch(`${config.API_URL}/buyer/orders/${order.id}`, { status: 'success' });
         // Optionally, refresh orders list
         fetchOrders();
         alert('Pembayaran sudah berhasil. Status pesanan diperbarui.');

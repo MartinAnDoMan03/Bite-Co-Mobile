@@ -10,6 +10,7 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  ActivityIndicator,
 } from "react-native";
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -38,6 +39,32 @@ const StepHeader = ({ step, title, subtitle, containerStyle }) => (
   </View>
 );
 
+/* ---------- Reusable bullet item (Syarat step) ---------- */
+const BulletItem = ({ text }) => (
+  <View style={styles.bulletRow}>
+    <Text style={styles.bulletDot}>{"\u2022"}</Text>
+    <Text style={styles.bulletText}>{text}</Text>
+  </View>
+);
+
+/* ---------- Reusable terms section w/ checkbox (Syarat step) ---------- */
+const TermsSection = ({ title, children, checked, onToggle, checkboxLabel }) => (
+  <View style={styles.termsSection}>
+    <Text style={styles.termsSectionTitle}>{title}</Text>
+    {children}
+    <TouchableOpacity
+      style={styles.checkboxRow}
+      onPress={onToggle}
+      activeOpacity={0.8}
+    >
+      <View style={[styles.checkboxBox, checked && styles.checkboxBoxChecked]}>
+        {checked && <Ionicons name="checkmark" size={14} color="#fff" />}
+      </View>
+      <Text style={styles.checkboxLabel}>{checkboxLabel}</Text>
+    </TouchableOpacity>
+  </View>
+);
+
 /* ---------- Success screen ---------- */
 const Success = () => {
   const router = useRouter();
@@ -54,61 +81,35 @@ const Success = () => {
       </Text>
       <TouchableOpacity
         style={styles.successBtn}
-        onPress={() => router.push("/")}
+        // NOTE: sesuaikan route ini dengan route beranda seller di project-mu,
+        // contoh: "/seller/home" atau "/(seller)/dashboard"
+        onPress={() => router.replace("/seller/home")}
       >
-        <Text style={styles.successBtnText}>Kembali ke Beranda</Text>
+        <Text style={styles.successBtnText}>Masuk ke Beranda Seller</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
-/* ---------- Step 2: Detail Usaha (form) ---------- */
-const Detail = ({ setScreenNow, ktpImage, selfieImage, setLoading }) => {
-  const [selectedBank, setSelectedBank] = useState(null);
-  const [showBankModal, setShowBankModal] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [formData, setFormData] = useState({
-    outletName: "",
-    outletPhone: "",
-    outletEmail: "",
-    taxRate: "",
-    bankAccountNumber: "",
-    password: "",
-  });
+/* ---------- Step 3: Syarat dan Ketentuan ---------- */
+const TERMS_LIST = [
+  "Mitra wajib menjaga kualitas dan kebersihan produk yang dijual.",
+  "Data usaha yang didaftarkan harus benar dan dapat dipertanggungjawabkan.",
+  "Mitra wajib memperbarui ketersediaan menu secara berkala melalui aplikasi.",
+  "Konfirmasi pesanan dilakukan paling lambat 1x24 jam setelah pesanan masuk.",
+  "Setiap transaksi yang berhasil dikenakan komisi platform sebesar 10%.",
+  "Pelanggaran terhadap ketentuan di atas dapat berakibat penonaktifan akun mitra.",
+];
 
-  const banks = [
-    { id: 1, name: "BCA" },
-    { id: 2, name: "Mandiri" },
-    { id: 3, name: "BRI" },
-    { id: 4, name: "BNI" },
-  ];
+const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, setLoading }) => {
+  const [agreedTerms, setAgreedTerms] = useState(false);
+  const [productHalal, setProductHalal] = useState(false);
 
-  const handleInputChange = (name, value) => {
-    setFormData({ ...formData, [name]: value });
-  };
-
-  const handleSubmit = async () => {
-    if (
-      !formData.outletName ||
-      !formData.outletPhone ||
-      !formData.outletEmail ||
-      !selectedBank ||
-      !formData.bankAccountNumber ||
-      !ktpImage ||
-      !selfieImage ||
-      !formData.password
-    ) {
+  const handleFinish = async () => {
+    if (!agreedTerms) {
       Alert.alert(
-        "Form Tidak Lengkap",
-        "Harap lengkapi semua data yang diperlukan:\n" +
-          (!formData.outletName ? "• Nama Outlet\n" : "") +
-          (!formData.outletPhone ? "• Nomor Telepon\n" : "") +
-          (!formData.outletEmail ? "• Email\n" : "") +
-          (!selectedBank ? "• Bank\n" : "") +
-          (!formData.bankAccountNumber ? "• Nomor Rekening\n" : "") +
-          (!ktpImage ? "• Foto KTP\n" : "") +
-          (!selfieImage ? "• Foto Selfie\n" : "") +
-          (!formData.password ? "• Password\n" : "")
+        "Syarat Belum Disetujui",
+        "Harap setujui syarat umum platform sebelum melanjutkan pendaftaran."
       );
       return;
     }
@@ -126,9 +127,9 @@ const Detail = ({ setScreenNow, ktpImage, selfieImage, setLoading }) => {
       data.append("bankName", selectedBank);
       data.append("bankAccountNumber", formData.bankAccountNumber);
       data.append("password", formData.password);
+      data.append("agreedTerms", agreedTerms ? "1" : "0");
+      data.append("productHalal", productHalal ? "1" : "0");
 
-      console.log('KTP size:', ktpImage.fileSize);
-console.log('Selfie size:', selfieImage.fileSize);
       const response = await axios.post(
         `${config.API_URL}/seller/register`,
         data,
@@ -172,6 +173,108 @@ console.log('Selfie size:', selfieImage.fileSize);
     } finally {
       setLoading(false);
     }
+  };
+
+  return (
+    <>
+      <StepHeader
+        step={3}
+        title="Syarat dan Ketentuan"
+        subtitle="Baca dan setujui syarat berikut sebelum melanjutkan proses pendaftaran mitra"
+      />
+
+      <View style={styles.whiteCard}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 30 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <TermsSection
+            title="Syarat Umum Platform"
+            checked={agreedTerms}
+            onToggle={() => setAgreedTerms(!agreedTerms)}
+            checkboxLabel="Saya setuju dengan syarat umum di atas"
+          >
+            {TERMS_LIST.map((item, index) => (
+              <BulletItem key={index} text={item} />
+            ))}
+          </TermsSection>
+
+          <TermsSection
+            title="Pernyataan Status Halal"
+            checked={productHalal}
+            onToggle={() => setProductHalal(!productHalal)}
+            checkboxLabel="Produk saya halal"
+          >
+            <Text style={styles.termsParagraph}>
+              Centang jika produk kamu halal. Label akan otomatis tampil di profil dan bisa
+              difilter pembeli. Jika tidak dicentang, toko ditandai sebagai umum, bukan berarti
+              non-halal.
+            </Text>
+          </TermsSection>
+
+          <TouchableOpacity
+            style={[styles.btnPrimary, { marginTop: 24 }]}
+            onPress={handleFinish}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnPrimaryText}>Daftar Sekarang</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </View>
+    </>
+  );
+};
+
+/* ---------- Step 2: Detail Usaha (form) ---------- */
+const Detail = ({ setScreenNow, onNext }) => {
+  const [selectedBank, setSelectedBank] = useState(null);
+  const [showBankModal, setShowBankModal] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [formData, setFormData] = useState({
+    outletName: "",
+    outletPhone: "",
+    outletEmail: "",
+    taxRate: "",
+    bankAccountNumber: "",
+    password: "",
+  });
+
+  const banks = [
+    { id: 1, name: "BCA" },
+    { id: 2, name: "Mandiri" },
+    { id: 3, name: "BRI" },
+    { id: 4, name: "BNI" },
+  ];
+
+  const handleInputChange = (name, value) => {
+    setFormData({ ...formData, [name]: value });
+  };
+
+  const handleNext = () => {
+    if (
+      !formData.outletName ||
+      !formData.outletPhone ||
+      !formData.outletEmail ||
+      !selectedBank ||
+      !formData.bankAccountNumber ||
+      !formData.password
+    ) {
+      Alert.alert(
+        "Form Tidak Lengkap",
+        "Harap lengkapi semua data yang diperlukan:\n" +
+          (!formData.outletName ? "• Nama Outlet\n" : "") +
+          (!formData.outletPhone ? "• Nomor Telepon\n" : "") +
+          (!formData.outletEmail ? "• Email\n" : "") +
+          (!selectedBank ? "• Bank\n" : "") +
+          (!formData.bankAccountNumber ? "• Nomor Rekening\n" : "") +
+          (!formData.password ? "• Password\n" : "")
+      );
+      return;
+    }
+
+    // Simpan data ke parent, lalu lanjut ke step 3 (Syarat dan Ketentuan)
+    onNext(formData, selectedBank);
+    setScreenNow("syarat");
   };
 
   return (
@@ -257,55 +360,55 @@ console.log('Selfie size:', selfieImage.fileSize);
             />
 
             <Text style={styles.fieldLabel}>Pilih Bank</Text>
-<View style={styles.bankFieldWrap}>
-  <TouchableOpacity
-    style={styles.fieldInput}
-    onPress={() => setShowBankModal(!showBankModal)}
-    activeOpacity={0.8}
-  >
-    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-      <Text style={{ color: selectedBank ? "#1a1a1a" : "#aaa", fontSize: scale(14.5) }}>
-        {selectedBank || "Pilih bank Anda"}
-      </Text>
-      <Ionicons
-        name={showBankModal ? "chevron-up" : "chevron-down"}
-        size={18}
-        color={BURGUNDY}
-      />
-    </View>
-  </TouchableOpacity>
+            <View style={styles.bankFieldWrap}>
+              <TouchableOpacity
+                style={styles.fieldInput}
+                onPress={() => setShowBankModal(!showBankModal)}
+                activeOpacity={0.8}
+              >
+                <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                  <Text style={{ color: selectedBank ? "#1a1a1a" : "#aaa", fontSize: scale(14.5) }}>
+                    {selectedBank || "Pilih bank Anda"}
+                  </Text>
+                  <Ionicons
+                    name={showBankModal ? "chevron-up" : "chevron-down"}
+                    size={18}
+                    color={BURGUNDY}
+                  />
+                </View>
+              </TouchableOpacity>
 
-  {showBankModal && (
-    <View style={styles.bankDropdown}>
-      {banks.map((bank, index) => (
-        <TouchableOpacity
-          key={bank.id}
-          style={[
-            styles.bankDropdownItem,
-            index === banks.length - 1 && { borderBottomWidth: 0 },
-          ]}
-          onPress={() => {
-            setSelectedBank(bank.name);
-            setShowBankModal(false);
-          }}
-        >
-          <Text
-            style={{
-              fontSize: scale(14),
-              color: selectedBank === bank.name ? BURGUNDY : "#1a1a1a",
-              fontWeight: selectedBank === bank.name ? "700" : "400",
-            }}
-          >
-            {bank.name}
-          </Text>
-          {selectedBank === bank.name && (
-            <Ionicons name="checkmark" size={16} color={BURGUNDY} />
-          )}
-        </TouchableOpacity>
-      ))}
-        </View>
-      )}
-    </View>
+              {showBankModal && (
+                <View style={styles.bankDropdown}>
+                  {banks.map((bank, index) => (
+                    <TouchableOpacity
+                      key={bank.id}
+                      style={[
+                        styles.bankDropdownItem,
+                        index === banks.length - 1 && { borderBottomWidth: 0 },
+                      ]}
+                      onPress={() => {
+                        setSelectedBank(bank.name);
+                        setShowBankModal(false);
+                      }}
+                    >
+                      <Text
+                        style={{
+                          fontSize: scale(14),
+                          color: selectedBank === bank.name ? BURGUNDY : "#1a1a1a",
+                          fontWeight: selectedBank === bank.name ? "700" : "400",
+                        }}
+                      >
+                        {bank.name}
+                      </Text>
+                      {selectedBank === bank.name && (
+                        <Ionicons name="checkmark" size={16} color={BURGUNDY} />
+                      )}
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              )}
+            </View>
 
             <Text style={styles.fieldLabel}>Nomor Rekening Bank</Text>
             <TextInput
@@ -317,14 +420,12 @@ console.log('Selfie size:', selfieImage.fileSize);
               onChangeText={(text) => handleInputChange("bankAccountNumber", text)}
             />
 
-            <TouchableOpacity style={styles.btnPrimary} onPress={handleSubmit} activeOpacity={0.85}>
+            <TouchableOpacity style={styles.btnPrimary} onPress={handleNext} activeOpacity={0.85}>
               <Text style={styles.btnPrimaryText}>Lanjut</Text>
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </View>
-
-      
     </>
   );
 };
@@ -432,94 +533,94 @@ const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfie
     setScreenNow("detail");
   };
 
-return (
-  <>
-    <View style={{ flex: 1 }}>
-      <StepHeader
-        step={1}
-        title="Siapkan Identitas Anda"
-        subtitle="Unggah foto KTP dan foto diri sambil memegang KTP untuk proses verifikasi identitas."
-        containerStyle={styles.stepHeaderFlex}
-      />
-
-      <View style={styles.whiteCardAuto}>
-        <Text style={styles.cardTitle}>Siapkan Identitas Anda</Text>
-
-        <UploadItem
-          number={1}
-          title="Ambil Foto e-KTP"
-          subtitle="Ambil foto KTP yang jelas & tidak buram"
-          image={ktpImage}
-          onPress={() => requestPickImage(true)}
-          locked={false}
+  return (
+    <>
+      <View style={{ flex: 1 }}>
+        <StepHeader
+          step={1}
+          title="Siapkan Identitas Anda"
+          subtitle="Unggah foto KTP dan foto diri sambil memegang KTP untuk proses verifikasi identitas."
+          containerStyle={styles.stepHeaderFlex}
         />
 
-        <UploadItem
-          number={2}
-          title="Ambil Foto Selfie bersama e-KTP"
-          subtitle="Foto wajah sambil memegang KTP Anda"
-          image={selfieImage}
-          onPress={() => requestPickImage(false)}
-          locked={!ktpImage}
-        />
+        <View style={styles.whiteCardAuto}>
+          <Text style={styles.cardTitle}>Siapkan Identitas Anda</Text>
 
-        <TouchableOpacity
-          style={[
-            styles.btnPrimary,
-            styles.btnPrimaryIdentitas,
-            { opacity: ktpImage && selfieImage ? 1 : 0.5 },
-          ]}
-          onPress={handleContinue}
-          disabled={!ktpImage || !selfieImage}
-          activeOpacity={0.85}
-        >
-          <Text style={styles.btnPrimaryText}>Lanjut</Text>
-        </TouchableOpacity>
-      </View>
-    </View>
+          <UploadItem
+            number={1}
+            title="Ambil Foto e-KTP"
+            subtitle="Ambil foto KTP yang jelas & tidak buram"
+            image={ktpImage}
+            onPress={() => requestPickImage(true)}
+            locked={false}
+          />
 
-    {/* ---------- Modal custom izin kamera (Bahasa Indonesia, tema burgundy) ---------- */}
-    <Modal
-      visible={showPermissionModal}
-      transparent
-      animationType="fade"
-      onRequestClose={() => setShowPermissionModal(false)}
-    >
-      <View style={styles.permissionOverlay}>
-        <View style={styles.permissionCard}>
-          <View style={styles.permissionIconWrap}>
-            <Ionicons name="camera" size={28} color={BURGUNDY} />
-          </View>
+          <UploadItem
+            number={2}
+            title="Ambil Foto Selfie bersama e-KTP"
+            subtitle="Foto wajah sambil memegang KTP Anda"
+            image={selfieImage}
+            onPress={() => requestPickImage(false)}
+            locked={!ktpImage}
+          />
 
-          <Text style={styles.permissionTitle}>Izin Akses Kamera</Text>
-          <Text style={styles.permissionText}>
-            {pendingIsKtp
-              ? "Kami memerlukan akses kamera untuk mengambil foto e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."
-              : "Kami memerlukan akses kamera untuk mengambil foto selfie bersama e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."}
-          </Text>
-
-          <View style={styles.permissionBtnRow}>
-            <TouchableOpacity
-              style={styles.permissionBtnSecondary}
-              onPress={() => setShowPermissionModal(false)}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.permissionBtnSecondaryText}>Nanti</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.permissionBtnPrimary}
-              onPress={confirmAndPickImage}
-              activeOpacity={0.85}
-            >
-              <Text style={styles.permissionBtnPrimaryText}>Izinkan</Text>
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity
+            style={[
+              styles.btnPrimary,
+              styles.btnPrimaryIdentitas,
+              { opacity: ktpImage && selfieImage ? 1 : 0.5 },
+            ]}
+            onPress={handleContinue}
+            disabled={!ktpImage || !selfieImage}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.btnPrimaryText}>Lanjut</Text>
+          </TouchableOpacity>
         </View>
       </View>
-    </Modal>
-  </>
-);
+
+      {/* ---------- Modal custom izin kamera (Bahasa Indonesia, tema burgundy) ---------- */}
+      <Modal
+        visible={showPermissionModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPermissionModal(false)}
+      >
+        <View style={styles.permissionOverlay}>
+          <View style={styles.permissionCard}>
+            <View style={styles.permissionIconWrap}>
+              <Ionicons name="camera" size={28} color={BURGUNDY} />
+            </View>
+
+            <Text style={styles.permissionTitle}>Izin Akses Kamera</Text>
+            <Text style={styles.permissionText}>
+              {pendingIsKtp
+                ? "Kami memerlukan akses kamera untuk mengambil foto e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."
+                : "Kami memerlukan akses kamera untuk mengambil foto selfie bersama e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."}
+            </Text>
+
+            <View style={styles.permissionBtnRow}>
+              <TouchableOpacity
+                style={styles.permissionBtnSecondary}
+                onPress={() => setShowPermissionModal(false)}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.permissionBtnSecondaryText}>Nanti</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.permissionBtnPrimary}
+                onPress={confirmAndPickImage}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.permissionBtnPrimaryText}>Izinkan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    </>
+  );
 };
 
 /* ---------- Root screen ---------- */
@@ -528,16 +629,22 @@ const DetailUsaha = () => {
   const [ktpImage, setKtpImage] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
   const [loading, setLoading] = useState(false);
+  // Menyimpan data dari step 2 (Detail Usaha) untuk dipakai saat submit di step 3
+  const [businessData, setBusinessData] = useState(null);
+
+  const handleDetailNext = (formData, selectedBank) => {
+    setBusinessData({ formData, selectedBank });
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {loading && (
-        <View style={styles.loadingOverlay}>
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Mengirim data...</Text>
-          </View>
+      <View style={styles.loadingOverlay}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={BURGUNDY} />
         </View>
-      )}
+      </View>
+    )}
 
       {screenNow === "identitas" && (
         <Identitas
@@ -552,8 +659,17 @@ const DetailUsaha = () => {
       {screenNow === "detail" && (
         <Detail
           setScreenNow={setScreenNow}
+          onNext={handleDetailNext}
+        />
+      )}
+
+      {screenNow === "syarat" && businessData && (
+        <Syarat
+          setScreenNow={setScreenNow}
           ktpImage={ktpImage}
           selfieImage={selfieImage}
+          formData={businessData.formData}
+          selectedBank={businessData.selectedBank}
           setLoading={setLoading}
         />
       )}
@@ -571,17 +687,17 @@ const styles = StyleSheet.create({
     backgroundColor: BURGUNDY,
   },
   stepHeader: {
-  backgroundColor: BURGUNDY,
-  alignItems: "center",
-  paddingTop: scale(28),
-  paddingBottom: scale(24),
-  paddingHorizontal: 28,
-},
-stepHeaderFlex: {
-  flex: 1, 
-  justifyContent: "center", 
-  paddingBottom: scale(24), 
-},
+    backgroundColor: BURGUNDY,
+    alignItems: "center",
+    paddingTop: scale(28),
+    paddingBottom: scale(24),
+    paddingHorizontal: 28,
+  },
+  stepHeaderFlex: {
+    flex: 1,
+    justifyContent: "center",
+    paddingBottom: scale(24),
+  },
   stepBadge: {
     width: scale(50),
     height: scale(50),
@@ -627,21 +743,21 @@ stepHeaderFlex: {
     elevation: 6,
   },
   whiteCardAuto: {
-  backgroundColor: "#ffffff",
-  borderTopLeftRadius: 26,
-  borderTopRightRadius: 26,
-  marginHorizontal: CARD_MARGIN_H,
-  marginTop: 0,
-  marginBottom: 0, 
-  paddingTop: scale(20),
-  paddingHorizontal: scale(20),
-  paddingBottom: scale(28), 
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: -2 },
-  shadowOpacity: 0.08,
-  shadowRadius: 10,
-  elevation: 6,
-},
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 26,
+    borderTopRightRadius: 26,
+    marginHorizontal: CARD_MARGIN_H,
+    marginTop: 0,
+    marginBottom: 0,
+    paddingTop: scale(20),
+    paddingHorizontal: scale(20),
+    paddingBottom: scale(28),
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
+    elevation: 6,
+  },
   cardTitle: {
     color: BURGUNDY,
     fontSize: scale(17),
@@ -670,8 +786,8 @@ stepHeaderFlex: {
     justifyContent: "center",
   },
   passwordFieldWrap: {
-  position: "relative",
-  justifyContent: "center",
+    position: "relative",
+    justifyContent: "center",
   },
   passwordEyeBtn: {
     position: "absolute",
@@ -814,37 +930,102 @@ stepHeaderFlex: {
     letterSpacing: 0.3,
   },
 
-bankFieldWrap: {
-  position: "relative",
-  zIndex: 10,
-},
-bankDropdown: {
-  position: "absolute",
-  top: "100%",
-  left: 0,
-  right: 0,
-  marginTop: 6,
-  backgroundColor: "#fff",
-  borderRadius: 12,
-  borderWidth: 1.2,
-  borderColor: "#eee",
-  shadowColor: "#000",
-  shadowOffset: { width: 0, height: 4 },
-  shadowOpacity: 0.12,
-  shadowRadius: 10,
-  elevation: 8,
-  overflow: "hidden",
-  zIndex: 20,
-},
-bankDropdownItem: {
-  flexDirection: "row",
-  justifyContent: "space-between",
-  alignItems: "center",
-  paddingVertical: scale(13),
-  paddingHorizontal: scale(16),
-  borderBottomWidth: 1,
-  borderBottomColor: "#f2f2f2",
-},
+  bankFieldWrap: {
+    position: "relative",
+    zIndex: 10,
+  },
+  bankDropdown: {
+    position: "absolute",
+    top: "100%",
+    left: 0,
+    right: 0,
+    marginTop: 6,
+    backgroundColor: "#fff",
+    borderRadius: 12,
+    borderWidth: 1.2,
+    borderColor: "#eee",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 8,
+    overflow: "hidden",
+    zIndex: 20,
+  },
+  bankDropdownItem: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    paddingVertical: scale(13),
+    paddingHorizontal: scale(16),
+    borderBottomWidth: 1,
+    borderBottomColor: "#f2f2f2",
+  },
+
+  /* Syarat dan Ketentuan (step 3) */
+  termsSection: {
+    borderWidth: 1.2,
+    borderColor: "#f0d9df",
+    backgroundColor: "#fffbfc",
+    borderRadius: 14,
+    padding: scale(16),
+    marginTop: scale(16),
+  },
+  termsSectionTitle: {
+    color: BURGUNDY,
+    fontSize: scale(15),
+    fontWeight: "700",
+    marginBottom: 10,
+  },
+  termsParagraph: {
+    color: "#444",
+    fontSize: scale(13),
+    lineHeight: scale(19),
+  },
+  bulletRow: {
+    flexDirection: "row",
+    marginBottom: 6,
+    paddingRight: 4,
+  },
+  bulletDot: {
+    color: "#444",
+    fontSize: scale(13),
+    lineHeight: scale(19),
+    marginRight: 8,
+  },
+  bulletText: {
+    flex: 1,
+    color: "#444",
+    fontSize: scale(13),
+    lineHeight: scale(19),
+  },
+  checkboxRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    marginTop: 14,
+  },
+  checkboxBox: {
+    width: 20,
+    height: 20,
+    borderRadius: 5,
+    borderWidth: 1.5,
+    borderColor: "#ccc",
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: 10,
+    marginTop: 1,
+  },
+  checkboxBoxChecked: {
+    backgroundColor: BURGUNDY,
+    borderColor: BURGUNDY,
+  },
+  checkboxLabel: {
+    flex: 1,
+    color: "#1a1a1a",
+    fontSize: scale(13.5),
+    fontWeight: "700",
+    lineHeight: scale(19),
+  },
 
   /* Permission modal custom (Bahasa Indonesia, tema burgundy) */
   permissionOverlay: {
@@ -970,13 +1151,16 @@ bankDropdownItem: {
     alignItems: "center",
     zIndex: 1000,
   },
-  loadingContainer: {
-    backgroundColor: "white",
-    padding: 20,
-    borderRadius: 10,
-  },
-  loadingText: {
-    fontSize: 16,
-    color: "#1a1a1a",
-  },
+loadingContainer: {
+  backgroundColor: "white",
+  padding: 24,
+  borderRadius: 16,
+  alignItems: "center",
+  justifyContent: "center",
+  shadowColor: "#000",
+  shadowOffset: { width: 0, height: 4 },
+  shadowOpacity: 0.15,
+  shadowRadius: 12,
+  elevation: 8,
+},
 });
