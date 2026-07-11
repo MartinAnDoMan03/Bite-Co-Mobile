@@ -20,6 +20,7 @@ import axios from "axios";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import config from '../constants/config';
 import { Ionicons } from "@expo/vector-icons";
+import * as FileSystem from 'expo-file-system';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const BURGUNDY = "#711330";
@@ -476,27 +477,42 @@ const UploadItem = ({ number, title, subtitle, image, onPress, locked }) => {
   );
 };
 
-const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfieImage }) => {
+const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfieImage, setLoading }) => {
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [pendingIsKtp, setPendingIsKtp] = useState(true);
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
 
-  const openCameraFor = async (isKtp) => {
-    let result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ['images'],
-      allowsEditing: true,
-      aspect: [4, 3],
-      quality: 0.5,
-    });
+const openCameraFor = async (isKtp) => {
+  let result = await ImagePicker.launchCameraAsync({
+    mediaTypes: ['images'],
+    allowsEditing: true,
+    aspect: [4, 3],
+    quality: 0.5,
+  });
 
-    if (!result.canceled) {
-      if (isKtp) {
-        setKtpImage(result.assets[0]);
-      } else {
-        setSelfieImage(result.assets[0]);
+  if (!result.canceled) {
+    if (isKtp) {
+      // Validate KTP before accepting
+      setLoading(true); // you'll need to pass setLoading down to Identitas
+      const isValidKTP = await validateKTP(result.assets[0].uri);
+      setLoading(false);
+      
+      if (isValidKTP === false) {
+        Alert.alert(
+          'Foto Tidak Valid',
+          'Foto yang diambil tidak terdeteksi sebagai KTP. Pastikan:\n\n• KTP terlihat jelas dan tidak buram\n• Seluruh bagian KTP masuk dalam frame\n• Pencahayaan cukup\n\nSilakan coba lagi.',
+          [{ text: 'Coba Lagi', style: 'default' }]
+        );
+        return;
       }
+      // isValidKTP === null artinya API gagal
+      setKtpImage(result.assets[0]);
+    } else {
+      setSelfieImage(result.assets[0]);
     }
-  };
+  }
+};
+
   const requestPickImage = async (isKtp) => {
     const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
     if (currentStatus === "granted" || cameraPermissionGranted) {
@@ -524,6 +540,33 @@ const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfie
       openCameraFor(pendingIsKtp);
     }, Platform.OS === "android" ? 500 : 0);
   };
+
+// Validasi KTP menggunakan Google Vision API
+const validateKTP = async (imageUri) => {
+  try {
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+
+    const visionResponse = await axios.post(
+      `https://vision.googleapis.com/v1/images:annotate?key=${config.GOOGLE_MAPS_API_KEY}`,
+      {
+        requests: [{
+          image: { content: base64 },
+          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
+        }]
+      }
+    );
+
+    const detectedText = visionResponse.data.responses[0]?.fullTextAnnotation?.text?.toUpperCase() || '';
+    const ktpKeywords = ['NIK', 'NAMA', 'TEMPAT', 'LAHIR', 'ALAMAT', 'JENIS', 'KELAMIN', 'KECAMATAN', 'PEKERJAAN', 'KEWARGANEGARAAN'];
+    const matchCount = ktpKeywords.filter(keyword => detectedText.includes(keyword)).length;
+    return matchCount >= 3;
+  } catch (error) {
+    console.error('Error validating KTP image:', error);
+    return null;
+  }
+};
 
   const handleContinue = () => {
     if (!ktpImage || !selfieImage) {
@@ -653,6 +696,7 @@ const DetailUsaha = () => {
           setSelfieImage={setSelfieImage}
           ktpImage={ktpImage}
           selfieImage={selfieImage}
+          setLoading={setLoading}
         />
       )}
 
