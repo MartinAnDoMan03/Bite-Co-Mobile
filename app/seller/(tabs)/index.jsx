@@ -33,6 +33,7 @@ import { useRouter } from "expo-router";
 import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import config from "../../constants/config";
+import { useLanguage } from "../../contexts/LanguageContext";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const scale = (size) => (SCREEN_WIDTH / 375) * size;
@@ -116,6 +117,7 @@ const QuickActionCard = ({ title, description, icon, color, onPress }) => (
 );
 
 const ExpandableMenu = () => {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   const [storeName, setStoreName] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
@@ -151,17 +153,17 @@ const ExpandableMenu = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStoreName(
-        response.data.name || response.data.outletName || "Warung Saya"
+        response.data.name || response.data.outletName || t("beranda.defaultStoreName")
       );
       setStoreAddress(
         response.data.address ||
           response.data.pinAddress ||
-          "Alamat belum diatur"
+          t("beranda.defaultAddress")
       );
     } catch (err) {
       console.error("Error fetching profile:", err);
-      setStoreName("Warung Saya");
-      setStoreAddress("Alamat belum diatur");
+      setStoreName(t("beranda.defaultStoreName"));
+      setStoreAddress(t("beranda.defaultAddress"));
     }
   };
 
@@ -257,25 +259,25 @@ const ExpandableMenu = () => {
     {
       icon: pelanggan,
       iconType: "image",
-      label: "Pelanggan",
+      label: t("beranda.menu.pelanggan"),
       onPress: () => router.push("seller/pelanggan"),
     },
     {
       icon: menu,
       iconType: "image",
-      label: "Menu",
+      label: t("beranda.menu.menu"),
       onPress: () => router.push("seller/menu"),
     },
     {
       icon: jadwal,
       iconType: "image",
-      label: "Jadwal",
+      label: t("beranda.menu.jadwal"),
       onPress: () => router.push("seller/JadwalPengantaran"),
     },
     {
       icon: laporan,
       iconType: "image",
-      label: "Laporan",
+      label: t("beranda.menu.laporan"),
       onPress: () => router.push("seller/Laporan"),
     },
   ];
@@ -286,59 +288,62 @@ const ExpandableMenu = () => {
     {
       icon: riwayat,
       iconType: "image",
-      label: "Riwayat",
+      label: t("beranda.menu.riwayat"),
       onPress: () => router.push("seller/riwayat"),
     },
     {
       icon: gizi,
       iconType: "image",
-      label: "GiziPro",
+      label: t("beranda.menu.giziPro"),
       onPress: () => router.push("seller/gizipro"),
     },
     {
       icon: biteeco,
       iconType: "image",
-      label: "Bite Eco",
+      label: t("beranda.menu.biteEco"),
       onPress: () => router.push("seller/biteeco/management"),
     },
     {
       icon: ulasan,
       iconType: "image",
-      label: "Ulasan",
+      label: t("beranda.menu.ulasan"),
       onPress: () => router.push("seller/ulasan"),
     },
     {
       iconType: "material",
       iconName: "help",
-      label: "Bantuan",
+      label: t("beranda.menu.bantuan"),
       onPress: () => router.push("seller/bantuan"),
     },
     {
       iconType: "material",
       iconName: "settings",
-      label: "Pengaturan",
+      label: t("beranda.menu.pengaturan"),
       onPress: () => router.push("seller/settings"),
     },
   ];
 
   const quickActions = [
     {
-      title: "Tambah Menu Baru",
-      description: "Tambahkan menu makanan ke katalog Anda",
+      title: t("beranda.quickActions.addMenu.title"),
+      description: t("beranda.quickActions.addMenu.description"),
       icon: "add-circle",
       color: COLORS.GREEN4,
       onPress: () => router.push("seller/menu/add"),
     },
     {
-      title: "Lihat Pesanan Baru",
-      description: `${stats.pendingOrders} pesanan menunggu konfirmasi`,
+      title: t("beranda.quickActions.viewOrders.title"),
+      description: t("beranda.quickActions.viewOrders.description").replace(
+        "{{count}}",
+        String(stats.pendingOrders)
+      ),
       icon: "notifications",
       color: "#FF9800",
       onPress: () => router.push("seller/(tabs)/order"),
     },
     {
-      title: "Update Jadwal",
-      description: "Atur jadwal pengantaran mingguan",
+      title: t("beranda.quickActions.updateSchedule.title"),
+      description: t("beranda.quickActions.updateSchedule.description"),
       icon: "schedule",
       color: COLORS.PRIMARY,
       onPress: () => router.push("seller/JadwalPengantaran"),
@@ -363,7 +368,7 @@ const ExpandableMenu = () => {
           {/* Top Bar */}
           <View style={styles.topBar}>
             <View style={{ flex: 1, transform: [{ translateY: scale(24) }] }}>
-              <Text style={styles.welcomeText}>Selamat Datang</Text>
+              <Text style={styles.welcomeText}>{t("beranda.welcome")}</Text>
               <Text style={styles.storeNameText}>{storeName}!</Text>
             </View>
             <TouchableOpacity 
@@ -434,44 +439,47 @@ const ExpandableMenu = () => {
       <View style={styles.contentContainer}>
         {/* Stats Cards */}
         <View style={styles.statsContainer}>
-          <Text style={styles.sectionTitle}>Ringkasan Bisnis</Text>
+          <Text style={styles.sectionTitle}>{t("beranda.sections.businessSummary")}</Text>
           <View style={styles.statsGrid}>
             <StatsCard
-              title="Berlangganan"
+              title={t("beranda.stats.subscribers.title")}
               value={stats.subscribers.toString()}
               icon="people"
               color={COLORS.PRIMARY}
-              subtitle="Pelanggan rantangan"
+              subtitle={t("beranda.stats.subscribers.subtitle")}
             />
             <StatsCard
-              title="Pendapatan Bulan Ini"
+              title={t("beranda.stats.monthlyRevenue.title")}
               value={`Rp ${stats.monthlyRevenue.toLocaleString("id-ID")}`}
               icon="account-balance-wallet"
               color={COLORS.GREEN4}
-              subtitle={`Dari ${stats.completedOrders} pesanan`}
+              subtitle={t("beranda.stats.monthlyRevenue.subtitle").replace(
+                "{{count}}",
+                String(stats.completedOrders)
+              )}
             />
           </View>
           <View style={styles.statsGrid}>
             <StatsCard
-              title="Pesanan Pending"
+              title={t("beranda.stats.pendingOrders.title")}
               value={stats.pendingOrders.toString()}
               icon="pending-actions"
               color="#FF9800"
-              subtitle="Perlu konfirmasi"
+              subtitle={t("beranda.stats.pendingOrders.subtitle")}
             />
             <StatsCard
-              title="Total Pesanan"
+              title={t("beranda.stats.totalOrders.title")}
               value={stats.totalOrders.toString()}
               icon="receipt"
               color="#9C27B0"
-              subtitle="Semua waktu"
+              subtitle={t("beranda.stats.totalOrders.subtitle")}
             />
           </View>
         </View>
 
         {/* Quick Actions */}
         <View style={styles.quickActionsContainer}>
-          <Text style={styles.sectionTitle}>Aksi Cepat</Text>
+          <Text style={styles.sectionTitle}>{t("beranda.sections.quickActions")}</Text>
           {quickActions.map((action, index) => (
             <QuickActionCard
               key={index}
@@ -486,7 +494,7 @@ const ExpandableMenu = () => {
 
         {/* Today's Summary */}
         <View style={styles.todaySummaryContainer}>
-          <Text style={styles.sectionTitle}>Ringkasan Hari Ini</Text>
+          <Text style={styles.sectionTitle}>{t("beranda.sections.todaySummary")}</Text>
           <View style={styles.todayCard}>
             <View style={styles.todayHeader}>
               <MaterialIcons name="today" size={24} color={COLORS.PRIMARY} />
@@ -501,17 +509,17 @@ const ExpandableMenu = () => {
             <View style={styles.todayStats}>
               <View style={styles.todayStatItem}>
                 <Text style={styles.todayStatValue}>{stats.pendingOrders}</Text>
-                <Text style={styles.todayStatLabel}>Pesanan Baru</Text>
+                <Text style={styles.todayStatLabel}>{t("beranda.today.newOrders")}</Text>
               </View>
               <View style={styles.todayStatDivider} />
               <View style={styles.todayStatItem}>
                 <Text style={styles.todayStatValue}>0</Text>
-                <Text style={styles.todayStatLabel}>Siap Kirim</Text>
+                <Text style={styles.todayStatLabel}>{t("beranda.today.readyToDeliver")}</Text>
               </View>
               <View style={styles.todayStatDivider} />
               <View style={styles.todayStatItem}>
                 <Text style={styles.todayStatValue}>0</Text>
-                <Text style={styles.todayStatLabel}>Selesai</Text>
+                <Text style={styles.todayStatLabel}>{t("beranda.today.completed")}</Text>
               </View>
             </View>
           </View>

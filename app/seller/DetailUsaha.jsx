@@ -21,6 +21,7 @@ import { KeyboardAvoidingView, Platform } from "react-native";
 import config from '../constants/config';
 import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from 'expo-file-system';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const BURGUNDY = "#711330";
@@ -69,16 +70,15 @@ const TermsSection = ({ title, children, checked, onToggle, checkboxLabel }) => 
 /* ---------- Success screen ---------- */
 const Success = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   return (
     <View style={styles.successContainer}>
       <View style={styles.successIconWrap}>
         <Ionicons name="checkmark" size={40} color={BURGUNDY} />
       </View>
-      <Text style={styles.successTitle}>Selamat!</Text>
+      <Text style={styles.successTitle}>{t('detailUsaha.success.title')}</Text>
       <Text style={styles.successText}>
-        Anda telah berhasil mendaftar sebagai penjual di Bite&Co. Silakan tunggu
-        konfirmasi dari tim kami. Jika ada pertanyaan, silakan hubungi kami di
-        info@biteandco.com
+        {t('detailUsaha.success.message')}
       </Text>
       <TouchableOpacity
         style={styles.successBtn}
@@ -86,31 +86,25 @@ const Success = () => {
         // contoh: "/seller/home" atau "/(seller)/dashboard"
         onPress={() => router.replace("/seller/home")}
       >
-        <Text style={styles.successBtnText}>Masuk ke Beranda Seller</Text>
+        <Text style={styles.successBtnText}>{t('detailUsaha.success.button')}</Text>
       </TouchableOpacity>
     </View>
   );
 };
 
 /* ---------- Step 3: Syarat dan Ketentuan ---------- */
-const TERMS_LIST = [
-  "Mitra wajib menjaga kualitas dan kebersihan produk yang dijual.",
-  "Data usaha yang didaftarkan harus benar dan dapat dipertanggungjawabkan.",
-  "Mitra wajib memperbarui ketersediaan menu secara berkala melalui aplikasi.",
-  "Konfirmasi pesanan dilakukan paling lambat 1x24 jam setelah pesanan masuk.",
-  "Setiap transaksi yang berhasil dikenakan komisi platform sebesar 10%.",
-  "Pelanggaran terhadap ketentuan di atas dapat berakibat penonaktifan akun mitra.",
-];
-
 const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, setLoading }) => {
+  const { t } = useLanguage();
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [productHalal, setProductHalal] = useState(false);
+
+  const termsList = t('detailUsaha.syarat.termsList');
 
   const handleFinish = async () => {
     if (!agreedTerms) {
       Alert.alert(
-        "Syarat Belum Disetujui",
-        "Harap setujui syarat umum platform sebelum melanjutkan pendaftaran."
+        t('detailUsaha.syarat.alerts.notAgreed.title'),
+        t('detailUsaha.syarat.alerts.notAgreed.message')
       );
       return;
     }
@@ -144,16 +138,19 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
           ? Object.entries(response.data.errors)
               .map(([field, message]) => `• ${field}: ${message}`)
               .join("\n")
-          : response.data.message || "Tidak ada detail error tambahan";
+          : response.data.message || t('detailUsaha.syarat.alerts.submitFailed.noDetails');
 
-        Alert.alert("Gagal Mendaftar", `Terjadi kesalahan saat mengirim data:\n\n${errorDetails}`);
+        Alert.alert(t('detailUsaha.syarat.alerts.submitFailed.title'), t('detailUsaha.syarat.alerts.submitFailed.message', { details: errorDetails }));
       }
     } catch (error) {
-      let errorMessage = "Terjadi kesalahan saat mendaftar. Silakan coba lagi.";
+      let errorMessage = t('detailUsaha.syarat.alerts.systemError.defaultMessage');
 
       if (error.response) {
         const serverError = error.response.data;
-        errorMessage = `Error ${error.response.status}: ${serverError.message || "Kesalahan Server"}\n`;
+        errorMessage = t('detailUsaha.syarat.alerts.systemError.serverError', {
+          status: error.response.status,
+          message: serverError.message || t('detailUsaha.syarat.alerts.systemError.serverErrorFallback'),
+        }) + "\n";
         if (serverError.errors) {
           errorMessage += Object.entries(serverError.errors)
             .map(([field, messages]) => `• ${field}: ${messages.join(", ")}`)
@@ -162,15 +159,18 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
       } else if (error.request) {
         errorMessage =
           error.code === "ECONNABORTED"
-            ? "Koneksi timeout. Silakan cek koneksi internet Anda dan coba lagi."
-            : "Tidak ada respon dari server. Silakan cek koneksi internet Anda.";
+            ? t('detailUsaha.syarat.alerts.systemError.timeout')
+            : t('detailUsaha.syarat.alerts.systemError.noResponse');
       } else if (error.message.includes("Network Error")) {
-        errorMessage = "Tidak dapat terhubung ke server. Silakan cek koneksi internet Anda.";
+        errorMessage = t('detailUsaha.syarat.alerts.systemError.networkError');
       } else {
-        errorMessage = `Error: ${error.message}`;
+        errorMessage = t('detailUsaha.syarat.alerts.systemError.generic', { message: error.message });
       }
 
-      Alert.alert("Error Sistem", errorMessage + "\n\nKode Error: " + (error.code || "UNKNOWN"));
+      Alert.alert(
+        t('detailUsaha.syarat.alerts.systemError.title'),
+        errorMessage + "\n\n" + t('detailUsaha.syarat.alerts.systemError.errorCode', { code: error.code || "UNKNOWN" })
+      );
     } finally {
       setLoading(false);
     }
@@ -180,8 +180,8 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
     <>
       <StepHeader
         step={3}
-        title="Syarat dan Ketentuan"
-        subtitle="Baca dan setujui syarat berikut sebelum melanjutkan proses pendaftaran mitra"
+        title={t('detailUsaha.syarat.header.title')}
+        subtitle={t('detailUsaha.syarat.header.subtitle')}
       />
 
       <View style={styles.whiteCard}>
@@ -190,26 +190,24 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
           showsVerticalScrollIndicator={false}
         >
           <TermsSection
-            title="Syarat Umum Platform"
+            title={t('detailUsaha.syarat.sections.general.title')}
             checked={agreedTerms}
             onToggle={() => setAgreedTerms(!agreedTerms)}
-            checkboxLabel="Saya setuju dengan syarat umum di atas"
+            checkboxLabel={t('detailUsaha.syarat.sections.general.checkboxLabel')}
           >
-            {TERMS_LIST.map((item, index) => (
+            {termsList.map((item, index) => (
               <BulletItem key={index} text={item} />
             ))}
           </TermsSection>
 
           <TermsSection
-            title="Pernyataan Status Halal"
+            title={t('detailUsaha.syarat.sections.halal.title')}
             checked={productHalal}
             onToggle={() => setProductHalal(!productHalal)}
-            checkboxLabel="Produk saya halal"
+            checkboxLabel={t('detailUsaha.syarat.sections.halal.checkboxLabel')}
           >
             <Text style={styles.termsParagraph}>
-              Centang jika produk kamu halal. Label akan otomatis tampil di profil dan bisa
-              difilter pembeli. Jika tidak dicentang, toko ditandai sebagai umum, bukan berarti
-              non-halal.
+              {t('detailUsaha.syarat.sections.halal.paragraph')}
             </Text>
           </TermsSection>
 
@@ -218,7 +216,7 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
             onPress={handleFinish}
             activeOpacity={0.85}
           >
-            <Text style={styles.btnPrimaryText}>Daftar Sekarang</Text>
+            <Text style={styles.btnPrimaryText}>{t('detailUsaha.syarat.submitButton')}</Text>
           </TouchableOpacity>
         </ScrollView>
       </View>
@@ -228,6 +226,7 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
 
 /* ---------- Step 2: Detail Usaha (form) ---------- */
 const Detail = ({ setScreenNow, onNext }) => {
+  const { t } = useLanguage();
   const [selectedBank, setSelectedBank] = useState(null);
   const [showBankModal, setShowBankModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -260,15 +259,18 @@ const Detail = ({ setScreenNow, onNext }) => {
       !formData.bankAccountNumber ||
       !formData.password
     ) {
+      const missingFields = [
+        !formData.outletName && t('detailUsaha.detail.fields.outletName.label'),
+        !formData.outletPhone && t('detailUsaha.detail.fields.outletPhone.label'),
+        !formData.outletEmail && t('detailUsaha.detail.fields.outletEmail.label'),
+        !selectedBank && t('detailUsaha.detail.fields.bank.label'),
+        !formData.bankAccountNumber && t('detailUsaha.detail.fields.bankAccountNumber.label'),
+        !formData.password && t('detailUsaha.detail.fields.password.label'),
+      ].filter(Boolean);
+
       Alert.alert(
-        "Form Tidak Lengkap",
-        "Harap lengkapi semua data yang diperlukan:\n" +
-          (!formData.outletName ? "• Nama Outlet\n" : "") +
-          (!formData.outletPhone ? "• Nomor Telepon\n" : "") +
-          (!formData.outletEmail ? "• Email\n" : "") +
-          (!selectedBank ? "• Bank\n" : "") +
-          (!formData.bankAccountNumber ? "• Nomor Rekening\n" : "") +
-          (!formData.password ? "• Password\n" : "")
+        t('detailUsaha.detail.alerts.incomplete.title'),
+        t('detailUsaha.detail.alerts.incomplete.message') + "\n" + missingFields.map((f) => `• ${f}\n`).join("")
       );
       return;
     }
@@ -282,8 +284,8 @@ const Detail = ({ setScreenNow, onNext }) => {
     <>
       <StepHeader
         step={2}
-        title="Siapkan Detail Usaha Anda"
-        subtitle="Lengkapi informasi usaha kamu untuk melanjutkan proses verifikasi."
+        title={t('detailUsaha.detail.header.title')}
+        subtitle={t('detailUsaha.detail.header.subtitle')}
       />
 
       <View style={styles.whiteCard}>
@@ -296,31 +298,31 @@ const Detail = ({ setScreenNow, onNext }) => {
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <Text style={styles.cardTitle}>Detail Usaha</Text>
+            <Text style={styles.cardTitle}>{t('detailUsaha.detail.cardTitle')}</Text>
 
-            <Text style={styles.fieldLabel}>Nama Outlet</Text>
+            <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.outletName.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="Masukan nama lengkap Anda..."
+              placeholder={t('detailUsaha.detail.fields.outletName.placeholder')}
               placeholderTextColor="#aaa"
               value={formData.outletName}
               onChangeText={(text) => handleInputChange("outletName", text)}
             />
 
-            <Text style={styles.fieldLabel}>Nomor Telpon Outlet</Text>
+            <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.outletPhone.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="0813..."
+              placeholder={t('detailUsaha.detail.fields.outletPhone.placeholder')}
               placeholderTextColor="#aaa"
               keyboardType="phone-pad"
               value={formData.outletPhone}
               onChangeText={(text) => handleInputChange("outletPhone", text)}
             />
 
-            <Text style={styles.fieldLabel}>Email Outlet</Text>
+            <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.outletEmail.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="Masukan email outlet Anda..."
+              placeholder={t('detailUsaha.detail.fields.outletEmail.placeholder')}
               placeholderTextColor="#aaa"
               keyboardType="email-address"
               autoCapitalize="none"
@@ -328,11 +330,11 @@ const Detail = ({ setScreenNow, onNext }) => {
               onChangeText={(text) => handleInputChange("outletEmail", text)}
             />
 
-            <Text style={styles.fieldLabel}>Password</Text>
+            <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.password.label')}</Text>
             <View style={styles.passwordFieldWrap}>
               <TextInput
                 style={[styles.fieldInput, { paddingRight: scale(44) }]}
-                placeholder="Min. 8 Karakter..."
+                placeholder={t('detailUsaha.detail.fields.password.placeholder')}
                 placeholderTextColor="#aaa"
                 secureTextEntry={!showPassword}
                 value={formData.password}
@@ -350,17 +352,17 @@ const Detail = ({ setScreenNow, onNext }) => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.fieldLabel}>Masukan Pajak Restoran/PB1 yang Berlaku (Opsional)</Text>
+            <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.taxRate.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="Contoh: 10 (dalam %)"
+              placeholder={t('detailUsaha.detail.fields.taxRate.placeholder')}
               placeholderTextColor="#aaa"
               keyboardType="numeric"
               value={formData.taxRate}
               onChangeText={(text) => handleInputChange("taxRate", text)}
             />
 
-            <Text style={styles.fieldLabel}>Pilih Bank</Text>
+            <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.bank.label')}</Text>
             <View style={styles.bankFieldWrap}>
               <TouchableOpacity
                 style={styles.fieldInput}
@@ -369,7 +371,7 @@ const Detail = ({ setScreenNow, onNext }) => {
               >
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
                   <Text style={{ color: selectedBank ? "#1a1a1a" : "#aaa", fontSize: scale(14.5) }}>
-                    {selectedBank || "Pilih bank Anda"}
+                    {selectedBank || t('detailUsaha.detail.fields.bank.placeholder')}
                   </Text>
                   <Ionicons
                     name={showBankModal ? "chevron-up" : "chevron-down"}
@@ -411,10 +413,10 @@ const Detail = ({ setScreenNow, onNext }) => {
               )}
             </View>
 
-            <Text style={styles.fieldLabel}>Nomor Rekening Bank</Text>
+            <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.bankAccountNumber.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="Contoh: 1234567890"
+              placeholder={t('detailUsaha.detail.fields.bankAccountNumber.placeholder')}
               placeholderTextColor="#aaa"
               keyboardType="numeric"
               value={formData.bankAccountNumber}
@@ -422,7 +424,7 @@ const Detail = ({ setScreenNow, onNext }) => {
             />
 
             <TouchableOpacity style={styles.btnPrimary} onPress={handleNext} activeOpacity={0.85}>
-              <Text style={styles.btnPrimaryText}>Lanjut</Text>
+              <Text style={styles.btnPrimaryText}>{t('detailUsaha.detail.continueButton')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -432,7 +434,7 @@ const Detail = ({ setScreenNow, onNext }) => {
 };
 
 /* ---------- Step 1: Identitas (KTP + selfie) ---------- */
-const UploadItem = ({ number, title, subtitle, image, onPress, locked }) => {
+const UploadItem = ({ number, title, subtitle, image, onPress, locked, retakeLabel }) => {
   if (image) {
     return (
       <View style={styles.uploadCard}>
@@ -448,7 +450,7 @@ const UploadItem = ({ number, title, subtitle, image, onPress, locked }) => {
         </View>
 
         <TouchableOpacity style={styles.retakeBtn} onPress={onPress} activeOpacity={0.85}>
-          <Text style={styles.retakeBtnText}>Ambil Ulang Foto</Text>
+          <Text style={styles.retakeBtnText}>{retakeLabel}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -478,6 +480,7 @@ const UploadItem = ({ number, title, subtitle, image, onPress, locked }) => {
 };
 
 const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfieImage, setLoading }) => {
+  const { t } = useLanguage();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [pendingIsKtp, setPendingIsKtp] = useState(true);
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
@@ -499,9 +502,9 @@ const openCameraFor = async (isKtp) => {
       
       if (isValidKTP === false) {
         Alert.alert(
-          'Foto Tidak Valid',
-          'Foto yang diambil tidak terdeteksi sebagai KTP. Pastikan:\n\n• KTP terlihat jelas dan tidak buram\n• Seluruh bagian KTP masuk dalam frame\n• Pencahayaan cukup\n\nSilakan coba lagi.',
-          [{ text: 'Coba Lagi', style: 'default' }]
+          t('detailUsaha.identitas.alerts.invalidPhoto.title'),
+          t('detailUsaha.identitas.alerts.invalidPhoto.message'),
+          [{ text: t('detailUsaha.identitas.alerts.invalidPhoto.retryButton'), style: 'default' }]
         );
         return;
       }
@@ -530,8 +533,8 @@ const openCameraFor = async (isKtp) => {
       const { status } = await ImagePicker.requestCameraPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
-          "Izin Ditolak",
-          "Kami memerlukan izin kamera untuk mengambil foto. Silakan aktifkan izin kamera di pengaturan aplikasi."
+          t('detailUsaha.identitas.alerts.permissionDenied.title'),
+          t('detailUsaha.identitas.alerts.permissionDenied.message')
         );
         return;
       }
@@ -570,7 +573,7 @@ const validateKTP = async (imageUri) => {
 
   const handleContinue = () => {
     if (!ktpImage || !selfieImage) {
-      Alert.alert("Perhatian", "Harap ambil foto KTP dan selfie terlebih dahulu");
+      Alert.alert(t('detailUsaha.identitas.alerts.incomplete.title'), t('detailUsaha.identitas.alerts.incomplete.message'));
       return;
     }
     setScreenNow("detail");
@@ -581,30 +584,32 @@ const validateKTP = async (imageUri) => {
       <View style={{ flex: 1 }}>
         <StepHeader
           step={1}
-          title="Siapkan Identitas Anda"
-          subtitle="Unggah foto KTP dan foto diri sambil memegang KTP untuk proses verifikasi identitas."
+          title={t('detailUsaha.identitas.header.title')}
+          subtitle={t('detailUsaha.identitas.header.subtitle')}
           containerStyle={styles.stepHeaderFlex}
         />
 
         <View style={styles.whiteCardAuto}>
-          <Text style={styles.cardTitle}>Siapkan Identitas Anda</Text>
+          <Text style={styles.cardTitle}>{t('detailUsaha.identitas.cardTitle')}</Text>
 
           <UploadItem
             number={1}
-            title="Ambil Foto e-KTP"
-            subtitle="Ambil foto KTP yang jelas & tidak buram"
+            title={t('detailUsaha.identitas.upload.ktp.title')}
+            subtitle={t('detailUsaha.identitas.upload.ktp.subtitle')}
             image={ktpImage}
             onPress={() => requestPickImage(true)}
             locked={false}
+            retakeLabel={t('detailUsaha.identitas.retakeButton')}
           />
 
           <UploadItem
             number={2}
-            title="Ambil Foto Selfie bersama e-KTP"
-            subtitle="Foto wajah sambil memegang KTP Anda"
+            title={t('detailUsaha.identitas.upload.selfie.title')}
+            subtitle={t('detailUsaha.identitas.upload.selfie.subtitle')}
             image={selfieImage}
             onPress={() => requestPickImage(false)}
             locked={!ktpImage}
+            retakeLabel={t('detailUsaha.identitas.retakeButton')}
           />
 
           <TouchableOpacity
@@ -617,12 +622,12 @@ const validateKTP = async (imageUri) => {
             disabled={!ktpImage || !selfieImage}
             activeOpacity={0.85}
           >
-            <Text style={styles.btnPrimaryText}>Lanjut</Text>
+            <Text style={styles.btnPrimaryText}>{t('detailUsaha.identitas.continueButton')}</Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ---------- Modal custom izin kamera (Bahasa Indonesia, tema burgundy) ---------- */}
+      {/* ---------- Modal custom izin kamera ---------- */}
       <Modal
         visible={showPermissionModal}
         transparent
@@ -635,11 +640,11 @@ const validateKTP = async (imageUri) => {
               <Ionicons name="camera" size={28} color={BURGUNDY} />
             </View>
 
-            <Text style={styles.permissionTitle}>Izin Akses Kamera</Text>
+            <Text style={styles.permissionTitle}>{t('detailUsaha.identitas.permissionModal.title')}</Text>
             <Text style={styles.permissionText}>
               {pendingIsKtp
-                ? "Kami memerlukan akses kamera untuk mengambil foto e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."
-                : "Kami memerlukan akses kamera untuk mengambil foto selfie bersama e-KTP Anda. Foto ini digunakan untuk proses verifikasi identitas."}
+                ? t('detailUsaha.identitas.permissionModal.textKtp')
+                : t('detailUsaha.identitas.permissionModal.textSelfie')}
             </Text>
 
             <View style={styles.permissionBtnRow}>
@@ -648,7 +653,7 @@ const validateKTP = async (imageUri) => {
                 onPress={() => setShowPermissionModal(false)}
                 activeOpacity={0.85}
               >
-                <Text style={styles.permissionBtnSecondaryText}>Nanti</Text>
+                <Text style={styles.permissionBtnSecondaryText}>{t('detailUsaha.identitas.permissionModal.later')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -656,7 +661,7 @@ const validateKTP = async (imageUri) => {
                 onPress={confirmAndPickImage}
                 activeOpacity={0.85}
               >
-                <Text style={styles.permissionBtnPrimaryText}>Izinkan</Text>
+                <Text style={styles.permissionBtnPrimaryText}>{t('detailUsaha.identitas.permissionModal.allow')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1071,7 +1076,7 @@ const styles = StyleSheet.create({
     lineHeight: scale(19),
   },
 
-  /* Permission modal custom (Bahasa Indonesia, tema burgundy) */
+  /* Permission modal custom */
   permissionOverlay: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.5)",

@@ -7,16 +7,132 @@ import {
   TouchableOpacity,
   Switch,
   RefreshControl,
-  Alert,
   Modal,
   TextInput,
+  FlatList,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import HeaderTitleBack from '../../components/HeaderTitleBack';
 import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import COLORS from '../constants/color';
+import { useLanguage } from '../contexts/LanguageContext';
+
+// ==== Custom Alert Card ====
+// Menggantikan Alert.alert bawaan (putih polos) dengan card bertema.
+const ALERT_ICONS = {
+  info: { name: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
+  success: { name: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
+  error: { name: 'error', color: '#C62828', bg: '#FFEBEE' },
+  warning: { name: 'warning', color: '#C62828', bg: '#FFEBEE' },
+};
+
+const CustomAlert = ({ visible, type = 'info', title, message, buttons, onClose }) => {
+  const icon = ALERT_ICONS[type] || ALERT_ICONS.info;
+
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.alertOverlay}>
+        <View style={styles.alertCard}>
+          <View style={[styles.alertIconWrap, { backgroundColor: icon.bg }]}>
+            <MaterialIcons name={icon.name} size={30} color={icon.color} />
+          </View>
+
+          {!!title && <Text style={styles.alertTitle}>{title}</Text>}
+          {!!message && <Text style={styles.alertMessage}>{message}</Text>}
+
+          <View style={styles.alertButtonRow}>
+            {buttons.map((btn, idx) => {
+              const isDestructive = btn.style === 'destructive';
+              const isCancel = btn.style === 'cancel';
+              return (
+                <TouchableOpacity
+                  key={idx}
+                  activeOpacity={0.8}
+                  onPress={() => {
+                    onClose();
+                    btn.onPress && btn.onPress();
+                  }}
+                  style={[
+                    styles.alertButton,
+                    isCancel && styles.alertButtonCancel,
+                    isDestructive && styles.alertButtonDestructive,
+                    !isCancel && !isDestructive && styles.alertButtonPrimary,
+                    buttons.length > 1 && idx === 0 && { marginRight: 8 },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      styles.alertButtonText,
+                      isCancel && styles.alertButtonTextCancel,
+                      (isDestructive || (!isCancel && !isDestructive)) && styles.alertButtonTextSolid,
+                    ]}
+                  >
+                    {btn.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+// ==== Language Picker Modal ====
+const LanguagePickerModal = ({ visible, onClose, t }) => {
+  const { language, setLanguage, availableLanguages } = useLanguage();
+
+  const handleSelect = (code) => {
+    setLanguage(code);
+    onClose();
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>{t('settings.languagePicker.title')}</Text>
+          <Text style={styles.languagePickerSubtitle}>{t('settings.languagePicker.subtitle')}</Text>
+
+          <FlatList
+            data={availableLanguages}
+            keyExtractor={(item) => item.code}
+            scrollEnabled={false}
+            renderItem={({ item }) => {
+              const isActive = item.code === language;
+              return (
+                <TouchableOpacity
+                  style={[styles.languageOption, isActive && styles.languageOptionActive]}
+                  onPress={() => handleSelect(item.code)}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.languageFlag}>{item.flag}</Text>
+                  <Text style={[styles.languageLabel, isActive && styles.languageLabelActive]}>
+                    {item.label}
+                  </Text>
+                  {isActive && (
+                    <MaterialIcons name="check-circle" size={20} color={COLORS.PRIMARY} />
+                  )}
+                </TouchableOpacity>
+              );
+            }}
+          />
+
+          <TouchableOpacity style={[styles.modalButton, styles.cancelButton, { marginTop: 8 }]} onPress={onClose}>
+            <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const SettingsPage = () => {
+  const router = useRouter();
+  const { t } = useLanguage();
+
   const [refreshing, setRefreshing] = useState(false);
   const [notifications, setNotifications] = useState({
     orderNotifications: true,
@@ -30,11 +146,29 @@ const SettingsPage = () => {
     allowScheduledOrders: true,
   });
   const [changePasswordModal, setChangePasswordModal] = useState(false);
+  const [languageModal, setLanguageModal] = useState(false);
   const [passwordData, setPasswordData] = useState({
     currentPassword: '',
     newPassword: '',
     confirmPassword: '',
   });
+
+  // ==== Custom alert state ====
+  const [alertState, setAlertState] = useState({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+    buttons: [{ text: 'OK' }],
+  });
+
+  const showAlert = (title, message, buttons = [{ text: t('common.ok') }], type = 'info') => {
+    setAlertState({ visible: true, type, title, message, buttons });
+  };
+
+  const closeAlert = () => {
+    setAlertState((prev) => ({ ...prev, visible: false }));
+  };
 
   useEffect(() => {
     loadSettings();
@@ -44,7 +178,7 @@ const SettingsPage = () => {
     try {
       const notificationSettings = await AsyncStorage.getItem('notifications');
       const businessData = await AsyncStorage.getItem('businessSettings');
-      
+
       if (notificationSettings) {
         setNotifications(JSON.parse(notificationSettings));
       }
@@ -86,27 +220,27 @@ const SettingsPage = () => {
 
   const handleChangePassword = () => {
     if (!passwordData.currentPassword || !passwordData.newPassword || !passwordData.confirmPassword) {
-      Alert.alert('Error', 'Mohon isi semua field password');
+      showAlert(t('common.error'), t('settings.changePasswordModal.errors.emptyFields'), [{ text: t('common.ok') }], 'error');
       return;
     }
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      Alert.alert('Error', 'Password baru tidak sama dengan konfirmasi password');
+      showAlert(t('common.error'), t('settings.changePasswordModal.errors.mismatch'), [{ text: t('common.ok') }], 'error');
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      Alert.alert('Error', 'Password baru minimal 6 karakter');
+      showAlert(t('common.error'), t('settings.changePasswordModal.errors.tooShort'), [{ text: t('common.ok') }], 'error');
       return;
     }
 
     // Here you would typically make an API call to change password
-    Alert.alert(
-      'Berhasil',
-      'Password berhasil diubah',
+    showAlert(
+      t('common.success'),
+      t('settings.changePasswordModal.success'),
       [
         {
-          text: 'OK',
+          text: t('common.ok'),
           onPress: () => {
             setChangePasswordModal(false);
             setPasswordData({
@@ -114,79 +248,82 @@ const SettingsPage = () => {
               newPassword: '',
               confirmPassword: '',
             });
-          }
-        }
-      ]
+          },
+        },
+      ],
+      'success'
     );
   };
 
   const handleLogout = () => {
-    Alert.alert(
-      'Keluar',
-      'Apakah Anda yakin ingin keluar dari aplikasi?',
+    showAlert(
+      t('settings.logoutModal.title'),
+      t('settings.logoutModal.message'),
       [
-        { text: 'Batal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Keluar',
+          text: t('settings.logoutModal.confirmButton'),
           style: 'destructive',
           onPress: () => {
             // Here you would clear user session and navigate to login
-            Alert.alert('Info', 'Logout berhasil');
-          }
-        }
-      ]
+            showAlert(t('common.info'), t('settings.logoutModal.success'), [{ text: t('common.ok') }], 'success');
+          },
+        },
+      ],
+      'warning'
     );
   };
 
   const handleDeleteAccount = () => {
-    Alert.alert(
-      'Hapus Akun',
-      'Apakah Anda yakin ingin menghapus akun? Tindakan ini tidak dapat dibatalkan dan semua data akan hilang.',
+    showAlert(
+      t('settings.deleteAccountModal.title'),
+      t('settings.deleteAccountModal.message'),
       [
-        { text: 'Batal', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Hapus',
+          text: t('settings.deleteAccountModal.confirmButton'),
           style: 'destructive',
           onPress: () => {
-            Alert.alert('Info', 'Fitur hapus akun akan segera tersedia. Silakan hubungi customer service untuk bantuan.');
-          }
-        }
-      ]
+            showAlert(t('common.info'), t('settings.deleteAccountModal.comingSoon'), [{ text: t('common.ok') }], 'info');
+          },
+        },
+      ],
+      'warning'
     );
   };
 
   const settingSections = [
     {
-      title: 'Notifikasi',
+      title: t('settings.sections.notifications.title'),
       items: [
         {
           key: 'orderNotifications',
-          label: 'Notifikasi Pesanan',
-          subtitle: 'Terima notifikasi untuk pesanan baru',
+          label: t('settings.sections.notifications.orderNotifications.label'),
+          subtitle: t('settings.sections.notifications.orderNotifications.subtitle'),
           type: 'switch',
           value: notifications.orderNotifications,
           onToggle: () => handleNotificationToggle('orderNotifications'),
         },
         {
           key: 'promotionNotifications',
-          label: 'Notifikasi Promosi',
-          subtitle: 'Terima notifikasi tentang promosi dan penawaran',
+          label: t('settings.sections.notifications.promotionNotifications.label'),
+          subtitle: t('settings.sections.notifications.promotionNotifications.subtitle'),
           type: 'switch',
           value: notifications.promotionNotifications,
           onToggle: () => handleNotificationToggle('promotionNotifications'),
         },
         {
           key: 'soundEnabled',
-          label: 'Suara Notifikasi',
-          subtitle: 'Aktifkan suara untuk notifikasi',
+          label: t('settings.sections.notifications.soundEnabled.label'),
+          subtitle: t('settings.sections.notifications.soundEnabled.subtitle'),
           type: 'switch',
           value: notifications.soundEnabled,
           onToggle: () => handleNotificationToggle('soundEnabled'),
         },
         {
           key: 'vibrationEnabled',
-          label: 'Getar',
-          subtitle: 'Aktifkan getaran untuk notifikasi',
+          label: t('settings.sections.notifications.vibrationEnabled.label'),
+          subtitle: t('settings.sections.notifications.vibrationEnabled.subtitle'),
           type: 'switch',
           value: notifications.vibrationEnabled,
           onToggle: () => handleNotificationToggle('vibrationEnabled'),
@@ -194,28 +331,28 @@ const SettingsPage = () => {
       ],
     },
     {
-      title: 'Pengaturan Bisnis',
+      title: t('settings.sections.business.title'),
       items: [
         {
           key: 'autoAcceptOrders',
-          label: 'Auto Accept Pesanan',
-          subtitle: 'Otomatis terima pesanan yang masuk',
+          label: t('settings.sections.business.autoAcceptOrders.label'),
+          subtitle: t('settings.sections.business.autoAcceptOrders.subtitle'),
           type: 'switch',
           value: businessSettings.autoAcceptOrders,
           onToggle: () => handleBusinessToggle('autoAcceptOrders'),
         },
         {
           key: 'showOnlineStatus',
-          label: 'Tampilkan Status Online',
-          subtitle: 'Tampilkan status online ke pelanggan',
+          label: t('settings.sections.business.showOnlineStatus.label'),
+          subtitle: t('settings.sections.business.showOnlineStatus.subtitle'),
           type: 'switch',
           value: businessSettings.showOnlineStatus,
           onToggle: () => handleBusinessToggle('showOnlineStatus'),
         },
         {
           key: 'allowScheduledOrders',
-          label: 'Pesanan Terjadwal',
-          subtitle: 'Izinkan pelanggan memesan untuk jadwal tertentu',
+          label: t('settings.sections.business.allowScheduledOrders.label'),
+          subtitle: t('settings.sections.business.allowScheduledOrders.subtitle'),
           type: 'switch',
           value: businessSettings.allowScheduledOrders,
           onToggle: () => handleBusinessToggle('allowScheduledOrders'),
@@ -223,99 +360,97 @@ const SettingsPage = () => {
       ],
     },
     {
-      title: 'Akun & Keamanan',
+      title: t('settings.sections.account.title'),
       items: [
         {
           key: 'changePassword',
-          label: 'Ubah Password',
-          subtitle: 'Ganti password akun Anda',
+          label: t('settings.sections.account.changePassword.label'),
+          subtitle: t('settings.sections.account.changePassword.subtitle'),
           type: 'button',
           icon: 'lock',
           onPress: () => setChangePasswordModal(true),
         },
         {
           key: 'twoFactor',
-          label: 'Autentikasi 2 Faktor',
-          subtitle: 'Tingkatkan keamanan akun',
+          label: t('settings.sections.account.twoFactor.label'),
+          subtitle: t('settings.sections.account.twoFactor.subtitle'),
           type: 'button',
           icon: 'security',
-          onPress: () => Alert.alert('Info', 'Fitur 2FA akan segera tersedia'),
+          onPress: () => showAlert(t('common.info'), t('settings.sections.account.twoFactor.comingSoon'), [{ text: t('common.ok') }], 'info'),
         },
       ],
     },
     {
-      title: 'Aplikasi',
+      title: t('settings.sections.app.title'),
       items: [
         {
           key: 'language',
-          label: 'Bahasa',
-          subtitle: 'Indonesia',
+          label: t('settings.sections.app.language.label'),
+          subtitle: t('settings.sections.app.language.subtitle'),
           type: 'button',
           icon: 'language',
-          onPress: () => Alert.alert('Info', 'Pengaturan bahasa akan segera tersedia'),
-        },
-        {
-          key: 'theme',
-          label: 'Tema',
-          subtitle: 'Terang',
-          type: 'button',
-          icon: 'palette',
-          onPress: () => Alert.alert('Info', 'Pengaturan tema akan segera tersedia'),
+          onPress: () => setLanguageModal(true),
         },
         {
           key: 'cache',
-          label: 'Bersihkan Cache',
-          subtitle: 'Hapus data cache aplikasi',
+          label: t('settings.sections.app.cache.label'),
+          subtitle: t('settings.sections.app.cache.subtitle'),
           type: 'button',
           icon: 'clear-all',
-          onPress: () => Alert.alert('Info', 'Cache berhasil dibersihkan'),
+          onPress: () => showAlert(t('common.success'), t('settings.sections.app.cache.success'), [{ text: t('common.ok') }], 'success'),
         },
       ],
     },
     {
-      title: 'Lainnya',
+      title: t('settings.sections.other.title'),
       items: [
         {
           key: 'privacy',
-          label: 'Kebijakan Privasi',
-          subtitle: 'Baca kebijakan privasi kami',
+          label: t('settings.sections.other.privacy.label'),
+          subtitle: t('settings.sections.other.privacy.subtitle'),
           type: 'button',
           icon: 'privacy-tip',
-          onPress: () => Alert.alert('Info', 'Kebijakan privasi akan ditampilkan'),
+          onPress: () => showAlert(t('common.info'), t('settings.sections.other.privacy.comingSoon'), [{ text: t('common.ok') }], 'info'),
         },
         {
           key: 'terms',
-          label: 'Syarat & Ketentuan',
-          subtitle: 'Baca syarat dan ketentuan',
+          label: t('settings.sections.other.terms.label'),
+          subtitle: t('settings.sections.other.terms.subtitle'),
           type: 'button',
           icon: 'description',
-          onPress: () => Alert.alert('Info', 'Syarat & ketentuan akan ditampilkan'),
+          onPress: () => showAlert(t('common.info'), t('settings.sections.other.terms.comingSoon'), [{ text: t('common.ok') }], 'info'),
         },
         {
           key: 'about',
-          label: 'Tentang Aplikasi',
-          subtitle: 'Versi 1.2.5',
+          label: t('settings.sections.other.about.label'),
+          subtitle: t('settings.sections.other.about.subtitle'),
           type: 'button',
           icon: 'info',
-          onPress: () => Alert.alert('Tentang', 'Bite&Co Seller v1.2.5\nDikembangkan untuk memudahkan pengelolaan warung Anda'),
+          onPress: () =>
+            showAlert(
+              t('settings.sections.other.about.title'),
+              t('settings.sections.other.about.message'),
+              [{ text: t('common.ok') }],
+              'info'
+            ),
         },
       ],
     },
     {
-      title: 'Aksi Berbahaya',
+      title: t('settings.sections.danger.title'),
       items: [
         {
           key: 'logout',
-          label: 'Keluar',
-          subtitle: 'Keluar dari aplikasi',
+          label: t('settings.sections.danger.logout.label'),
+          subtitle: t('settings.sections.danger.logout.subtitle'),
           type: 'danger',
           icon: 'logout',
           onPress: handleLogout,
         },
         {
           key: 'deleteAccount',
-          label: 'Hapus Akun',
-          subtitle: 'Hapus akun dan semua data',
+          label: t('settings.sections.danger.deleteAccount.label'),
+          subtitle: t('settings.sections.danger.deleteAccount.subtitle'),
           type: 'danger',
           icon: 'delete-forever',
           onPress: handleDeleteAccount,
@@ -326,59 +461,73 @@ const SettingsPage = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Pengaturan" />
-      
+      {/* Header selaras dengan halaman lain */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('settings.headerTitle')}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
       <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.PRIMARY]} />
         }
       >
         {settingSections.map((section, sectionIndex) => (
-          <View key={sectionIndex} style={styles.section}>
+          <View key={sectionIndex}>
             <Text style={styles.sectionTitle}>{section.title}</Text>
-            {section.items.map((item, itemIndex) => (
-              <TouchableOpacity
-                key={item.key}
-                style={[
-                  styles.settingItem,
-                  itemIndex === section.items.length - 1 && styles.lastItem
-                ]}
-                onPress={item.onPress}
-                disabled={item.type === 'switch'}
-              >
-                <View style={styles.settingContent}>
-                  {item.icon && (
-                    <MaterialIcons
-                      name={item.icon}
-                      size={24}
-                      color={item.type === 'danger' ? '#dc3545' : '#FF6B35'}
-                      style={styles.settingIcon}
-                    />
-                  )}
-                  <View style={styles.settingText}>
-                    <Text style={[
-                      styles.settingLabel,
-                      item.type === 'danger' && styles.dangerText
-                    ]}>
-                      {item.label}
-                    </Text>
-                    <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+            <View style={[styles.card, styles.shadow]}>
+              {section.items.map((item, itemIndex) => (
+                <TouchableOpacity
+                  key={item.key}
+                  style={[
+                    styles.settingItem,
+                    itemIndex === section.items.length - 1 && styles.lastItem,
+                  ]}
+                  onPress={item.onPress}
+                  disabled={item.type === 'switch'}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.settingContent}>
+                    {item.icon && (
+                      <View
+                        style={[
+                          styles.settingIconBox,
+                          { backgroundColor: item.type === 'danger' ? '#FFEBEE' : '#F7EAEF' },
+                        ]}
+                      >
+                        <MaterialIcons
+                          name={item.icon}
+                          size={18}
+                          color={item.type === 'danger' ? '#C62828' : COLORS.PRIMARY}
+                        />
+                      </View>
+                    )}
+                    <View style={styles.settingText}>
+                      <Text style={[styles.settingLabel, item.type === 'danger' && styles.dangerText]}>
+                        {item.label}
+                      </Text>
+                      <Text style={styles.settingSubtitle}>{item.subtitle}</Text>
+                    </View>
                   </View>
-                </View>
-                
-                {item.type === 'switch' ? (
-                  <Switch
-                    value={item.value}
-                    onValueChange={item.onToggle}
-                    trackColor={{ false: '#e9ecef', true: '#FF6B35' }}
-                    thumbColor={item.value ? '#fff' : '#f4f3f4'}
-                  />
-                ) : (
-                  <MaterialIcons name="chevron-right" size={20} color="#666" />
-                )}
-              </TouchableOpacity>
-            ))}
+
+                  {item.type === 'switch' ? (
+                    <Switch
+                      value={item.value}
+                      onValueChange={item.onToggle}
+                      trackColor={{ false: '#e5e5e5', true: COLORS.PRIMARY }}
+                      thumbColor="#fff"
+                    />
+                  ) : (
+                    <MaterialIcons name="chevron-right" size={20} color="#c9c9c9" />
+                  )}
+                </TouchableOpacity>
+              ))}
+            </View>
           </View>
         ))}
       </ScrollView>
@@ -392,50 +541,63 @@ const SettingsPage = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Ubah Password</Text>
-            
+            <Text style={styles.modalTitle}>{t('settings.changePasswordModal.title')}</Text>
+
             <TextInput
               style={styles.input}
-              placeholder="Password Saat Ini"
+              placeholder={t('settings.changePasswordModal.currentPassword')}
+              placeholderTextColor="#aaa"
               secureTextEntry
               value={passwordData.currentPassword}
-              onChangeText={(text) => setPasswordData({...passwordData, currentPassword: text})}
+              onChangeText={(text) => setPasswordData({ ...passwordData, currentPassword: text })}
             />
-            
+
             <TextInput
               style={styles.input}
-              placeholder="Password Baru"
+              placeholder={t('settings.changePasswordModal.newPassword')}
+              placeholderTextColor="#aaa"
               secureTextEntry
               value={passwordData.newPassword}
-              onChangeText={(text) => setPasswordData({...passwordData, newPassword: text})}
+              onChangeText={(text) => setPasswordData({ ...passwordData, newPassword: text })}
             />
-            
+
             <TextInput
               style={styles.input}
-              placeholder="Konfirmasi Password Baru"
+              placeholder={t('settings.changePasswordModal.confirmPassword')}
+              placeholderTextColor="#aaa"
               secureTextEntry
               value={passwordData.confirmPassword}
-              onChangeText={(text) => setPasswordData({...passwordData, confirmPassword: text})}
+              onChangeText={(text) => setPasswordData({ ...passwordData, confirmPassword: text })}
             />
-            
+
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setChangePasswordModal(false)}
               >
-                <Text style={styles.cancelButtonText}>Batal</Text>
+                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity
-                style={[styles.modalButton, styles.saveButton]}
-                onPress={handleChangePassword}
-              >
-                <Text style={styles.saveButtonText}>Simpan</Text>
+
+              <TouchableOpacity style={[styles.modalButton, styles.saveButton]} onPress={handleChangePassword}>
+                <Text style={styles.saveButtonText}>{t('common.save')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Language Picker Modal */}
+      <LanguagePickerModal visible={languageModal} onClose={() => setLanguageModal(false)} t={t} />
+
+      {/* Custom Alert Card (pengganti Alert.alert bawaan) */}
+      <CustomAlert
+        visible={alertState.visible}
+        type={alertState.type}
+        title={alertState.title}
+        message={alertState.message}
+        buttons={alertState.buttons}
+        onClose={closeAlert}
+      />
     </SafeAreaView>
   );
 };
@@ -443,40 +605,53 @@ const SettingsPage = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F6FA',
   },
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
+
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
   content: {
     flex: 1,
-  },
-  section: {
-    backgroundColor: 'white',
-    marginHorizontal: 16,
-    marginTop: 16,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    paddingHorizontal: 16,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    padding: 16,
-    paddingBottom: 8,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+    marginTop: 18,
+    marginBottom: 10,
+  },
+  card: {
+    backgroundColor: 'white',
+    borderRadius: 14,
   },
   settingItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 14,
     paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#e9ecef',
+    borderBottomColor: '#f0f0f0',
   },
   lastItem: {
     borderBottomWidth: 0,
@@ -485,25 +660,30 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    gap: 12,
   },
-  settingIcon: {
-    marginRight: 12,
+  settingIconBox: {
+    width: 34,
+    height: 34,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingText: {
     flex: 1,
   },
   settingLabel: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#23272f',
     marginBottom: 2,
   },
   settingSubtitle: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 12,
+    color: '#888',
   },
   dangerText: {
-    color: '#dc3545',
+    color: '#C62828',
   },
   modalOverlay: {
     flex: 1,
@@ -513,54 +693,175 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: 'white',
-    borderRadius: 12,
+    borderRadius: 16,
     padding: 20,
     width: '90%',
     maxWidth: 400,
   },
   modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 17,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e9ecef',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    marginBottom: 12,
+    borderColor: '#e5e5e5',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 11,
+    fontSize: 14,
+    marginBottom: 10,
+    color: '#23272f',
   },
   modalButtons: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 20,
-    gap: 12,
+    marginTop: 10,
+    gap: 10,
   },
   modalButton: {
     flex: 1,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 30,
     alignItems: 'center',
   },
   cancelButton: {
-    backgroundColor: '#e9ecef',
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: COLORS.PRIMARY,
   },
   saveButton: {
-    backgroundColor: '#FF6B35',
+    backgroundColor: COLORS.PRIMARY,
   },
   cancelButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#666',
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
   },
   saveButtonText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: 'white',
+  },
+
+  // ==== Language Picker ====
+  languagePickerSubtitle: {
+    fontSize: 12.5,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: -10,
+    marginBottom: 16,
+  },
+  languageOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    borderRadius: 12,
+    marginBottom: 8,
+    backgroundColor: '#FAFAFA',
+    borderWidth: 1.5,
+    borderColor: '#F0F0F0',
+    gap: 12,
+  },
+  languageOptionActive: {
+    backgroundColor: '#F7EAEF',
+    borderColor: COLORS.PRIMARY,
+  },
+  languageFlag: {
+    fontSize: 22,
+  },
+  languageLabel: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#23272f',
+  },
+  languageLabelActive: {
+    color: COLORS.PRIMARY,
+    fontWeight: '700',
+  },
+
+  // ==== Custom Alert Card ====
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(20, 8, 12, 0.55)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  alertCard: {
+    width: '100%',
+    maxWidth: 340,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 22,
+    paddingTop: 24,
+    paddingBottom: 18,
+    paddingHorizontal: 22,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#F0E4E8',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.18,
+    shadowRadius: 16,
+    elevation: 10,
+  },
+  alertIconWrap: {
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  alertTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#23272f',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  alertMessage: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: '#6b6b6b',
+    textAlign: 'center',
+    marginBottom: 20,
+  },
+  alertButtonRow: {
+    flexDirection: 'row',
+    width: '100%',
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  alertButtonPrimary: {
+    backgroundColor: COLORS.PRIMARY,
+  },
+  alertButtonDestructive: {
+    backgroundColor: '#C62828',
+  },
+  alertButtonCancel: {
+    backgroundColor: '#F5EFE6',
+    borderWidth: 1.5,
+    borderColor: '#E4D6DC',
+  },
+  alertButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  alertButtonTextSolid: {
+    color: '#FFFFFF',
+  },
+  alertButtonTextCancel: {
+    color: COLORS.PRIMARY,
   },
 });
 

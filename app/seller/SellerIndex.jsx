@@ -19,12 +19,14 @@ import config from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import logo from "../../assets/images/logo.png";
 import { Ionicons } from "@expo/vector-icons";
+import { useLanguage } from "../contexts/LanguageContext";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BURGUNDY = "#711330";
 
 const SellerIndex = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -51,11 +53,11 @@ const SellerIndex = () => {
         await AsyncStorage.setItem('sellerToken', response.data.token);
         router.push("/seller/(tabs)");
       } else {
-        showCustomAlert(response.data.message || "Login gagal");
+        showCustomAlert(response.data.message || t("sellerLogin.loginFailed"));
       }
     } catch (error) {
       console.error("Login error:", error);
-      showCustomAlert(error.response?.data?.message || "Login gagal. Coba lagi.");
+      showCustomAlert(error.response?.data?.message || t("sellerLogin.loginFailedRetry"));
     } finally {
       setLoading(false);
     }
@@ -79,13 +81,13 @@ const SellerIndex = () => {
 
           {/* Bottom section — form */}
           <View style={styles.bottomSection}>
-            <Text style={styles.greeting}>Halo!</Text>
-            <Text style={styles.subtitle}>Selamat datang di Bite&Co</Text>
+            <Text style={styles.greeting}>{t("sellerLogin.greeting")}</Text>
+            <Text style={styles.subtitle}>{t("sellerLogin.subtitle")}</Text>
 
             {/* Email input */}
             <View style={styles.inputWrap}>
               <TextInput
-                placeholder="Email"
+                placeholder={t("sellerLogin.email")}
                 placeholderTextColor="#aaa"
                 value={email}
                 onChangeText={setEmail}
@@ -98,7 +100,7 @@ const SellerIndex = () => {
             {/* Password input */}
             <View style={styles.inputWrap}>
               <TextInput
-                placeholder="Password"
+                placeholder={t("sellerLogin.password")}
                 placeholderTextColor="#aaa"
                 value={password}
                 onChangeText={setPassword}
@@ -119,7 +121,7 @@ const SellerIndex = () => {
 
             {/* Lupa password */}
             <TouchableOpacity style={styles.forgotWrap}>
-              <Text style={styles.forgotText}>Lupa password?</Text>
+              <Text style={styles.forgotText}>{t("sellerLogin.forgotPassword")}</Text>
             </TouchableOpacity>
 
            {/* Tombol Masuk */}
@@ -130,15 +132,15 @@ const SellerIndex = () => {
               activeOpacity={0.85}
             >
               <Text style={styles.btnPrimaryText}>
-                {loading ? "Memproses..." : "Masuk"}
+                {loading ? t("sellerLogin.processing") : t("sellerLogin.login")}
               </Text>
             </TouchableOpacity>
 
             {/* Belum punya akun? Daftar */}
             <View style={styles.registerWrap}>
-              <Text style={styles.registerText}>Belum punya akun? </Text>
+              <Text style={styles.registerText}>{t("sellerLogin.noAccount")}</Text>
               <TouchableOpacity onPress={() => router.push("/seller/DetailUsaha")}>
-                <Text style={styles.registerLink}>Daftar</Text>
+                <Text style={styles.registerLink}>{t("sellerLogin.register")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -158,7 +160,7 @@ const SellerIndex = () => {
               <Ionicons name="alert-circle" size={28} color={BURGUNDY} />
             </View>
 
-            <Text style={styles.alertTitle}>Gagal Masuk</Text>
+            <Text style={styles.alertTitle}>{t("sellerLogin.loginFailedTitle")}</Text>
             <Text style={styles.alertText}>{alertMessage}</Text>
 
             <TouchableOpacity
@@ -166,7 +168,7 @@ const SellerIndex = () => {
               onPress={() => setShowAlertModal(false)}
               activeOpacity={0.85}
             >
-              <Text style={styles.alertBtnText}>Mengerti</Text>
+              <Text style={styles.alertBtnText}>{t("common.ok", "OK")}</Text>
             </TouchableOpacity>
           </View>
         </View>

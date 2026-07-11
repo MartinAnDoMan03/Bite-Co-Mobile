@@ -10,19 +10,27 @@ import {
 import React from "react";
 import logo from "../assets/images/logo.png";
 import { useRouter } from "expo-router";
+import { useLanguage } from "./contexts/LanguageContext";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const Started = () => {
   const router = useRouter();
+  const { t } = useLanguage();
 
   return (
     <SafeAreaView style={styles.container}>
       {/* Top section — burgundy, proporsi 55% layar */}
       <View style={styles.topSection}>
         <Image source={logo} style={styles.logo} resizeMode="contain" />
-        <Text style={styles.title}>Mulai Sebagai...</Text>
-        <Text style={styles.subtitle}>Pilih peranmu untuk melanjutkan</Text>
+
+        <Text style={styles.title}>
+          {t("started.title")}
+        </Text>
+
+        <Text style={styles.subtitle}>
+          {t("started.subtitle")}
+        </Text>
       </View>
 
       {/* Bottom section — putih */}
@@ -32,7 +40,9 @@ const Started = () => {
           activeOpacity={0.85}
           onPress={() => router.push("/buyer/BuyerIndex")}
         >
-          <Text style={styles.buttonText}>Saya Pembeli</Text>
+          <Text style={styles.buttonText}>
+            {t("started.buyer")}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -40,7 +50,9 @@ const Started = () => {
           activeOpacity={0.85}
           onPress={() => router.push("/seller/SellerIndex")}
         >
-          <Text style={styles.buttonText}>Saya Penjual</Text>
+          <Text style={styles.buttonText}>
+            {t("started.seller")}
+          </Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -58,7 +70,7 @@ const styles = StyleSheet.create({
   },
 
   topSection: {
-    height: SCREEN_HEIGHT * 0.55, // fix 55% tinggi layar
+    height: SCREEN_HEIGHT * 0.55,
     backgroundColor: BURGUNDY,
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
@@ -69,7 +81,7 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    width: SCREEN_WIDTH * 0.38, // responsive ke lebar layar
+    width: SCREEN_WIDTH * 0.38,
     height: SCREEN_WIDTH * 0.38,
     marginBottom: 24,
   },

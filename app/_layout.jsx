@@ -9,6 +9,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import * as SystemUI from 'expo-system-ui';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import AnimatedSplash from '../components/AnimatedSplash';
+import { LanguageProvider } from './contexts/LanguageContext';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -130,72 +131,74 @@ export default function RootLayout() {
 }
 
   return (
-    <ErrorBoundary>
-      <ToastProvider>
-        <ExpoStatusBar style="dark" backgroundColor="#ffffff" />
-        <Stack
-          screenOptions={{
-            headerShown: false,
-            animation: 'slide_from_right',
-            gestureEnabled: true,
-            gestureDirection: 'horizontal',
-            contentStyle: { backgroundColor: '#ffffff' },
-            ...(Platform.OS === 'android' && {
-              statusBarStyle: 'dark',
-              statusBarBackgroundColor: '#ffffff',
-            }),
-          }}
-        >
-          <Stack.Screen name="index" options={{ headerShown: false }} />
-          <Stack.Screen name="started" options={{ headerShown: false }} />
-          
-          {/* Seller Routes */}
-          <Stack.Screen name="seller/SellerIndex" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/DetailUsaha" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/pelanggan" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/pelangganDetails" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/notifikasi" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/menu" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/menu/add" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/daftarmenu" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/Laporan" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/riwayat" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/gizipro" options={{ headerShown: false }} />
-          
-          {/* Bite Eco Routes */}
-          <Stack.Screen name="seller/biteeco" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/biteeco/management" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/biteeco/add" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/biteeco/edit" options={{ headerShown: false }} />
-          
-          <Stack.Screen name="seller/ulasan" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/bantuan" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/settings" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/JadwalPengantaran" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/DetailPengantaran" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/DetailOrder" options={{ headerShown: false }} />
-          <Stack.Screen name="seller/Pengantaran" options={{ headerShown: false }} />
-          
-          {/* Buyer Routes */}
-          <Stack.Screen name="buyer/BuyerIndex" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/BuyerRegister" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/BuyerOTPVerification" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/(tabs)" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/CateringList" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/StatusOrder" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/DetailOrder" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/CateringDetail" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/Pembayaran" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/RiwayatDetail" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/ChatRoom" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/SearchScreen" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/OrderTrackingScreen" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/RantanganDetail" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/GiziPro" options={{ headerShown: false }} />
-          <Stack.Screen name="buyer/BiteEco" options={{ headerShown: false }} />
-        </Stack>
-      </ToastProvider>
-    </ErrorBoundary>
+    <LanguageProvider>
+      <ErrorBoundary>
+        <ToastProvider>
+          <ExpoStatusBar style="dark" backgroundColor="#ffffff" />
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              animation: 'slide_from_right',
+              gestureEnabled: true,
+              gestureDirection: 'horizontal',
+              contentStyle: { backgroundColor: '#ffffff' },
+              ...(Platform.OS === 'android' && {
+                statusBarStyle: 'dark',
+                statusBarBackgroundColor: '#ffffff',
+              }),
+            }}
+          >
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="started" options={{ headerShown: false }} />
+            
+            {/* Seller Routes */}
+            <Stack.Screen name="seller/SellerIndex" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/DetailUsaha" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/pelanggan" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/pelangganDetails" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/notifikasi" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/menu" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/menu/add" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/daftarmenu" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/Laporan" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/riwayat" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/gizipro" options={{ headerShown: false }} />
+            
+            {/* Bite Eco Routes */}
+            <Stack.Screen name="seller/biteeco" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/biteeco/management" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/biteeco/add" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/biteeco/edit" options={{ headerShown: false }} />
+            
+            <Stack.Screen name="seller/ulasan" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/bantuan" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/settings" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/JadwalPengantaran" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/DetailPengantaran" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/DetailOrder" options={{ headerShown: false }} />
+            <Stack.Screen name="seller/Pengantaran" options={{ headerShown: false }} />
+            
+            {/* Buyer Routes */}
+            <Stack.Screen name="buyer/BuyerIndex" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/BuyerRegister" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/BuyerOTPVerification" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/CateringList" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/StatusOrder" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/DetailOrder" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/CateringDetail" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/Pembayaran" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/RiwayatDetail" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/ChatRoom" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/SearchScreen" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/OrderTrackingScreen" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/RantanganDetail" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/GiziPro" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/BiteEco" options={{ headerShown: false }} />
+          </Stack>
+        </ToastProvider>
+      </ErrorBoundary>
+    </LanguageProvider>
   );
 }

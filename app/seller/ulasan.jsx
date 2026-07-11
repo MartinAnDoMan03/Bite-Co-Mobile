@@ -11,12 +11,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import HeaderTitleBack from '../../components/HeaderTitleBack';
+import { useRouter } from 'expo-router';
 import COLORS from '../constants/color';
 import config from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const UlasanSeller = () => {
+  const router = useRouter();
+  const { t } = useLanguage();
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -40,12 +43,12 @@ const UlasanSeller = () => {
       if (data.orders) {
         // Filter orders that have reviews
         const reviewedOrders = data.orders.filter(order => order.review && order.rating);
-        
+
         // Calculate stats
         const totalReviews = reviewedOrders.length;
         const totalRating = reviewedOrders.reduce((sum, order) => sum + (order.rating || 0), 0);
         const averageRating = totalReviews > 0 ? (totalRating / totalReviews).toFixed(1) : 0;
-        
+
         // Rating breakdown
         const ratingsBreakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
         reviewedOrders.forEach(order => {
@@ -63,7 +66,7 @@ const UlasanSeller = () => {
       }
     } catch (error) {
       console.error('Error fetching reviews:', error);
-      Alert.alert('Error', 'Gagal memuat ulasan');
+      Alert.alert(t('common.error'), t('ulasan.errors.fetchFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -79,15 +82,15 @@ const UlasanSeller = () => {
     fetchReviews();
   };
 
-  const renderStars = (rating) => {
+  const renderStars = (rating, size = 16) => {
     const stars = [];
     for (let i = 1; i <= 5; i++) {
       stars.push(
         <MaterialIcons
           key={i}
           name={i <= rating ? 'star' : 'star-border'}
-          size={16}
-          color={i <= rating ? '#FFD700' : '#E0E0E0'}
+          size={size}
+          color={i <= rating ? '#F5B342' : '#E0E0E0'}
         />
       );
     }
@@ -95,10 +98,13 @@ const UlasanSeller = () => {
   };
 
   const ReviewCard = ({ order }) => (
-    <View style={styles.reviewCard}>
+    <View style={[styles.reviewCard, styles.shadow]}>
       <View style={styles.reviewHeader}>
-        <View>
-          <Text style={styles.buyerName}>{order.buyerName || 'Pelanggan'}</Text>
+        <View style={styles.reviewerAvatar}>
+          <MaterialIcons name="person" size={18} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.buyerName} numberOfLines={1}>{order.buyerName || t('ulasan.buyerFallback')}</Text>
           <Text style={styles.reviewDate}>
             {new Date(order.reviewDate || order.updatedAt).toLocaleDateString('id-ID', {
               day: 'numeric',
@@ -108,10 +114,8 @@ const UlasanSeller = () => {
           </Text>
         </View>
         <View style={styles.ratingContainer}>
-          <View style={styles.starsContainer}>
-            {renderStars(order.rating)}
-          </View>
-          <Text style={styles.ratingText}>{order.rating}/5</Text>
+          <View style={styles.starsRow}>{renderStars(order.rating, 13)}</View>
+          <Text style={styles.ratingText}>{t('ulasan.ratingOutOf5', { rating: order.rating })}</Text>
         </View>
       </View>
 
@@ -122,15 +126,15 @@ const UlasanSeller = () => {
       )}
 
       <View style={styles.orderInfo}>
-        <Text style={styles.orderLabel}>Pesanan:</Text>
-        <Text style={styles.orderDetails}>
-          {order.items?.map(item => item.name).join(', ') || 'Detail tidak tersedia'}
+        <Text style={styles.orderLabel}>{t('ulasan.orderLabel')}</Text>
+        <Text style={styles.orderDetails} numberOfLines={2}>
+          {order.items?.map(item => item.name).join(', ') || t('ulasan.orderDetailsFallback')}
         </Text>
       </View>
 
       {order.orderType && (
-        <View style={styles.orderType}>
-          <MaterialIcons name="local-dining" size={14} color={COLORS.PRIMARY} />
+        <View style={styles.orderTypeRow}>
+          <MaterialIcons name="local-dining" size={13} color={COLORS.PRIMARY} />
           <Text style={styles.orderTypeText}>
             {order.orderType} {order.packageType && `• ${order.packageType}`}
           </Text>
@@ -141,15 +145,14 @@ const UlasanSeller = () => {
 
   const RatingBreakdown = () => (
     <View style={styles.breakdownContainer}>
-      <Text style={styles.breakdownTitle}>Breakdown Rating</Text>
       {[5, 4, 3, 2, 1].map(rating => {
         const count = stats.ratingsBreakdown[rating];
         const percentage = stats.totalReviews > 0 ? (count / stats.totalReviews) * 100 : 0;
-        
+
         return (
           <View key={rating} style={styles.breakdownRow}>
             <Text style={styles.breakdownRating}>{rating}</Text>
-            <MaterialIcons name="star" size={14} color="#FFD700" />
+            <MaterialIcons name="star" size={12} color="#F5B342" />
             <View style={styles.progressBarContainer}>
               <View style={[styles.progressBar, { width: `${percentage}%` }]} />
             </View>
@@ -161,34 +164,40 @@ const UlasanSeller = () => {
   );
 
   const StatsHeader = () => (
-    <View style={styles.statsHeader}>
+    <View style={[styles.statsHeader, styles.shadow]}>
       <View style={styles.averageRatingContainer}>
         <Text style={styles.averageRating}>{stats.averageRating}</Text>
-        <View style={styles.starsContainer}>
-          {renderStars(Math.round(stats.averageRating))}
-        </View>
-        <Text style={styles.totalReviews}>
-          {stats.totalReviews} ulasan
-        </Text>
+        <View style={styles.starsRow}>{renderStars(Math.round(stats.averageRating), 15)}</View>
+        <Text style={styles.totalReviews}>{t('ulasan.totalReviews', { count: stats.totalReviews })}</Text>
       </View>
+      <View style={styles.statsDivider} />
       <RatingBreakdown />
     </View>
   );
 
   const EmptyState = () => (
     <View style={styles.emptyState}>
-      <MaterialIcons name="rate-review" size={64} color="#ccc" />
-      <Text style={styles.emptyTitle}>Belum Ada Ulasan</Text>
+      <View style={styles.emptyIconCircle}>
+        <MaterialIcons name="rate-review" size={40} color="#bbb" />
+      </View>
+      <Text style={styles.emptyTitle}>{t('ulasan.empty.title')}</Text>
       <Text style={styles.emptyDescription}>
-        Ulasan dari pelanggan akan muncul di sini setelah mereka menyelesaikan pesanan
+        {t('ulasan.empty.description')}
       </Text>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Ulasan Pelanggan" />
-      
+      {/* Header selaras dengan halaman lain */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('ulasan.accessibility.back')}>
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('ulasan.header.title')}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -209,18 +218,18 @@ const UlasanSeller = () => {
           {reviews.length === 0 ? (
             <EmptyState />
           ) : (
-            <>
+            <View style={{ padding: 16 }}>
               <StatsHeader />
-              
+
               <View style={styles.reviewsList}>
                 <Text style={styles.sectionTitle}>
-                  Semua Ulasan ({stats.totalReviews})
+                  {t('ulasan.allReviews', { count: stats.totalReviews })}
                 </Text>
                 {reviews.map((order, index) => (
                   <ReviewCard key={order.id || index} order={order} />
                 ))}
               </View>
-            </>
+            </View>
           )}
         </ScrollView>
       )}
@@ -233,171 +242,205 @@ export default UlasanSeller;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F6FA',
   },
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
   scrollView: {
     flex: 1,
   },
   loader: {
-    marginTop: 40,
+    marginTop: 60,
   },
+
   statsHeader: {
     backgroundColor: 'white',
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 14,
+    padding: 18,
   },
   averageRatingContainer: {
     alignItems: 'center',
-    marginBottom: 20,
   },
   averageRating: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 40,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 6,
   },
-  starsContainer: {
+  starsRow: {
     flexDirection: 'row',
-    marginBottom: 8,
+    gap: 2,
+    marginBottom: 6,
   },
   totalReviews: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 13,
+    color: '#888',
+  },
+  statsDivider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 16,
   },
   breakdownContainer: {
-    marginTop: 20,
-  },
-  breakdownTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 12,
+    gap: 6,
   },
   breakdownRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
     gap: 8,
   },
   breakdownRating: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#333',
-    width: 12,
+    color: '#23272f',
+    width: 10,
   },
   progressBarContainer: {
     flex: 1,
-    height: 8,
-    backgroundColor: '#E0E0E0',
-    borderRadius: 4,
+    height: 6,
+    backgroundColor: '#F0F0F0',
+    borderRadius: 3,
     overflow: 'hidden',
   },
   progressBar: {
     height: '100%',
-    backgroundColor: '#FFD700',
-    borderRadius: 4,
+    backgroundColor: '#F5B342',
+    borderRadius: 3,
   },
   breakdownCount: {
-    fontSize: 12,
-    color: '#666',
-    width: 20,
+    fontSize: 11.5,
+    color: '#999',
+    width: 18,
     textAlign: 'right',
   },
+
   reviewsList: {
-    paddingHorizontal: 16,
+    marginTop: 18,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 12,
   },
   reviewCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
   },
   reviewHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    gap: 10,
+    marginBottom: 10,
+  },
+  reviewerAvatar: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F5B342',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   buyerName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 2,
   },
   reviewDate: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 11.5,
+    color: '#999',
   },
   ratingContainer: {
     alignItems: 'flex-end',
   },
   ratingText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 4,
+    fontSize: 11,
+    color: '#999',
+    marginTop: 2,
   },
   reviewContent: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
+    backgroundColor: '#F5F6FA',
+    padding: 11,
     borderRadius: 8,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   reviewText: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
+    fontSize: 13,
+    color: '#444',
+    lineHeight: 19,
   },
   orderInfo: {
-    marginBottom: 8,
+    marginBottom: 6,
   },
   orderLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#666',
-    marginBottom: 4,
+    color: '#999',
+    marginBottom: 3,
   },
   orderDetails: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#333',
   },
-  orderType: {
+  orderTypeRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
   },
   orderTypeText: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: COLORS.PRIMARY,
     fontWeight: '600',
   },
+
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingTop: 100,
     paddingHorizontal: 32,
   },
+  emptyIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#555',
+    marginBottom: 6,
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#999',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
   },
 });

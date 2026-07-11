@@ -12,13 +12,15 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import HeaderTitleBack from '../../components/HeaderTitleBack';
+import { MaterialIcons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import COLORS from '../constants/color';
 import config from '../constants/config';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const screenWidth = Dimensions.get('window').width;
 
-const StatCard = ({ title, value, percentage, isPositive, loading }) => (
+const StatCard = ({ title, value, percentage, isPositive, loading, comparedText }) => (
   <View style={styles.statCard}>
     <Text style={styles.statTitle}>{title}</Text>
     {loading ? (
@@ -28,10 +30,15 @@ const StatCard = ({ title, value, percentage, isPositive, loading }) => (
         <Text style={styles.statValue}>{value}</Text>
         {percentage !== null && (
           <View style={styles.percentageContainer}>
-            <Text style={[styles.percentageText, { color: isPositive ? COLORS.GREEN3 : '#dc3545' }]}>
-              {isPositive ? '↑' : '↓'} {percentage}%
+            <MaterialIcons
+              name={isPositive ? "arrow-upward" : "arrow-downward"}
+              size={12}
+              color={isPositive ? "#2E7D32" : "#C62828"}
+            />
+            <Text style={[styles.percentageText, { color: isPositive ? "#2E7D32" : "#C62828" }]}>
+              {percentage}%
             </Text>
-            <Text style={styles.comparedText}>vs last period</Text>
+            <Text style={styles.comparedText}>{comparedText}</Text>
           </View>
         )}
       </>
@@ -39,30 +46,30 @@ const StatCard = ({ title, value, percentage, isPositive, loading }) => (
   </View>
 );
 
-const SimpleChart = ({ data, labels, loading }) => {
+const SimpleChart = ({ data, labels, loading, title, loadingText }) => {
   if (loading) {
     return (
-      <View style={[styles.chartContainer, { justifyContent: 'center', alignItems: 'center' }]}>
+      <View style={[styles.chartContainer, styles.shadow, { justifyContent: 'center', alignItems: 'center', minHeight: 220 }]}>
         <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-        <Text style={styles.loadingText}>Loading chart data...</Text>
+        <Text style={styles.loadingText}>{loadingText}</Text>
       </View>
     );
   }
 
   const maxValue = Math.max(...data, 1); // Ensure we don't divide by 0
-  
+
   return (
-    <View style={styles.chartContainer}>
-      <Text style={styles.chartTitle}>Revenue Overview</Text>
+    <View style={[styles.chartContainer, styles.shadow]}>
+      <Text style={styles.chartTitle}>{title}</Text>
       <View style={styles.chart}>
         <View style={styles.chartBars}>
           {data.map((value, index) => (
             <View key={index} style={styles.barContainer}>
-              <View 
+              <View
                 style={[
-                  styles.bar, 
+                  styles.bar,
                   { height: Math.max((value / maxValue) * 120, 2) }
-                ]} 
+                ]}
               />
               <Text style={styles.barLabel}>{labels[index]}</Text>
             </View>
@@ -98,6 +105,8 @@ const formatRupiah = (amount) => {
 };
 
 const Laporan = () => {
+  const router = useRouter();
+  const { t } = useLanguage();
   const [timeRange, setTimeRange] = useState('week');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -118,10 +127,10 @@ const Laporan = () => {
   const fetchReportData = async () => {
     try {
       if (!refreshing) setLoading(true);
-      
+
       const token = await AsyncStorage.getItem('sellerToken');
       if (!token) {
-        Alert.alert('Error', 'Please login first');
+        Alert.alert(t('common.error'), t('laporan.errors.loginRequired'));
         return;
       }
 
@@ -157,7 +166,7 @@ const Laporan = () => {
 
     } catch (error) {
       console.error('Error fetching report data:', error);
-      Alert.alert('Error', 'Failed to load report data. Please try again.');
+      Alert.alert(t('common.error'), t('laporan.errors.fetchFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -175,36 +184,36 @@ const Laporan = () => {
         startDate = new Date(weekStart.setHours(0, 0, 0, 0));
         endDate = new Date(weekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
         endDate.setHours(23, 59, 59, 999);
-        
+
         previousEndDate = new Date(startDate.getTime() - 1);
         previousStartDate = new Date(previousEndDate.getTime() - 6 * 24 * 60 * 60 * 1000);
-        
-        labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+        labels = t('laporan.chartLabels.week');
         break;
-        
+
       case 'month':
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
         endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
-        
+
         previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
         previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
-        
+
         // Get weeks in month
         labels = [];
         const weeksInMonth = Math.ceil((endDate.getDate() + startDate.getDay()) / 7);
         for (let i = 1; i <= weeksInMonth; i++) {
-          labels.push(`W${i}`);
+          labels.push(`${t('laporan.chartLabels.monthPrefix')}${i}`);
         }
         break;
-        
+
       case 'year':
         startDate = new Date(now.getFullYear(), 0, 1);
         endDate = new Date(now.getFullYear(), 11, 31, 23, 59, 59, 999);
-        
+
         previousStartDate = new Date(now.getFullYear() - 1, 0, 1);
         previousEndDate = new Date(now.getFullYear() - 1, 11, 31, 23, 59, 59, 999);
-        
-        labels = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        labels = t('laporan.chartLabels.year');
         break;
     }
 
@@ -222,13 +231,13 @@ const Laporan = () => {
     // Calculate metrics
     const currentRevenue = currentOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
     const previousRevenue = previousOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
-    
+
     const currentOrderCount = currentOrders.length;
     const previousOrderCount = previousOrders.length;
-    
+
     const currentAvgOrder = currentOrderCount > 0 ? currentRevenue / currentOrderCount : 0;
     const previousAvgOrder = previousOrderCount > 0 ? previousRevenue / previousOrderCount : 0;
-    
+
     // Get unique customers
     const currentCustomers = new Set(currentOrders.map(order => order.buyerId || order.customerId)).size;
     const previousCustomers = new Set(previousOrders.map(order => order.buyerId || order.customerId)).size;
@@ -236,7 +245,7 @@ const Laporan = () => {
     // Generate chart data
     const chartData = labels.map((label, index) => {
       let dayRevenue = 0;
-      
+
       if (period === 'week') {
         const dayOrders = currentOrders.filter(order => {
           const orderDate = new Date(order.createdAt || order.orderDate);
@@ -259,21 +268,21 @@ const Laporan = () => {
         });
         dayRevenue = monthOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
       }
-      
+
       return dayRevenue;
     });
 
     // Calculate top items
     const itemCounts = {};
     const itemRevenue = {};
-    
+
     currentOrders.forEach(order => {
       if (order.items) {
         order.items.forEach(item => {
           const itemName = item.name || item.menuName || 'Unknown Item';
           const quantity = parseInt(item.quantity) || 1;
           const price = parseFloat(item.price) || 0;
-          
+
           itemCounts[itemName] = (itemCounts[itemName] || 0) + quantity;
           itemRevenue[itemName] = (itemRevenue[itemName] || 0) + (price * quantity);
         });
@@ -296,25 +305,29 @@ const Laporan = () => {
     const customersChange = previousCustomers > 0 ? ((currentCustomers - previousCustomers) / previousCustomers) * 100 : 0;
 
     return {
-      revenue: { 
-        current: currentRevenue, 
-        previous: previousRevenue, 
-        change: revenueChange 
+      revenue: {
+        current: currentRevenue,
+        previous: previousRevenue,
+        change: revenueChange,
+        hasComparison: previousRevenue > 0,
       },
-      orders: { 
-        current: currentOrderCount, 
-        previous: previousOrderCount, 
-        change: ordersChange 
+      orders: {
+        current: currentOrderCount,
+        previous: previousOrderCount,
+        change: ordersChange,
+        hasComparison: previousOrderCount > 0,
       },
-      averageOrder: { 
-        current: currentAvgOrder, 
-        previous: previousAvgOrder, 
-        change: avgOrderChange 
+      averageOrder: {
+        current: currentAvgOrder,
+        previous: previousAvgOrder,
+        change: avgOrderChange,
+        hasComparison: previousAvgOrder > 0,
       },
-      customers: { 
-        current: currentCustomers, 
-        previous: previousCustomers, 
-        change: customersChange 
+      customers: {
+        current: currentCustomers,
+        previous: previousCustomers,
+        change: customersChange,
+        hasComparison: previousCustomers > 0,
       },
       chartData,
       chartLabels: labels,
@@ -327,117 +340,121 @@ const Laporan = () => {
     fetchReportData();
   };
 
+  const TIME_RANGES = [
+    { key: 'week', label: t('laporan.timeRanges.week') },
+    { key: 'month', label: t('laporan.timeRanges.month') },
+    { key: 'year', label: t('laporan.timeRanges.year') },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Laporan Statistik" />
-      
+      {/* Header selaras dengan halaman lain */}
       <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('laporan.accessibility.back')}>
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('laporan.header.title')}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <View style={styles.timeRangeWrapper}>
         <View style={styles.timeRangeContainer}>
-          <TouchableOpacity
-            style={[
-              styles.timeRangeButton,
-              timeRange === 'week' && styles.activeTimeRange,
-            ]}
-            onPress={() => setTimeRange('week')}
-          >
-            <Text style={[
-              styles.timeRangeText,
-              timeRange === 'week' && styles.activeTimeRangeText,
-            ]}>Week</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.timeRangeButton,
-              timeRange === 'month' && styles.activeTimeRange,
-            ]}
-            onPress={() => setTimeRange('month')}
-          >
-            <Text style={[
-              styles.timeRangeText,
-              timeRange === 'month' && styles.activeTimeRangeText,
-            ]}>Month</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[
-              styles.timeRangeButton,
-              timeRange === 'year' && styles.activeTimeRange,
-            ]}
-            onPress={() => setTimeRange('year')}
-          >
-            <Text style={[
-              styles.timeRangeText,
-              timeRange === 'year' && styles.activeTimeRangeText,
-            ]}>Year</Text>
-          </TouchableOpacity>
+          {TIME_RANGES.map((t2) => {
+            const active = timeRange === t2.key;
+            return (
+              <TouchableOpacity
+                key={t2.key}
+                style={[styles.timeRangeButton, active && styles.activeTimeRange]}
+                onPress={() => setTimeRange(t2.key)}
+              >
+                <Text style={[styles.timeRangeText, active && styles.activeTimeRangeText]}>
+                  {t2.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
+        contentContainerStyle={{ paddingBottom: 24 }}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.PRIMARY]} />
         }
       >
-        <SimpleChart 
-          data={reportData.chartData} 
-          labels={reportData.chartLabels} 
+        <SimpleChart
+          data={reportData.chartData}
+          labels={reportData.chartLabels}
           loading={loading}
+          title={t('laporan.chart.title')}
+          loadingText={t('laporan.chart.loading')}
         />
 
         <View style={styles.statsGrid}>
           <StatCard
-            title="Total Revenue"
-            value={loading ? "Loading..." : formatRupiah(reportData.revenue.current)}
-            percentage={loading ? null : Math.abs(reportData.revenue.change).toFixed(1)}
+            title={t('laporan.stats.totalRevenue')}
+            value={loading ? t('laporan.stats.loadingValue') : formatRupiah(reportData.revenue.current)}
+            percentage={loading || !reportData.revenue.hasComparison ? null : Math.abs(reportData.revenue.change).toFixed(1)}
             isPositive={reportData.revenue.change >= 0}
             loading={loading}
+            comparedText={t('laporan.stats.comparedToLastPeriod')}
           />
           <StatCard
-            title="Total Orders"
-            value={loading ? "Loading..." : reportData.orders.current.toString()}
-            percentage={loading ? null : Math.abs(reportData.orders.change).toFixed(1)}
+            title={t('laporan.stats.totalOrders')}
+            value={loading ? t('laporan.stats.loadingValue') : reportData.orders.current.toString()}
+            percentage={loading || !reportData.orders.hasComparison ? null : Math.abs(reportData.orders.change).toFixed(1)}
             isPositive={reportData.orders.change >= 0}
             loading={loading}
+            comparedText={t('laporan.stats.comparedToLastPeriod')}
           />
           <StatCard
-            title="Average Order"
-            value={loading ? "Loading..." : formatRupiah(reportData.averageOrder.current)}
-            percentage={loading ? null : Math.abs(reportData.averageOrder.change).toFixed(1)}
+            title={t('laporan.stats.averageOrder')}
+            value={loading ? t('laporan.stats.loadingValue') : formatRupiah(reportData.averageOrder.current)}
+            percentage={loading || !reportData.averageOrder.hasComparison ? null : Math.abs(reportData.averageOrder.change).toFixed(1)}
             isPositive={reportData.averageOrder.change >= 0}
             loading={loading}
+            comparedText={t('laporan.stats.comparedToLastPeriod')}
           />
           <StatCard
-            title="Customers"
-            value={loading ? "Loading..." : reportData.customers.current.toString()}
-            percentage={loading ? null : Math.abs(reportData.customers.change).toFixed(1)}
+            title={t('laporan.stats.customers')}
+            value={loading ? t('laporan.stats.loadingValue') : reportData.customers.current.toString()}
+            percentage={loading || !reportData.customers.hasComparison ? null : Math.abs(reportData.customers.change).toFixed(1)}
             isPositive={reportData.customers.change >= 0}
             loading={loading}
+            comparedText={t('laporan.stats.comparedToLastPeriod')}
           />
         </View>
 
-        <View style={styles.topItemsContainer}>
-          <Text style={styles.sectionTitle}>Top Items</Text>
+        <View style={[styles.topItemsContainer, styles.shadow]}>
+          <Text style={styles.sectionTitle}>{t('laporan.topItems.title')}</Text>
           {loading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="small" color={COLORS.PRIMARY} />
-              <Text style={styles.loadingText}>Loading top items...</Text>
+              <Text style={styles.loadingText}>{t('laporan.topItems.loading')}</Text>
             </View>
           ) : reportData.topItems.length > 0 ? (
             reportData.topItems.map((item, index) => (
-              <View key={index} style={styles.topItemRow}>
+              <View
+                key={index}
+                style={[styles.topItemRow, index === reportData.topItems.length - 1 && { borderBottomWidth: 0 }]}
+              >
                 <View style={styles.topItemLeft}>
-                  <Text style={styles.itemRank}>#{index + 1}</Text>
-                  <Text style={styles.itemName}>{item.name}</Text>
+                  <View style={styles.itemRankBadge}>
+                    <Text style={styles.itemRankText}>{index + 1}</Text>
+                  </View>
+                  <Text style={styles.itemName} numberOfLines={1}>{item.name}</Text>
                 </View>
                 <View style={styles.topItemRight}>
-                  <Text style={styles.itemOrders}>{item.orders} orders</Text>
                   <Text style={styles.itemRevenue}>{formatRupiah(item.revenue)}</Text>
+                  <Text style={styles.itemOrders}>{t('laporan.topItems.ordersSuffix', { count: item.orders })}</Text>
                 </View>
               </View>
             ))
           ) : (
             <View style={styles.emptyState}>
-              <Text style={styles.emptyText}>No sales data available</Text>
+              <MaterialIcons name="bar-chart" size={40} color="#ccc" />
+              <Text style={styles.emptyText}>{t('laporan.topItems.empty')}</Text>
             </View>
           )}
         </View>
@@ -451,45 +468,66 @@ export default Laporan;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+    backgroundColor: '#F5F6FA',
   },
+  // Header
   header: {
-    backgroundColor: '#fff',
-    padding: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  timeRangeWrapper: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
   },
   timeRangeContainer: {
     flexDirection: 'row',
-    backgroundColor: '#f5f5f5',
-    borderRadius: 8,
+    backgroundColor: '#fff',
+    borderRadius: 12,
     padding: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   timeRangeButton: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 9,
     alignItems: 'center',
-    borderRadius: 6,
+    borderRadius: 9,
   },
   activeTimeRange: {
-    backgroundColor: '#fff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-    elevation: 2,
+    backgroundColor: '#F7EAEF',
   },
   timeRangeText: {
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: '500',
-    color: '#666',
+    color: '#999',
   },
   activeTimeRangeText: {
     color: COLORS.PRIMARY,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   content: {
     flex: 1,
+    paddingHorizontal: 16,
   },
   loadingContainer: {
     flexDirection: 'row',
@@ -499,25 +537,20 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginLeft: 10,
-    color: '#666',
-    fontSize: 14,
+    color: '#888',
+    fontSize: 13,
   },
   chartContainer: {
     backgroundColor: '#fff',
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 14,
   },
   chartTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 20,
-    color: '#333',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 18,
+    color: '#23272f',
   },
   chart: {
     height: 150,
@@ -536,13 +569,13 @@ const styles = StyleSheet.create({
   },
   bar: {
     backgroundColor: COLORS.PRIMARY,
-    width: 20,
+    width: 16,
     borderRadius: 4,
     marginBottom: 8,
   },
   barLabel: {
     fontSize: 10,
-    color: '#666',
+    color: '#999',
     textAlign: 'center',
   },
   chartValues: {
@@ -551,72 +584,68 @@ const styles = StyleSheet.create({
   },
   chartValue: {
     fontSize: 10,
-    color: '#666',
+    color: '#aaa',
     textAlign: 'right',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    paddingHorizontal: 20,
-    gap: 16,
+    marginTop: 14,
+    gap: 10,
   },
   statCard: {
     backgroundColor: '#fff',
-    padding: 20,
-    borderRadius: 12,
-    width: (screenWidth - 56) / 2,
+    padding: 14,
+    borderRadius: 14,
+    width: (screenWidth - 32 - 10) / 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   statTitle: {
-    fontSize: 14,
-    color: '#666',
-    marginBottom: 8,
+    fontSize: 12.5,
+    color: '#888',
+    marginBottom: 6,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 19,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 6,
   },
   percentageContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 2,
   },
   percentageText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11.5,
+    fontWeight: '700',
     marginRight: 4,
   },
   comparedText: {
     fontSize: 10,
-    color: '#999',
+    color: '#aaa',
   },
   topItemsContainer: {
     backgroundColor: '#fff',
-    margin: 20,
-    padding: 20,
-    borderRadius: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3.84,
-    elevation: 5,
+    marginTop: 14,
+    padding: 16,
+    borderRadius: 14,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    marginBottom: 16,
-    color: '#333',
+    fontSize: 15,
+    fontWeight: '700',
+    marginBottom: 8,
+    color: '#23272f',
   },
   topItemRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 11,
     borderBottomWidth: 1,
     borderBottomColor: '#f0f0f0',
   },
@@ -624,37 +653,47 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     flex: 1,
+    gap: 10,
   },
-  itemRank: {
-    fontSize: 16,
-    fontWeight: 'bold',
+  itemRankBadge: {
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#F7EAEF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  itemRankText: {
+    fontSize: 12,
+    fontWeight: '700',
     color: COLORS.PRIMARY,
-    width: 30,
   },
   itemName: {
-    fontSize: 16,
-    color: '#333',
+    fontSize: 14,
+    color: '#23272f',
     flex: 1,
   },
   topItemRight: {
     alignItems: 'flex-end',
   },
   itemOrders: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 11.5,
+    color: '#999',
+    marginTop: 2,
   },
   itemRevenue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#23272f',
   },
   emptyState: {
     alignItems: 'center',
-    padding: 20,
+    padding: 24,
+    gap: 8,
   },
   emptyText: {
-    fontSize: 14,
-    color: '#999',
+    fontSize: 13,
+    color: '#aaa',
     textAlign: 'center',
   },
 });

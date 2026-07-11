@@ -22,30 +22,34 @@ import axios from 'axios';
 import config from '../../constants/config';
 import { useIsFocused, useNavigation } from '@react-navigation/native';
 import { useRouter } from 'expo-router';
+import { useLanguage } from '../../contexts/LanguageContext';
 
-const ChatItem = ({ chat, onPress }) => (
-  <TouchableOpacity style={styles.chatItem} onPress={onPress}>
-    <View style={styles.avatarContainer}>
-      <View style={styles.avatar}>
-        <MaterialIcons name="person" size={24} color="#fff" />
-      </View>
-      {chat.unreadCount > 0 && (
-        <View style={styles.unreadBadge}>
-          <Text style={styles.unreadText}>{chat.unreadCount}</Text>
+const ChatItem = ({ chat, onPress }) => {
+  const { t } = useLanguage();
+  return (
+    <TouchableOpacity style={styles.chatItem} onPress={onPress}>
+      <View style={styles.avatarContainer}>
+        <View style={styles.avatar}>
+          <MaterialIcons name="person" size={24} color="#fff" />
         </View>
-      )}
-    </View>
-    <View style={styles.chatContent}>
-      <View style={styles.chatHeaderRow}>
-        <Text style={styles.chatName} numberOfLines={1}>{chat.name || '-'}</Text>
-        <Text style={styles.chatTime}>{chat.time || ''}</Text>
+        {chat.unreadCount > 0 && (
+          <View style={styles.unreadBadge}>
+            <Text style={styles.unreadText}>{chat.unreadCount}</Text>
+          </View>
+        )}
       </View>
-      <Text style={styles.lastMessage} numberOfLines={1}>
-        {chat.lastMessage || <Text style={{color:'#bbb',fontStyle:'italic'}}>Belum ada pesan</Text>}
-      </Text>
-    </View>
-  </TouchableOpacity>
-);
+      <View style={styles.chatContent}>
+        <View style={styles.chatHeaderRow}>
+          <Text style={styles.chatName} numberOfLines={1}>{chat.name || '-'}</Text>
+          <Text style={styles.chatTime}>{chat.time || ''}</Text>
+        </View>
+        <Text style={styles.lastMessage} numberOfLines={1}>
+          {chat.lastMessage || <Text style={{color:'#bbb',fontStyle:'italic'}}>{t('chat.noMessages')}</Text>}
+        </Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 const MessageBubble = ({ message, isOwn }) => (
   <View style={[styles.messageContainer, isOwn ? styles.ownMessage : styles.otherMessage]}>
@@ -59,6 +63,7 @@ const MessageBubble = ({ message, isOwn }) => (
 );
 
 const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
+  const { t } = useLanguage();
   const [inputText, setInputText] = useState("");
   const router = useRouter();
   const flatListRef = useRef(null);
@@ -99,7 +104,7 @@ const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
     >
       <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F6FA' }} edges={["bottom"]}>
         <View style={styles.chatHeader}>
-          <TouchableOpacity style={styles.backButton} onPress={onBack}>
+          <TouchableOpacity style={styles.backButton} onPress={onBack} accessibilityLabel={t('chat.accessibility.back')}>
             <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
           </TouchableOpacity>
           <View style={styles.chatHeaderInfo}>
@@ -108,7 +113,7 @@ const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
             </View>
             <View>
               <Text style={styles.chatHeaderName}>{selectedChat.buyerName || selectedChat.name || selectedChat.buyerId || '-'}</Text>
-              <Text style={styles.chatHeaderStatus}>Online</Text>
+              <Text style={styles.chatHeaderStatus}>{t('chat.online')}</Text>
             </View>
           </View>
           <TouchableOpacity style={styles.moreButton} onPress={handleGoToOrderDetail}>
@@ -129,7 +134,7 @@ const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
         <View style={[styles.inputContainer, { position: 'absolute', left: 0, right: 0, bottom: -30, backgroundColor: '#fff' }]}> 
           <TextInput
             style={styles.textInput}
-            placeholder="Type a message..."
+            placeholder={t('chat.typeMessage')}
             value={inputText}
             onChangeText={setInputText}
             multiline
@@ -148,6 +153,7 @@ const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
 const db = getFirestore(firebaseApp);
 
 const Chat = () => {
+  const { t } = useLanguage();
   const [selectedChat, setSelectedChat] = useState(null);
   const [searchText, setSearchText] = useState("");
   const [chats, setChats] = useState([]);
@@ -338,7 +344,7 @@ const Chat = () => {
         readBySeller: true, // Mark as read by seller since seller is sending
       });
     } catch (e) {
-      alert('Gagal mengirim pesan: ' + e.message);
+      alert(t('chat.sendMessageError') + e.message);
     }
   };
 
@@ -365,10 +371,10 @@ const Chat = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('chat.accessibility.back')}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pesan</Text>
+        <Text style={styles.headerTitle}>{t('chat.header.title')}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -376,7 +382,7 @@ const Chat = () => {
         <MaterialIcons name="search" size={20} color="#c2c2c2" style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Cari percakapan..."
+          placeholder={t('chat.searchPlaceholder')}
           placeholderTextColor="#999"
           value={searchText}
           onChangeText={setSearchText}
@@ -384,7 +390,7 @@ const Chat = () => {
       </View>
 
       {loading ? (
-        <Text style={{textAlign:'center',marginTop:40,color:'#888'}}>Sedang memuat percakapan...</Text>
+        <Text style={{textAlign:'center',marginTop:40,color:'#888'}}>{t('chat.loadingConversations')}</Text>
       ) : (
         <FlatList
           data={displayChats}
@@ -404,7 +410,7 @@ const Chat = () => {
           style={styles.chatList}
           contentContainerStyle={{ paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
-          ListEmptyComponent={<Text style={{textAlign:'center',marginTop:40,color:'#888'}}>Tidak ada chat ditemukan</Text>}
+          ListEmptyComponent={<Text style={{textAlign:'center',marginTop:40,color:'#888'}}>{t('chat.noChatsFound')}</Text>}
         />
       )}
     </SafeAreaView>

@@ -1,119 +1,140 @@
-import { Image, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import React from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
-import HeaderTitleBack from '../../components/HeaderTitleBack';
+import { MaterialIcons } from "@expo/vector-icons";
 import COLORS from '../constants/color';
-import menuIcon from "../../assets/images/menuIcon.png";
-import AntDesign from '@expo/vector-icons/AntDesign';
+import { useRouter } from "expo-router";
+import { useLanguage } from '../contexts/LanguageContext';
 
-const Card = ({ name, address, date, status, statusColor }) => {
+// Data jadwal pengantaran (sementara masih statis, gampang diganti fetch API nanti)
+// statusKey dipakai untuk logika (filter & warna), label tampilan diambil lewat t()
+const SCHEDULE_DATA = [
+  {
+    id: "1",
+    name: "Budi Santoso",
+    address: "Jl. Melati No. 7",
+    date: "12 Januari",
+    time: "14:00",
+    statusKey: "processing",
+  },
+];
+
+// Status -> warna pill (bg tint + teks)
+const STATUS_STYLES = {
+  completed: { bg: "#E8F5E9", color: "#2E7D32" },
+  processing: { bg: "#FFF3E0", color: "#B26A00" },
+  cancelled: { bg: "#FFEBEE", color: "#C62828" },
+};
+const getStatusStyle = (statusKey) =>
+  STATUS_STYLES[statusKey] || { bg: "#F0F0F0", color: "#757575" };
+
+const matchesFilter = (statusKey, filterKey) => {
+  if (filterKey === "all") return true;
+  return statusKey === filterKey;
+};
+
+const Card = ({ name, address, date, time, statusLabel, statusKey, onPress }) => {
+  const statusStyle = getStatusStyle(statusKey);
   return (
-    <TouchableOpacity
-      style={{
-        width: "100%",
-        backgroundColor: "white",
-        padding: 10,
-        borderRadius: 10,
-        marginVertical: 5,
-        flexDirection: "row",
-        alignItems: "center",
-      }}
-    >
-      <Image source={menuIcon} style={{ width: 89, height: 89 }} />
-      <View style={{ flex: 1 }}>
-        <Text
-          style={{
-            fontSize: 16,
-            fontWeight: "bold",
-            marginLeft: 10,
-          }}
-        >
-          {name}
-        </Text>
-        <Text
-          style={{
-            fontSize: 14,
-            color: COLORS.GRAY,
-            marginLeft: 10,
-          }}
-        >
-          {address}
-        </Text>
-        <Text
-          style={{
-            fontSize: 14,
-            color: COLORS.GRAY,
-            marginLeft: 10,
-          }}
-        >
-          {date}
-        </Text>
-        <Text
-          style={{
-            fontSize: 14,
-            color: statusColor,
-            marginLeft: 10,
-          }}
-        >
-          {status}
-        </Text>
+    <TouchableOpacity style={styles.card} onPress={onPress} activeOpacity={0.7}>
+      <View style={styles.avatar}>
+        <MaterialIcons name="person" size={22} color="#fff" />
       </View>
-      <AntDesign name="right" size={24} color="black" />
+      <View style={{ flex: 1 }}>
+        <View style={styles.nameRow}>
+          <Text style={styles.name} numberOfLines={1}>{name}</Text>
+          <View style={[styles.statusChip, { backgroundColor: statusStyle.bg }]}>
+            <Text style={[styles.statusChipText, { color: statusStyle.color }]}>{statusLabel}</Text>
+          </View>
+        </View>
+        <View style={styles.metaRow}>
+          <MaterialIcons name="location-on" size={13} color="#999" />
+          <Text style={styles.metaText} numberOfLines={1}>{address}</Text>
+        </View>
+        <View style={styles.metaRow}>
+          <MaterialIcons name="schedule" size={13} color="#999" />
+          <Text style={styles.metaText}>{date}, {time}</Text>
+        </View>
+      </View>
+      <MaterialIcons name="chevron-right" size={20} color="#c9c9c9" />
     </TouchableOpacity>
   );
 };
 
 const JadwalPengantaran = () => {
-  return (
-    <SafeAreaView
-      style={{
-        width: "100%",
-        flexDirection: "column",
-      }}
-    >
-      <HeaderTitleBack title="Jadwal Pengantaran" />
-      <View
-        style={{
-          flexDirection: "column",
-          justifyContent: "center",
-          alignItems: "center",
-        }}
-      >
-        <TouchableOpacity
-          style={{
-            backgroundColor: COLORS.GREEN3,
-            paddingHorizontal: 20,
-            paddingVertical: 5,
-            borderRadius: 99,
-          }}
-        >
-          <Text
-            style={{
-              color: "white",
-              fontSize: 16,
-              fontWeight: "bold",
-            }}
-          >
-            Semua
-          </Text>
-        </TouchableOpacity>
+  const router = useRouter();
+  const { t } = useLanguage();
+  const [activeFilter, setActiveFilter] = React.useState("all");
 
-        <View
-          style={{
-            flexDirection: "column",
-            justifyContent: "center",
-            paddingVertical: 10,
-            width: "100%",
-            paddingHorizontal: 20,
-          }}
-        >
-          <Card
-            name={"Nayla Syifa"}
-            address={"Jl. Mawar No. 15"}
-            date={"10 Januari, 09:00"}
-            status={"Selesai"}
-            statusColor={COLORS.GREEN4}
-          />
+  // Filter tabs di atas list
+  const FILTERS = [
+    { key: "all", label: t('jadwalPengantaran.filters.all') },
+    { key: "processing", label: t('jadwalPengantaran.filters.processing') },
+    { key: "completed", label: t('jadwalPengantaran.filters.completed') },
+  ];
+
+  const handlePressCard = (item) => {
+    router.push({
+      pathname: "seller/DetailPengantaran",
+      params: {
+        name: item.name,
+        address: item.address,
+        date: item.date,
+        time: item.time,
+        statusKey: item.statusKey,
+      },
+    });
+  };
+
+  const filteredData = SCHEDULE_DATA.filter((item) => matchesFilter(item.statusKey, activeFilter));
+
+  return (
+    <SafeAreaView style={styles.container}>
+      {/* Header selaras dengan halaman lain */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('jadwalPengantaran.accessibility.back')}>
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('jadwalPengantaran.header.title')}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <View style={styles.content}>
+        <View style={styles.filterBar}>
+          {FILTERS.map((f) => {
+            const active = activeFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                onPress={() => setActiveFilter(f.key)}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        <View style={{ marginTop: 12, gap: 10 }}>
+          {filteredData.map((item) => (
+            <Card
+              key={item.id}
+              name={item.name}
+              address={item.address}
+              date={item.date}
+              time={item.time}
+              statusLabel={t(`jadwalPengantaran.status.${item.statusKey}`)}
+              statusKey={item.statusKey}
+              onPress={() => handlePressCard(item)}
+            />
+          ))}
+          {filteredData.length === 0 && (
+            <Text style={{ textAlign: "center", color: "#aaa", marginTop: 30 }}>
+              {t('jadwalPengantaran.emptyState')}
+            </Text>
+          )}
         </View>
       </View>
     </SafeAreaView>
@@ -122,4 +143,104 @@ const JadwalPengantaran = () => {
 
 export default JadwalPengantaran;
 
-const styles = StyleSheet.create({});
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: "#F5F6FA",
+  },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+  },
+  filterBar: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#EAEAEA",
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.PRIMARY,
+    borderColor: COLORS.PRIMARY,
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: "#888",
+    fontWeight: "600",
+  },
+  filterChipTextActive: {
+    color: "#fff",
+  },
+
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 13,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  avatar: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: "#F5B342",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 3,
+  },
+  name: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#23272f",
+    flex: 1,
+    marginRight: 8,
+  },
+  statusChip: {
+    paddingHorizontal: 9,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  statusChipText: {
+    fontSize: 10.5,
+    fontWeight: "600",
+  },
+  metaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  metaText: {
+    fontSize: 12,
+    color: "#777",
+  },
+});

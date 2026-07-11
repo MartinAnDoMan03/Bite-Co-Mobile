@@ -21,6 +21,7 @@ import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
 import * as Linking from 'expo-linking';
 import PinPointMapModal from '../../../components/PinPointMapModal';
 import MapPreview from '../../../components/MapPreview'; //Map Preview
+import { useLanguage } from '../../contexts/LanguageContext';
 
 // ---------------------------------------------------------------------------
 // Small reusable row: icon + label on the left, value on the right
@@ -38,7 +39,7 @@ const InfoRow = ({ icon, label, value, isLast }) => (
 // ---------------------------------------------------------------------------
 // Address grid field: label kecil abu-abu di atas, value/input di bawah
 // ---------------------------------------------------------------------------
-const AddressField = ({ label, value, editable, onChangeText, keyboardType, multiline }) => (
+const AddressField = ({ label, value, editable, onChangeText, keyboardType, multiline, placeholder }) => (
   <View style={styles.addressField}>
     <Text style={styles.addressLabel}>{label}</Text>
     {editable ? (
@@ -51,13 +52,14 @@ const AddressField = ({ label, value, editable, onChangeText, keyboardType, mult
       />
     ) : (
       <Text style={styles.addressValue} numberOfLines={multiline ? 3 : 1}>
-        {value || "No provided"}
+        {value || placeholder}
       </Text>
     )}
   </View>
 );
 
 const profile = () => {
+  const { t } = useLanguage();
   const router = useRouter();
   const [userData, setUserData] = useState({
     name: "",
@@ -101,7 +103,7 @@ const profile = () => {
     try {
       const token = await AsyncStorage.getItem("sellerToken");
       if (!token) {
-        setError("No token found");
+        setError(t("profil.errors.noToken"));
         setLoading(false);
         return;
       }
@@ -113,9 +115,9 @@ const profile = () => {
       });
 
       setUserData({
-        name: response.data.name || "Not provided",
-        email: response.data.email || "Not provided",
-        phone: response.data.phone || "Not provided",
+        name: response.data.name || t("profil.notProvided"),
+        email: response.data.email || t("profil.notProvided"),
+        phone: response.data.phone || t("profil.notProvided"),
         address: response.data.address || "",
         kelurahan: response.data.kelurahan || "",
         kecamatan: response.data.kecamatan || "",
@@ -132,7 +134,7 @@ const profile = () => {
       setLoading(false);
       setIsEditing(false); // Ensure editing mode is off after fetch
     } catch (err) {
-      setError("Failed to fetch profile data");
+      setError(t("profil.errors.fetchFailed"));
       setLoading(false);
       console.error("Profile fetch error:", err);
     }
@@ -163,13 +165,13 @@ const profile = () => {
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={[styles.pillButton, styles.solidButton]} onPress={fetchProfileData}>
-            <Text style={styles.solidButtonText}>Retry</Text>
+            <Text style={styles.solidButtonText}>{t("profil.actions.retry")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.pillButton, styles.outlineButton, { marginTop: 10 }]}
             onPress={handleSignOut}
           >
-            <Text style={styles.outlineButtonText}>Sign Out</Text>
+            <Text style={styles.outlineButtonText}>{t("profil.actions.signOut")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -227,10 +229,10 @@ const profile = () => {
       if (response.data.success) {
         setIsEditing(false); // Exit edit mode immediately
         await fetchProfileData(); // Then refetch profile data
-        Alert.alert("Success", "Profile updated successfully");
+        Alert.alert(t("common.success"), t("profil.alerts.updateSuccess"));
       }
     } catch (err) {
-      Alert.alert("Error", "Failed to update profile");
+      Alert.alert(t("common.error"), t("profil.alerts.updateFailed"));
       console.error("Profile update error:", err);
     } finally {
       setLoading(false);
@@ -249,7 +251,7 @@ const profile = () => {
       await ImagePicker.requestMediaLibraryPermissionsAsync();
 
     if (permissionResult.granted === false) {
-      Alert.alert("Permission to access camera roll is required!");
+      Alert.alert(t("profil.alerts.permissionRequired"));
       return;
     }
 
@@ -303,20 +305,20 @@ const profile = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
       {/* Header selaras dengan halaman lain (Pesanan, Pesan) */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t("common.back")}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Profil</Text>
+        <Text style={styles.headerTitle}>{t("profil.header.title")}</Text>
         <View style={{ width: 26 }} />
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
         {/* ---------------- Informasi Outlet ---------------- */}
-        <Text style={styles.sectionTitle}>Informasi Outlet</Text>
+        <Text style={styles.sectionTitle}>{t("profil.sections.storeInfo")}</Text>
         <View style={[styles.card, styles.shadow]}>
           <View style={styles.imageRow}>
             <View style={styles.imageCol}>
-              <Text style={styles.imageLabel}>Ikon Outlet</Text>
+              <Text style={styles.imageLabel}>{t("profil.imageLabels.icon")}</Text>
               <TouchableOpacity style={styles.imageBox} onPress={() => handleImagePicker("storeIcon")}>
                 {storeIcon ? (
                   <Image
@@ -329,7 +331,7 @@ const profile = () => {
               </TouchableOpacity>
             </View>
             <View style={styles.imageCol}>
-              <Text style={styles.imageLabel}>Banner Outlet</Text>
+              <Text style={styles.imageLabel}>{t("profil.imageLabels.banner")}</Text>
               <TouchableOpacity style={styles.imageBox} onPress={() => handleImagePicker("storeBanner")}>
                 {storeBanner ? (
                   <Image
@@ -343,64 +345,70 @@ const profile = () => {
             </View>
           </View>
 
-          <InfoRow icon="edit" label="Nama Outlet" value={userData.name} />
-          <InfoRow icon="mail-outline" label="Email" value={userData.email} />
-          <InfoRow icon="phone" label="No. HP" value={userData.phone} isLast />
+          <InfoRow icon="edit" label={t("profil.info.storeName")} value={userData.name} />
+          <InfoRow icon="mail-outline" label={t("profil.info.email")} value={userData.email} />
+          <InfoRow icon="phone" label={t("profil.info.phone")} value={userData.phone} isLast />
         </View>
 
         {/* ---------------- Detail Alamat ---------------- */}
-        <Text style={styles.sectionTitle}>Detail Alamat</Text>
+        <Text style={styles.sectionTitle}>{t("profil.sections.addressDetail")}</Text>
         <View style={[styles.card, styles.shadow]}>
           <View style={styles.addressRow}>
             <AddressField
-              label="Alamat"
+              label={t("profil.address.street")}
               value={userData.address}
               editable={isEditing}
               onChangeText={(v) => handleInputChange("address", v)}
               multiline
+              placeholder={t("profil.address.notProvided")}
             />
             <AddressField
-              label="Kelurahan"
+              label={t("profil.address.kelurahan")}
               value={userData.kelurahan}
               editable={isEditing}
               onChangeText={(v) => handleInputChange("kelurahan", v)}
+              placeholder={t("profil.address.notProvided")}
             />
           </View>
           <View style={styles.addressRow}>
             <AddressField
-              label="Kecamatan"
+              label={t("profil.address.kecamatan")}
               value={userData.kecamatan}
               editable={isEditing}
               onChangeText={(v) => handleInputChange("kecamatan", v)}
+              placeholder={t("profil.address.notProvided")}
             />
             <AddressField
-              label="Provinsi"
+              label={t("profil.address.provinsi")}
               value={userData.provinsi}
               editable={isEditing}
               onChangeText={(v) => handleInputChange("provinsi", v)}
+              placeholder={t("profil.address.notProvided")}
             />
           </View>
           <View style={styles.addressRow}>
             <AddressField
-              label="Kode Pos"
+              label={t("profil.address.postalCode")}
               value={userData.kodePos}
               editable={isEditing}
               onChangeText={(v) => handleInputChange("kodePos", v)}
               keyboardType="numeric"
+              placeholder={t("profil.address.notProvided")}
             />
             <AddressField
-              label="Catatan"
+              label={t("profil.address.notes")}
               value={userData.catatan}
               editable={isEditing}
               onChangeText={(v) => handleInputChange("catatan", v)}
               multiline
+              placeholder={t("profil.address.notProvided")}
             />
           </View>
         </View>
 
         {/* ---------------- Tentukan Pin Poin ---------------- */}
         <View style={[styles.card, styles.shadow, { marginTop: 14 }]}>
-          <Text style={styles.pinLabel}>Tentukan Pin Poin</Text>
+          <Text style={styles.pinLabel}>{t("profil.pin.label")}</Text>
           <TouchableOpacity
             style={styles.pinBox}
             onPress={openPinPointMap}
@@ -415,14 +423,14 @@ const profile = () => {
             ) : (
               <View style={styles.pinPlaceholder}>
                 <MaterialIcons name="map" size={22} color="#bbb" />
-                <Text style={styles.pinPlaceholderText}>GMaps</Text>
+                <Text style={styles.pinPlaceholderText}>{t("profil.pin.placeholder")}</Text>
               </View>
             )}
           </TouchableOpacity>
           {isEditing && (
             <TextInput
               style={styles.pinManualInput}
-              placeholder="Contoh: -6.200000, 106.816666"
+              placeholder={t("profil.pin.manualPlaceholder")}
               placeholderTextColor="#aaa"
               value={pinPoint.lat && pinPoint.lng ? `${pinPoint.lat}, ${pinPoint.lng}` : ""}
               onChangeText={handlePinPointInput}
@@ -440,7 +448,7 @@ const profile = () => {
                 disabled={loading}
               >
                 <Text style={styles.solidButtonText}>
-                  {loading ? "Menyimpan..." : "Simpan Perubahan"}
+                  {loading ? t("profil.actions.saving") : t("profil.actions.saveChanges")}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -448,7 +456,7 @@ const profile = () => {
                 onPress={() => setIsEditing(false)}
                 disabled={loading}
               >
-                <Text style={styles.outlineButtonText}>Batal</Text>
+                <Text style={styles.outlineButtonText}>{t("common.cancel")}</Text>
               </TouchableOpacity>
             </>
           ) : (
@@ -457,13 +465,13 @@ const profile = () => {
                 style={[styles.pillButton, styles.outlineButton]}
                 onPress={() => setIsEditing(true)}
               >
-                <Text style={styles.outlineButtonText}>Edit Profil</Text>
+                <Text style={styles.outlineButtonText}>{t("profil.actions.editProfile")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.pillButton, styles.solidButton]}
                 onPress={handleSignOut}
               >
-                <Text style={styles.solidButtonText}>Keluar</Text>
+                <Text style={styles.solidButtonText}>{t("profil.actions.logout")}</Text>
               </TouchableOpacity>
             </>
           )}

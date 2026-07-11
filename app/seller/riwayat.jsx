@@ -11,12 +11,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import HeaderTitleBack from '../../components/HeaderTitleBack';
 import COLORS from '../constants/color';
 import config from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const RiwayatSeller = () => {
+  const { t } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -58,7 +59,8 @@ const RiwayatSeller = () => {
 
   const OrderHistoryCard = ({ order }) => (
     <TouchableOpacity
-      style={styles.orderCard}
+      style={[styles.orderCard, styles.shadow]}
+      activeOpacity={0.7}
       onPress={() =>
         router.push({
           pathname: '/seller/DetailOrder',
@@ -67,7 +69,7 @@ const RiwayatSeller = () => {
       }
     >
       <View style={styles.orderHeader}>
-        <View>
+        <View style={{ flex: 1 }}>
           <Text style={styles.orderDate}>
             {new Date(order.createdAt).toLocaleDateString('id-ID', {
               day: 'numeric',
@@ -84,21 +86,21 @@ const RiwayatSeller = () => {
             Rp {order.totalAmount?.toLocaleString('id-ID')}
           </Text>
           <View style={styles.statusBadge}>
-            <MaterialIcons name="check-circle" size={16} color={COLORS.GREEN3} />
-            <Text style={styles.statusText}>Selesai</Text>
+            <MaterialIcons name="check-circle" size={13} color="#2E7D32" />
+            <Text style={styles.statusText}>{t('riwayat.statusCompleted')}</Text>
           </View>
         </View>
       </View>
 
       <View style={styles.orderInfo}>
-        <MaterialIcons name="person" size={16} color="#666" />
-        <Text style={styles.buyerName}>{order.buyerName || 'Pelanggan'}</Text>
+        <MaterialIcons name="person" size={14} color="#999" />
+        <Text style={styles.buyerName}>{order.buyerName || t('riwayat.buyerFallback')}</Text>
       </View>
 
       {order.items && order.items.length > 0 && (
         <View style={styles.itemsContainer}>
-          <Text style={styles.itemsLabel}>Menu:</Text>
-          <Text style={styles.itemsList}>
+          <Text style={styles.itemsLabel}>{t('riwayat.itemsLabel')}</Text>
+          <Text style={styles.itemsList} numberOfLines={2}>
             {order.items.map(item => item.name).join(', ')}
           </Text>
         </View>
@@ -108,18 +110,27 @@ const RiwayatSeller = () => {
 
   const EmptyState = () => (
     <View style={styles.emptyState}>
-      <MaterialIcons name="history" size={64} color="#ccc" />
-      <Text style={styles.emptyTitle}>Belum Ada Riwayat</Text>
+      <View style={styles.emptyIconCircle}>
+        <MaterialIcons name="history" size={40} color="#bbb" />
+      </View>
+      <Text style={styles.emptyTitle}>{t('riwayat.empty.title')}</Text>
       <Text style={styles.emptyDescription}>
-        Riwayat pesanan yang sudah selesai akan muncul di sini
+        {t('riwayat.empty.description')}
       </Text>
     </View>
   );
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Riwayat Pesanan" />
-      
+      {/* Header selaras dengan halaman lain */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('riwayat.accessibility.back')}>
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('riwayat.header.title')}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -142,7 +153,7 @@ const RiwayatSeller = () => {
           ) : (
             <View style={styles.content}>
               <Text style={styles.sectionTitle}>
-                Total {orders.length} pesanan selesai
+                {t('riwayat.sectionTitle', { count: orders.length })}
               </Text>
               {orders.map((order, index) => (
                 <OrderHistoryCard key={order.id || index} order={order} />
@@ -160,8 +171,30 @@ export default RiwayatSeller;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F6FA',
   },
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
   scrollView: {
     flex: 1,
   },
@@ -169,39 +202,34 @@ const styles = StyleSheet.create({
     padding: 16,
   },
   loader: {
-    marginTop: 40,
+    marginTop: 60,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#888',
+    marginBottom: 12,
   },
   orderCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: 14,
+    padding: 14,
+    marginBottom: 10,
   },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-start',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   orderDate: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 4,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 3,
   },
   orderType: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: COLORS.PRIMARY,
     fontWeight: '600',
   },
@@ -209,69 +237,76 @@ const styles = StyleSheet.create({
     alignItems: 'flex-end',
   },
   amount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.GREEN4,
-    marginBottom: 4,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 5,
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#e8f5e8',
+    backgroundColor: '#E8F5E9',
     paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 12,
-    gap: 4,
+    paddingVertical: 3,
+    borderRadius: 8,
+    gap: 3,
   },
   statusText: {
-    fontSize: 12,
-    color: COLORS.GREEN3,
+    fontSize: 10.5,
+    color: '#2E7D32',
     fontWeight: '600',
   },
   orderInfo: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 6,
+    gap: 5,
   },
   buyerName: {
-    fontSize: 14,
-    color: '#666',
+    fontSize: 12.5,
+    color: '#777',
   },
   itemsContainer: {
-    backgroundColor: '#f8f9fa',
-    padding: 12,
+    backgroundColor: '#F5F6FA',
+    padding: 10,
     borderRadius: 8,
-    marginTop: 8,
+    marginTop: 10,
   },
   itemsLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#666',
-    marginBottom: 4,
+    color: '#999',
+    marginBottom: 3,
   },
   itemsList: {
-    fontSize: 14,
-    color: '#333',
-    lineHeight: 20,
+    fontSize: 12.5,
+    color: '#444',
+    lineHeight: 18,
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 60,
+    paddingTop: 100,
     paddingHorizontal: 32,
   },
+  emptyIconCircle: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#555',
+    marginBottom: 6,
   },
   emptyDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#999',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
   },
 });

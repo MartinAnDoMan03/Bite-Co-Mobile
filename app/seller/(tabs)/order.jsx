@@ -17,26 +17,28 @@ import config from '../../constants/config';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import axios from "axios";
+import { useLanguage } from '../../contexts/LanguageContext';
 
 // ---------------------------------------------------------------------------
 // Status -> badge config (label, color, icon) shown on each order card
+// Dibungkus jadi fungsi supaya label-nya bisa pakai t() dari komponen pemanggil
 // ---------------------------------------------------------------------------
-const STATUS_BADGE = {
-  awaiting_seller_approval: { label: "Menunggu Persetujuan", color: "#B26A00", bg: "#FFF3E0", icon: "hourglass-empty" },
-  approved_awaiting_payment: { label: "Menunggu Pembayaran", color: "#1976D2", bg: "#E3F2FD", icon: "schedule" },
-  processing: { label: "Dalam Proses", color: "#B26A00", bg: "#FFF3E0", icon: "autorenew" },
-  delivery: { label: "Pengiriman", color: "#2E7D32", bg: "#E8F5E9", icon: "local-shipping" },
-  recurring: { label: "Siklus Pengiriman Aktif", color: "#2E7D32", bg: "#E8F5E9", icon: "autorenew" },
-  completed: { label: "Selesai", color: "#2E7D32", bg: "#E8F5E9", icon: "check-circle" },
-  cancelled: { label: "Dibatalkan", color: "#C62828", bg: "#FFEBEE", icon: "close" },
-};
+const getStatusBadgeConfig = (t) => ({
+  awaiting_seller_approval: { label: t('pesanan.status.awaitingApproval'), color: "#B26A00", bg: "#FFF3E0", icon: "hourglass-empty" },
+  approved_awaiting_payment: { label: t('pesanan.status.awaitingPayment'), color: "#1976D2", bg: "#E3F2FD", icon: "schedule" },
+  processing: { label: t('pesanan.status.processing'), color: "#B26A00", bg: "#FFF3E0", icon: "autorenew" },
+  delivery: { label: t('pesanan.status.delivery'), color: "#2E7D32", bg: "#E8F5E9", icon: "local-shipping" },
+  recurring: { label: t('pesanan.status.recurring'), color: "#2E7D32", bg: "#E8F5E9", icon: "autorenew" },
+  completed: { label: t('pesanan.status.completed'), color: "#2E7D32", bg: "#E8F5E9", icon: "check-circle" },
+  cancelled: { label: t('pesanan.status.cancelled'), color: "#C62828", bg: "#FFEBEE", icon: "close" },
+});
 
 // Filter tabs shown under the header
 const FILTERS = [
-  { key: "semua", label: "Semua" },
-  { key: "diproses", label: "Diproses" },
-  { key: "pembayaran", label: "Pembayaran" },
-  { key: "selesai", label: "Selesai" },
+  { key: "semua", labelKey: 'pesanan.filters.all' },
+  { key: "diproses", labelKey: 'pesanan.filters.processing' },
+  { key: "pembayaran", labelKey: 'pesanan.filters.payment' },
+  { key: "selesai", labelKey: 'pesanan.filters.completed' },
 ];
 
 // Maps a raw statusProgress value to the filter bucket it belongs to
@@ -91,6 +93,8 @@ const calculateDaysRemaining = (startDate, endDate, dailyDeliveryLogs = []) => {
 // Status badge pill
 // ---------------------------------------------------------------------------
 const StatusBadge = ({ statusProgress }) => {
+  const { t } = useLanguage();
+  const STATUS_BADGE = getStatusBadgeConfig(t);
   const cfg = STATUS_BADGE[statusProgress] || STATUS_BADGE.pending;
   return (
     <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
@@ -105,6 +109,7 @@ const StatusBadge = ({ statusProgress }) => {
 // Only rendered for Rantangan orders — kept compact to match the card design
 // ---------------------------------------------------------------------------
 const RantanganInfo = ({ startDate, endDate, packageType, dailyDeliveryLogs = [] }) => {
+  const { t } = useLanguage();
   const [expanded, setExpanded] = useState(false);
   if (!startDate || !endDate) return null;
 
@@ -133,8 +138,8 @@ const RantanganInfo = ({ startDate, endDate, packageType, dailyDeliveryLogs = []
           <MaterialIcons name="schedule" size={13} color={!orderCanStart ? "#B26A00" : COLORS.PRIMARY} />
           <Text style={[styles.remainingPillText, !orderCanStart && { color: "#B26A00" }]}>
             {!orderCanStart
-              ? `Mulai ${Math.ceil((new Date(startDate) - new Date()) / (1000 * 60 * 60 * 24))} hari lagi`
-              : `Sisa ${daysRemaining} hari`}
+              ? t('pesanan.startsInDays').replace('{{count}}', String(Math.ceil((new Date(startDate) - new Date()) / (1000 * 60 * 60 * 24))))
+              : t('pesanan.remainingDays').replace('{{count}}', String(daysRemaining))}
           </Text>
         </View>
       )}
@@ -143,7 +148,7 @@ const RantanganInfo = ({ startDate, endDate, packageType, dailyDeliveryLogs = []
         <TouchableOpacity style={styles.logsToggle} onPress={() => setExpanded((v) => !v)}>
           <MaterialIcons name="history" size={13} color={COLORS.PRIMARY} />
           <Text style={styles.logsToggleText}>
-            Riwayat pengiriman ({dailyDeliveryLogs.length})
+            {t('pesanan.deliveryHistory').replace('{{count}}', String(dailyDeliveryLogs.length))}
           </Text>
           <MaterialIcons name={expanded ? "expand-less" : "expand-more"} size={16} color={COLORS.PRIMARY} />
         </TouchableOpacity>
@@ -185,6 +190,7 @@ const CardStatus = ({
   endDate,
   dailyDeliveryLogs = [],
 }) => {
+  const { t } = useLanguage();
   const [actionLoading, setActionLoading] = useState(false);
 
   const handleAction = async (action) => {
@@ -209,8 +215,8 @@ const CardStatus = ({
     if (statusProgress === "processing") {
       const disabled = actionLoading || (isRantangan && !orderCanStart);
       const label = isRantangan && !orderCanStart
-        ? `Mulai ${Math.ceil((new Date(startDate) - new Date()) / (1000 * 60 * 60 * 24))} hari lagi`
-        : actionLoading ? "Mohon tunggu..." : "Kirim Pesanan";
+        ? t('pesanan.startsInDays').replace('{{count}}', String(Math.ceil((new Date(startDate) - new Date()) / (1000 * 60 * 60 * 24))))
+        : actionLoading ? t('pesanan.actions.pleaseWait') : t('pesanan.actions.sendOrder');
       return (
         <TouchableOpacity
           style={[styles.progressBtn, disabled && styles.btnDisabled]}
@@ -225,8 +231,8 @@ const CardStatus = ({
       const todayDone = isRantangan && isRecurring && isTodayDeliveryCompleted(dailyDeliveryLogs);
       const disabled = actionLoading || todayDone;
       const label = todayDone
-        ? "Selesai hari ini"
-        : actionLoading ? "Mohon tunggu..." : isBiteEco ? "Selesaikan Orderan" : "Selesaikan Pesanan";
+        ? t('pesanan.actions.completedToday')
+        : actionLoading ? t('pesanan.actions.pleaseWait') : isBiteEco ? t('pesanan.actions.completeOrderBiteEco') : t('pesanan.actions.completeOrder');
       return (
         <TouchableOpacity
           style={[styles.progressBtn, disabled && styles.btnDisabled]}
@@ -257,7 +263,7 @@ const CardStatus = ({
             <Text style={styles.subtitle} numberOfLines={1}>
               {date && !isNaN(new Date(date))
                 ? new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-                : 'Tanggal tidak tersedia'}
+                : t('pesanan.dateNotAvailable')}
               {orderType ? ` · ${orderType}${packageType ? ` ${packageType}` : ''}` : ''}
             </Text>
           </View>
@@ -287,7 +293,7 @@ const CardStatus = ({
                 disabled={actionLoading}
               >
                 <Text style={styles.acceptBtnText}>
-                  {actionLoading ? "Mohon tunggu..." : "Terima"}
+                  {actionLoading ? t('pesanan.actions.pleaseWait') : t('pesanan.actions.accept')}
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -296,7 +302,7 @@ const CardStatus = ({
                 disabled={actionLoading}
               >
                 <Text style={styles.rejectBtnText}>
-                  {actionLoading ? "Mohon tunggu..." : "Tolak"}
+                  {actionLoading ? t('pesanan.actions.pleaseWait') : t('pesanan.actions.reject')}
                 </Text>
               </TouchableOpacity>
             </>
@@ -304,10 +310,10 @@ const CardStatus = ({
             renderProgressAction()
           )}
 
-          <TouchableOpacity style={styles.iconBtn} onPress={onPressDetail} accessibilityLabel="Detail pesanan">
+          <TouchableOpacity style={styles.iconBtn} onPress={onPressDetail} accessibilityLabel={t('pesanan.accessibility.orderDetail')}>
             <MaterialIcons name="info-outline" size={18} color={COLORS.PRIMARY} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={onPressChat} accessibilityLabel="Chat pembeli">
+          <TouchableOpacity style={styles.iconBtn} onPress={onPressChat} accessibilityLabel={t('pesanan.accessibility.chatBuyer')}>
             <Ionicons name="chatbubble-outline" size={17} color={COLORS.PRIMARY} />
           </TouchableOpacity>
         </View>
@@ -320,6 +326,7 @@ const CardStatus = ({
 // Screen
 // ---------------------------------------------------------------------------
 const SellerOrder = () => {
+  const { t } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -431,10 +438,10 @@ const SellerOrder = () => {
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('pesanan.accessibility.back')}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Pesanan</Text>
+        <Text style={styles.headerTitle}>{t('pesanan.header.title')}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -448,7 +455,7 @@ const SellerOrder = () => {
               style={[styles.filterChip, active && styles.filterChipActive]}
             >
               <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                {f.label}
+                {t(f.labelKey)}
               </Text>
             </TouchableOpacity>
           );
@@ -473,7 +480,7 @@ const SellerOrder = () => {
         >
           {visibleOrders.length === 0 ? (
             <Text style={{ textAlign: "center", color: "#aaa", marginTop: 40 }}>
-              Tidak ada pesanan.
+              {t('pesanan.emptyState')}
             </Text>
           ) : (
             visibleOrders.map((order) => (
