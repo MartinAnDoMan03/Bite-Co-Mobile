@@ -47,6 +47,7 @@ const menu = () => {
           icon={menuPaket}
           title={t('menuPage.cards.paket.title')}
           desc={t('menuPage.cards.paket.desc')}
+          onPress={() => router.push("seller/paket")}
         />
       </View>
     </SafeAreaView>
@@ -60,7 +61,6 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#F5F6FA",
   },
-  // Header
   header: {
     flexDirection: "row",
     alignItems: "center",

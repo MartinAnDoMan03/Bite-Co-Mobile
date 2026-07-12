@@ -1,58 +1,110 @@
-import { 
-  Image, 
-  StyleSheet, 
-  Text, 
-  TouchableOpacity, 
-  View, 
-  ScrollView, 
+import {
+  Image,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+  ScrollView,
   ActivityIndicator,
   RefreshControl,
-  Alert 
+  Modal,
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import HeaderTitleBack from '../../components/HeaderTitleBack';
 import profileBlack from "../../assets/images/profile-black.png";
 import config from '../constants/config';
+import COLORS from '../constants/color';
+import { useLanguage } from '../contexts/LanguageContext';
 
-const COLORS = {
-  PRIMARY: "#2E7D32",
-  SECONDARY: "#4CAF50", 
-  ACCENT: "#8BC34A",
-  BACKGROUND: "#F8F9FA",
-  WHITE: "#FFFFFF",
-  TEXT_PRIMARY: "#212121",
-  TEXT_SECONDARY: "#757575",
-  BORDER: "#E0E0E0",
-  SUCCESS: "#4CAF50",
-  WARNING: "#FF9800",
-  ERROR: "#F44336",
-  BLUE: "#2196F3",
-  LIGHT_GRAY: "#F5F5F5"
+// Status -> warna pill (bg tint), selaras dengan pola di JadwalPengantaran
+const STATUS_STYLES = {
+  completed: { bg: "#E8F5E9", color: "#2E7D32" },
+  delivery: { bg: "#E3F2FD", color: "#1976D2" },
+  processing: { bg: "#FFF3E0", color: "#B26A00" },
+  waiting_approval: { bg: "#FFF3E0", color: "#B26A00" },
+};
+const getStatusStyle = (status) =>
+  STATUS_STYLES[status?.toLowerCase()] || { bg: "#F0F0F0", color: "#757575" };
+
+// Label status diambil dari key pelanggan.status.* yang sudah ada di locale
+const STATUS_KEYS = {
+  completed: "completed",
+  delivery: "delivery",
+  processing: "processing",
+  waiting_approval: "waitingApproval",
+};
+const getStatusKey = (status) => STATUS_KEYS[status?.toLowerCase()] || "pending";
+
+const ALERT_TYPE_STYLES = {
+  info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
+  success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
+  error: { icon: 'error', color: '#C62828', bg: '#FFEBEE' },
+  warning: { icon: 'warning', color: '#B26A00', bg: '#FFF3E0' },
 };
 
-const pelangganDetails = () => {
+const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose }) => {
+  const typeStyle = ALERT_TYPE_STYLES[type] || ALERT_TYPE_STYLES.info;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.alertOverlay}>
+        <View style={styles.alertContent}>
+          <View style={[styles.alertIconCircle, { backgroundColor: typeStyle.bg }]}>
+            <MaterialIcons name={typeStyle.icon} size={26} color={typeStyle.color} />
+          </View>
+          <Text style={styles.alertTitle}>{title}</Text>
+          {!!message && <Text style={styles.alertMessage}>{message}</Text>}
+          <View style={styles.alertButtons}>
+            {buttons.map((btn, index) => {
+              const isCancel = btn.style === 'cancel';
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.alertButton, isCancel ? styles.alertButtonOutline : styles.alertButtonSolid]}
+                  onPress={() => {
+                    onClose();
+                    btn.onPress && btn.onPress();
+                  }}
+                >
+                  <Text style={[styles.alertButtonText, isCancel ? styles.alertButtonTextOutline : styles.alertButtonTextSolid]}>
+                    {btn.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const PelangganDetails = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const { customerId, customerName } = useLocalSearchParams();
   const [customer, setCustomer] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
+  const [customAlert, setCustomAlert] = useState({ visible: false, title: '', message: '', buttons: [], type: 'info' });
+
+  const showAlert = (title, message, buttons = [{ text: t('common.ok') }], type = 'info') => {
+    setCustomAlert({ visible: true, title, message, buttons, type });
+  };
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   // Fetch customer details from backend
   const fetchCustomerDetails = async () => {
     try {
       const token = await AsyncStorage.getItem('sellerToken');
       if (!token) {
-        setError('Token tidak ditemukan. Silakan login kembali.');
+        setError(t('pelanggan.errors.noToken'));
         return;
       }
 
-      console.log('Fetching customer details from:', `${config.API_URL}/seller/customers/${customerId}`);
-      
       const response = await fetch(`${config.API_URL}/seller/customers/${customerId}`, {
         method: 'GET',
         headers: {
@@ -61,11 +113,7 @@ const pelangganDetails = () => {
         },
       });
 
-      console.log('Customer details response status:', response.status);
-
-      // Get response text first to handle non-JSON responses
       const responseText = await response.text();
-      console.log('Customer details response text:', responseText.substring(0, 200));
 
       if (response.ok) {
         try {
@@ -74,25 +122,25 @@ const pelangganDetails = () => {
           setError(null);
         } catch (parseError) {
           console.error('JSON Parse Error in customer details:', parseError);
-          setError('Gagal memproses data detail pelanggan dari server.');
+          setError(t('pelangganDetails.errors.parseFailed'));
         }
       } else {
         console.error('HTTP Error in customer details:', response.status, responseText);
-        
+
         try {
           const errorData = JSON.parse(responseText);
-          setError(errorData.error || `Server error: ${response.status}`);
+          setError(errorData.error || t('pelanggan.errors.serverErrorGeneric', { status: response.status }));
         } catch {
           if (responseText.includes('<html') || responseText.includes('<!DOCTYPE')) {
-            setError(`Server error: Received HTML instead of JSON (Status: ${response.status})`);
+            setError(t('pelanggan.errors.serverErrorHtml', { status: response.status }));
           } else {
-            setError(`Server error: ${response.status} - ${responseText.substring(0, 100)}`);
+            setError(t('pelanggan.errors.serverErrorWithBody', { status: response.status, body: responseText.substring(0, 100) }));
           }
         }
       }
     } catch (error) {
       console.error('Error fetching customer details:', error);
-      setError('Gagal memuat detail pelanggan');
+      setError(t('pelangganDetails.errors.fetchFailed'));
     } finally {
       setLoading(false);
     }
@@ -120,7 +168,7 @@ const pelangganDetails = () => {
   };
 
   const formatDate = (dateString) => {
-    if (!dateString) return 'Tidak diketahui';
+    if (!dateString) return t('pelanggan.card.dateUnknown');
     return new Date(dateString).toLocaleDateString('id-ID', {
       day: 'numeric',
       month: 'long',
@@ -128,75 +176,54 @@ const pelangganDetails = () => {
     });
   };
 
-  const getStatusColor = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'completed': return COLORS.SUCCESS;
-      case 'delivery': return COLORS.BLUE;
-      case 'processing': return COLORS.WARNING;
-      case 'waiting_approval': return COLORS.WARNING;
-      default: return COLORS.TEXT_SECONDARY;
-    }
-  };
-
-  const getStatusText = (status) => {
-    switch (status?.toLowerCase()) {
-      case 'completed': return 'Selesai';
-      case 'delivery': return 'Dikirim';
-      case 'processing': return 'Diproses';
-      case 'waiting_approval': return 'Menunggu';
-      default: return 'Pending';
-    }
-  };
-
   const handleContactCustomer = () => {
     if (customer?.phone) {
-      Alert.alert(
-        "Hubungi Pelanggan",
-        `Apakah Anda ingin menghubungi ${customer.name}?`,
+      showAlert(
+        t('pelangganDetails.alerts.contact.title'),
+        t('pelangganDetails.alerts.contact.message', { name: customer.name }),
         [
-          { text: "Batal", style: "cancel" },
-          { 
-            text: "WhatsApp", 
+          { text: t('common.cancel'), style: "cancel" },
+          {
+            text: "WhatsApp",
             onPress: () => {
-              // Open WhatsApp (you can implement this)
               console.log(`Open WhatsApp to ${customer.phone}`);
             }
           },
-          { 
-            text: "Telepon", 
+          {
+            text: t('pelangganDetails.alerts.contact.callButton'),
             onPress: () => {
-              // Open phone dialer (you can implement this)
               console.log(`Call ${customer.phone}`);
             }
           }
-        ]
+        ],
+        'info'
       );
     } else {
-      Alert.alert("Informasi", "Nomor telepon pelanggan tidak tersedia");
+      showAlert(t('pelangganDetails.alerts.noPhone.title'), t('pelangganDetails.alerts.noPhone.message'), [{ text: t('common.ok') }], 'warning');
     }
   };
 
   // Calculate customer insights
   const getCustomerInsights = (customer) => {
     if (!customer) return {};
-    
+
     const avgOrderValue = customer.totalSpent / (customer.totalOrders || 1);
     const isHighValue = avgOrderValue > 200000; // Above 200k average
     const isFrequent = customer.totalOrders >= 5;
     const isRecent = new Date(customer.lastOrderDate) > new Date(Date.now() - 14 * 24 * 60 * 60 * 1000); // Within 14 days
-    
-    let customerType = 'Pelanggan Baru';
-    if (isHighValue && isFrequent) customerType = 'Pelanggan Premium';
-    else if (isFrequent) customerType = 'Pelanggan Setia';
-    else if (isHighValue) customerType = 'Pelanggan Bernilai Tinggi';
-    
-    const loyaltyLevel = customer.totalOrders >= 10 ? 'Sangat Setia' : 
-                        customer.totalOrders >= 5 ? 'Setia' : 
-                        customer.totalOrders >= 2 ? 'Berkembang' : 'Baru';
-    
+
+    let customerTypeKey = 'new';
+    if (isHighValue && isFrequent) customerTypeKey = 'premium';
+    else if (isFrequent) customerTypeKey = 'loyal';
+    else if (isHighValue) customerTypeKey = 'highValue';
+
+    const loyaltyLevelKey = customer.totalOrders >= 10 ? 'veryLoyal' :
+                        customer.totalOrders >= 5 ? 'loyal' :
+                        customer.totalOrders >= 2 ? 'growing' : 'new';
+
     return {
-      customerType,
-      loyaltyLevel,
+      customerType: t(`pelangganDetails.insights.types.${customerTypeKey}`),
+      loyaltyLevel: t(`pelangganDetails.insights.loyalty.${loyaltyLevelKey}`),
       isHighValue,
       isFrequent,
       isRecent,
@@ -204,13 +231,23 @@ const pelangganDetails = () => {
     };
   };
 
+  const renderHeader = (title) => (
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('pelanggan.accessibility.back')}>
+        <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+      <View style={{ width: 26 }} />
+    </View>
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <HeaderTitleBack title={customerName || "Detail Pelanggan"} />
+        {renderHeader(customerName || t('pelangganDetails.header.fallbackTitle'))}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-          <Text style={styles.loadingText}>Memuat detail pelanggan...</Text>
+          <Text style={styles.loadingText}>{t('pelangganDetails.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -219,13 +256,15 @@ const pelangganDetails = () => {
   if (error) {
     return (
       <SafeAreaView style={styles.container}>
-        <HeaderTitleBack title={customerName || "Detail Pelanggan"} />
+        {renderHeader(customerName || t('pelangganDetails.header.fallbackTitle'))}
         <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={80} color={COLORS.ERROR} />
-          <Text style={styles.errorTitle}>Terjadi Kesalahan</Text>
+          <View style={[styles.errorIconBox, { backgroundColor: '#FFEBEE' }]}>
+            <MaterialIcons name="error-outline" size={44} color="#C62828" />
+          </View>
+          <Text style={styles.errorTitle}>{t('pelanggan.error.title')}</Text>
           <Text style={styles.errorSubtitle}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchCustomerDetails}>
-            <Text style={styles.retryButtonText}>Coba Lagi</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={fetchCustomerDetails} activeOpacity={0.85}>
+            <Text style={styles.retryButtonText}>{t('pelanggan.error.retry')}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -235,11 +274,13 @@ const pelangganDetails = () => {
   if (!customer) {
     return (
       <SafeAreaView style={styles.container}>
-        <HeaderTitleBack title={customerName || "Detail Pelanggan"} />
+        {renderHeader(customerName || t('pelangganDetails.header.fallbackTitle'))}
         <View style={styles.errorContainer}>
-          <MaterialIcons name="person-off" size={80} color={COLORS.TEXT_SECONDARY} />
-          <Text style={styles.errorTitle}>Pelanggan Tidak Ditemukan</Text>
-          <Text style={styles.errorSubtitle}>Data pelanggan tidak dapat dimuat</Text>
+          <View style={[styles.errorIconBox, { backgroundColor: '#F5F6FA' }]}>
+            <MaterialIcons name="person-off" size={44} color="#9AA0A6" />
+          </View>
+          <Text style={styles.errorTitle}>{t('pelangganDetails.notFound.title')}</Text>
+          <Text style={styles.errorSubtitle}>{t('pelangganDetails.notFound.subtitle')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -249,21 +290,22 @@ const pelangganDetails = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title={customer.name} />
-      
-      <ScrollView 
+      {renderHeader(customer.name)}
+
+      <ScrollView
         style={styles.scrollContainer}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
             onRefresh={handleRefresh}
             colors={[COLORS.PRIMARY]}
+            tintColor={COLORS.PRIMARY}
           />
         }
         showsVerticalScrollIndicator={false}
       >
         {/* Profile Section */}
-        <View style={styles.profileSection}>
+        <View style={[styles.card, styles.profileSection]}>
           <View style={styles.profileHeader}>
             <Image
               source={profileBlack}
@@ -274,22 +316,22 @@ const pelangganDetails = () => {
               <View style={styles.contactInfo}>
                 {customer.email && (
                   <View style={styles.contactRow}>
-                    <MaterialIcons name="email" size={16} color={COLORS.TEXT_SECONDARY} />
+                    <MaterialIcons name="email" size={15} color="#999" />
                     <Text style={styles.contactText}>{customer.email}</Text>
                   </View>
                 )}
                 {customer.phone && (
                   <View style={styles.contactRow}>
-                    <MaterialIcons name="phone" size={16} color={COLORS.TEXT_SECONDARY} />
+                    <MaterialIcons name="phone" size={15} color="#999" />
                     <Text style={styles.contactText}>{customer.phone}</Text>
-                    <TouchableOpacity style={styles.contactButton} onPress={handleContactCustomer}>
-                      <MaterialIcons name="phone" size={20} color={COLORS.WHITE} />
+                    <TouchableOpacity style={styles.contactButton} onPress={handleContactCustomer} activeOpacity={0.85}>
+                      <MaterialIcons name="phone" size={18} color="#fff" />
                     </TouchableOpacity>
                   </View>
                 )}
                 {customer.address && (
                   <View style={styles.contactRow}>
-                    <MaterialIcons name="location-on" size={16} color={COLORS.TEXT_SECONDARY} />
+                    <MaterialIcons name="location-on" size={15} color="#999" />
                     <Text style={styles.contactText} numberOfLines={2}>
                       {customer.address}
                       {customer.kelurahan && `, ${customer.kelurahan}`}
@@ -305,53 +347,53 @@ const pelangganDetails = () => {
           <View style={styles.statsGrid}>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{customer.totalOrders}</Text>
-              <Text style={styles.statLabel}>Total Pesanan</Text>
+              <Text style={styles.statLabel}>{t('pelanggan.stats.totalOrders')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{formatCurrency(customer.totalSpent)}</Text>
-              <Text style={styles.statLabel}>Total Belanja</Text>
+              <Text style={styles.statLabel}>{t('pelangganDetails.stats.totalSpent')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{formatCurrency(customer.averageOrderValue || 0)}</Text>
-              <Text style={styles.statLabel}>Rata-rata Pesanan</Text>
+              <Text style={styles.statLabel}>{t('pelangganDetails.stats.averageOrder')}</Text>
             </View>
             <View style={styles.statCard}>
               <Text style={styles.statNumber}>{formatDate(customer.customerSince)}</Text>
-              <Text style={styles.statLabel}>Pelanggan Sejak</Text>
+              <Text style={styles.statLabel}>{t('pelangganDetails.stats.customerSince')}</Text>
             </View>
           </View>
         </View>
 
         {/* Customer Information */}
-        <View style={styles.infoSection}>
+        <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="info" size={20} color={COLORS.PRIMARY} />
-            <Text style={styles.sectionTitle}>Informasi Pelanggan</Text>
+            <MaterialIcons name="info" size={18} color={COLORS.PRIMARY} />
+            <Text style={styles.sectionTitle}>{t('pelangganDetails.sections.customerInfo')}</Text>
           </View>
-          
+
           <View style={styles.infoRow}>
-            <MaterialIcons name="event" size={20} color={COLORS.TEXT_SECONDARY} />
+            <MaterialIcons name="event" size={18} color="#999" />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Pesanan Terakhir</Text>
+              <Text style={styles.infoLabel}>{t('pelangganDetails.info.lastOrder')}</Text>
               <Text style={styles.infoValue}>{formatDate(customer.lastOrderDate)}</Text>
             </View>
           </View>
 
           <View style={styles.infoRow}>
-            <MaterialIcons name="restaurant" size={20} color={COLORS.TEXT_SECONDARY} />
+            <MaterialIcons name="restaurant" size={18} color="#999" />
             <View style={styles.infoContent}>
-              <Text style={styles.infoLabel}>Layanan Favorit</Text>
+              <Text style={styles.infoLabel}>{t('pelangganDetails.info.favoriteService')}</Text>
               <Text style={styles.infoValue}>{customer.mostPreferredService}</Text>
             </View>
           </View>
 
           {customer.stats && (
-            <View style={styles.infoRow}>
-              <MaterialIcons name="assessment" size={20} color={COLORS.TEXT_SECONDARY} />
+            <View style={[styles.infoRow, styles.infoRowLast]}>
+              <MaterialIcons name="assessment" size={18} color="#999" />
               <View style={styles.infoContent}>
-                <Text style={styles.infoLabel}>Status Pesanan</Text>
+                <Text style={styles.infoLabel}>{t('pelangganDetails.info.orderStatus')}</Text>
                 <Text style={styles.infoValue}>
-                  {customer.stats.completedOrders} selesai, {customer.stats.processingOrders} diproses
+                  {t('pelangganDetails.info.orderStatusValue', { completed: customer.stats.completedOrders, processing: customer.stats.processingOrders })}
                 </Text>
               </View>
             </View>
@@ -359,37 +401,37 @@ const pelangganDetails = () => {
         </View>
 
         {/* Customer Insights Section */}
-        <View style={styles.insightsSection}>
+        <View style={styles.card}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="insights" size={20} color={COLORS.PRIMARY} />
-            <Text style={styles.sectionTitle}>Analisis Pelanggan</Text>
+            <MaterialIcons name="insights" size={18} color={COLORS.PRIMARY} />
+            <Text style={styles.sectionTitle}>{t('pelangganDetails.sections.insights')}</Text>
           </View>
-          
+
           <View style={styles.insightsGrid}>
             <View style={styles.insightCard}>
-              <MaterialIcons name="star" size={20} color={COLORS.SUCCESS} />
-              <Text style={styles.insightLabel}>Tipe Pelanggan</Text>
-              <Text style={styles.insightValue}>{getCustomerInsights(customer).customerType}</Text>
+              <MaterialIcons name="star" size={20} color="#2E7D32" />
+              <Text style={styles.insightLabel}>{t('pelangganDetails.insights.customerType')}</Text>
+              <Text style={styles.insightValue}>{insights.customerType}</Text>
             </View>
-            
+
             <View style={styles.insightCard}>
-              <MaterialIcons name="favorite" size={20} color={COLORS.ERROR} />
-              <Text style={styles.insightLabel}>Tingkat Loyalitas</Text>
-              <Text style={styles.insightValue}>{getCustomerInsights(customer).loyaltyLevel}</Text>
+              <MaterialIcons name="favorite" size={20} color="#C62828" />
+              <Text style={styles.insightLabel}>{t('pelangganDetails.insights.loyaltyLevel')}</Text>
+              <Text style={styles.insightValue}>{insights.loyaltyLevel}</Text>
             </View>
           </View>
         </View>
 
         {/* Allergy/Special Notes */}
         {customer.allergyNotes && customer.allergyNotes.length > 0 && (
-          <View style={styles.allergySection}>
+          <View style={styles.card}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="warning" size={20} color={COLORS.WARNING} />
-              <Text style={styles.sectionTitle}>Catatan Khusus</Text>
+              <MaterialIcons name="warning" size={18} color="#B26A00" />
+              <Text style={styles.sectionTitle}>{t('pelangganDetails.sections.specialNotes')}</Text>
             </View>
             {customer.allergyNotes.map((note, index) => (
               <View key={index} style={styles.allergyNote}>
-                <MaterialIcons name="info" size={16} color={COLORS.WARNING} />
+                <MaterialIcons name="info" size={15} color="#B26A00" />
                 <Text style={styles.allergyText}>{note}</Text>
               </View>
             ))}
@@ -398,16 +440,16 @@ const pelangganDetails = () => {
 
         {/* Service Preferences */}
         {customer.servicePreferences && Object.keys(customer.servicePreferences).length > 0 && (
-          <View style={styles.preferencesSection}>
+          <View style={styles.card}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="favorite" size={20} color={COLORS.PRIMARY} />
-              <Text style={styles.sectionTitle}>Preferensi Layanan</Text>
+              <MaterialIcons name="favorite" size={18} color={COLORS.PRIMARY} />
+              <Text style={styles.sectionTitle}>{t('pelangganDetails.sections.servicePreferences')}</Text>
             </View>
             <View style={styles.preferencesGrid}>
               {Object.entries(customer.servicePreferences).map(([service, count]) => (
                 <View key={service} style={styles.preferenceCard}>
                   <Text style={styles.preferenceService}>{service}</Text>
-                  <Text style={styles.preferenceCount}>{count} pesanan</Text>
+                  <Text style={styles.preferenceCount}>{t('laporan.topItems.ordersSuffix', { count })}</Text>
                 </View>
               ))}
             </View>
@@ -415,53 +457,79 @@ const pelangganDetails = () => {
         )}
 
         {/* Recent Orders */}
-        <View style={styles.ordersSection}>
+        <View style={[styles.card, { marginBottom: 28 }]}>
           <View style={styles.sectionHeader}>
-            <MaterialIcons name="receipt" size={20} color={COLORS.PRIMARY} />
-            <Text style={styles.sectionTitle}>Riwayat Pesanan</Text>
+            <MaterialIcons name="receipt" size={18} color={COLORS.PRIMARY} />
+            <Text style={styles.sectionTitle}>{t('pelangganDetails.sections.orderHistory')}</Text>
           </View>
-          
+
           {customer.orders && customer.orders.length > 0 ? (
-            customer.orders.map((order, index) => (
-              <View key={order.id || index} style={styles.orderCard}>
-                <View style={styles.orderHeader}>
-                  <View style={styles.orderInfo}>
-                    <Text style={styles.orderType}>{order.type}</Text>
-                    <Text style={styles.orderDate}>{formatDate(order.date)}</Text>
+            customer.orders.map((order, index) => {
+              const statusStyle = getStatusStyle(order.status);
+              return (
+                <View key={order.id || index} style={styles.orderCard}>
+                  <View style={styles.orderHeader}>
+                    <View style={styles.orderInfo}>
+                      <Text style={styles.orderType}>{order.type}</Text>
+                      <Text style={styles.orderDate}>{formatDate(order.date)}</Text>
+                    </View>
+                    <View style={[styles.orderStatusBadge, { backgroundColor: statusStyle.bg }]}>
+                      <Text style={[styles.orderStatusText, { color: statusStyle.color }]}>
+                        {t(`pelanggan.status.${getStatusKey(order.status)}`)}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={[styles.orderStatusBadge, { backgroundColor: getStatusColor(order.status) + '20' }]}>
-                    <Text style={[styles.orderStatusText, { color: getStatusColor(order.status) }]}>
-                      {getStatusText(order.status)}
-                    </Text>
+
+                  <View style={styles.orderDetails}>
+                    <Text style={styles.orderAmount}>{formatCurrency(order.amount)}</Text>
+                    <Text style={styles.orderPax}>{t('pelangganDetails.order.paxSuffix', { pax: order.pax })}</Text>
                   </View>
+
+                  {order.notes && (
+                    <Text style={styles.orderNotes}>{order.notes}</Text>
+                  )}
                 </View>
-                
-                <View style={styles.orderDetails}>
-                  <Text style={styles.orderAmount}>{formatCurrency(order.amount)}</Text>
-                  <Text style={styles.orderPax}>• {order.pax} porsi</Text>
-                </View>
-                
-                {order.notes && (
-                  <Text style={styles.orderNotes}>{order.notes}</Text>
-                )}
-              </View>
-            ))
+              );
+            })
           ) : (
-            <Text style={styles.noOrdersText}>Belum ada riwayat pesanan</Text>
+            <Text style={styles.noOrdersText}>{t('pelangganDetails.noOrders')}</Text>
           )}
         </View>
       </ScrollView>
+
+      <CustomAlert
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        buttons={customAlert.buttons}
+        type={customAlert.type}
+        onClose={closeAlert}
+      />
     </SafeAreaView>
   );
 };
 
-export default pelangganDetails;
+export default PelangganDetails;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
+    backgroundColor: '#F5F6FA',
   },
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY, textAlign: 'center' },
+
   scrollContainer: {
     flex: 1,
   },
@@ -472,71 +540,85 @@ const styles = StyleSheet.create({
     paddingVertical: 60,
   },
   loadingText: {
-    fontSize: 16,
-    color: COLORS.TEXT_SECONDARY,
-    marginTop: 16,
+    fontSize: 14,
+    color: '#777',
+    marginTop: 14,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+    paddingHorizontal: 32,
+  },
+  errorIconBox: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
   },
   errorTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: COLORS.ERROR,
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 6,
   },
   errorSubtitle: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: 13.5,
+    color: '#888',
     textAlign: 'center',
-    paddingHorizontal: 32,
-    lineHeight: 20,
-    marginBottom: 24,
+    lineHeight: 19,
+    marginBottom: 22,
   },
   retryButton: {
     backgroundColor: COLORS.PRIMARY,
-    paddingHorizontal: 24,
+    paddingHorizontal: 26,
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 30,
   },
   retryButtonText: {
-    color: COLORS.WHITE,
-    fontSize: 16,
-    fontWeight: '600',
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '700',
   },
-  profileSection: {
-    backgroundColor: COLORS.WHITE,
-    margin: 16,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
+
+  // Shared card style
+  card: {
+    backgroundColor: '#fff',
+    marginHorizontal: 16,
+    marginTop: 14,
+    borderRadius: 14,
+    padding: 14,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
+  profileSection: {
+    marginTop: 16,
   },
   profileHeader: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    marginBottom: 20,
+    marginBottom: 18,
   },
   profileImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    marginRight: 16,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    marginRight: 14,
   },
   profileInfo: {
     flex: 1,
   },
   customerName: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_PRIMARY,
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#23272f',
     marginBottom: 8,
   },
   contactInfo: {
@@ -548,162 +630,117 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   contactText: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: 13,
+    color: '#777',
     flex: 1,
   },
   contactButton: {
     backgroundColor: COLORS.PRIMARY,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     justifyContent: 'center',
     alignItems: 'center',
   },
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 12,
+    gap: 10,
   },
   statCard: {
     flex: 1,
     minWidth: '45%',
-    backgroundColor: COLORS.LIGHT_GRAY,
+    backgroundColor: '#F5F6FA',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
   },
   statNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
     color: COLORS.PRIMARY,
     marginBottom: 4,
   },
   statLabel: {
-    fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: 11.5,
+    color: '#888',
     textAlign: 'center',
-  },
-  infoSection: {
-    backgroundColor: COLORS.WHITE,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: COLORS.BORDER,
-  },
-  infoContent: {
-    marginLeft: 12,
-    flex: 1,
-  },
-  infoLabel: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.TEXT_PRIMARY,
-  },
-  insightsSection: {
-    backgroundColor: COLORS.WHITE,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-  },
-  insightsGrid: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  insightCard: {
-    flex: 1,
-    backgroundColor: COLORS.LIGHT_GRAY,
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  insightLabel: {
-    fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
-    textAlign: 'center',
-    marginTop: 4,
-    marginBottom: 2,
-  },
-  insightValue: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: COLORS.TEXT_PRIMARY,
-    textAlign: 'center',
-  },
-  allergySection: {
-    backgroundColor: COLORS.WHITE,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
+    gap: 8,
+    marginBottom: 10,
   },
   sectionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: COLORS.TEXT_PRIMARY,
-    marginLeft: 8,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#23272f',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    paddingVertical: 11,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  infoRowLast: {
+    borderBottomWidth: 0,
+  },
+  infoContent: {
+    flex: 1,
+  },
+  infoLabel: {
+    fontSize: 12.5,
+    color: '#888',
+    marginBottom: 2,
+  },
+  infoValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#23272f',
+  },
+  insightsGrid: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  insightCard: {
+    flex: 1,
+    backgroundColor: '#F5F6FA',
+    padding: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  insightLabel: {
+    fontSize: 11.5,
+    color: '#888',
+    textAlign: 'center',
+    marginTop: 6,
+    marginBottom: 2,
+  },
+  insightValue: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#23272f',
+    textAlign: 'center',
   },
   allergyNote: {
     flexDirection: 'row',
     alignItems: 'flex-start',
-    backgroundColor: COLORS.WARNING + '10',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: '#FFF3E0',
+    padding: 11,
+    borderRadius: 10,
     marginBottom: 8,
+    gap: 8,
     borderLeftWidth: 3,
-    borderLeftColor: COLORS.WARNING,
+    borderLeftColor: '#B26A00',
   },
   allergyText: {
-    fontSize: 14,
-    color: COLORS.TEXT_PRIMARY,
-    marginLeft: 8,
+    fontSize: 13,
+    color: '#23272f',
     flex: 1,
-    lineHeight: 20,
-  },
-  preferencesSection: {
-    backgroundColor: COLORS.WHITE,
-    marginHorizontal: 16,
-    marginBottom: 16,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    lineHeight: 19,
   },
   preferencesGrid: {
     flexDirection: 'row',
@@ -711,39 +748,27 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   preferenceCard: {
-    backgroundColor: COLORS.PRIMARY + '10',
+    backgroundColor: '#F7EAEF',
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: COLORS.PRIMARY + '30',
+    borderColor: '#EFD9E1',
   },
   preferenceService: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: COLORS.PRIMARY,
   },
   preferenceCount: {
-    fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
-  },
-  ordersSection: {
-    backgroundColor: COLORS.WHITE,
-    marginHorizontal: 16,
-    marginBottom: 32,
-    borderRadius: 12,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    fontSize: 11.5,
+    color: '#888',
   },
   orderCard: {
-    backgroundColor: COLORS.LIGHT_GRAY,
+    backgroundColor: '#F5F6FA',
     padding: 12,
-    borderRadius: 8,
-    marginBottom: 12,
+    borderRadius: 12,
+    marginBottom: 10,
   },
   orderHeader: {
     flexDirection: 'row',
@@ -755,22 +780,22 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   orderType: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: COLORS.TEXT_PRIMARY,
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#23272f',
   },
   orderDate: {
-    fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: 11.5,
+    color: '#888',
   },
   orderStatusBadge: {
-    paddingHorizontal: 8,
+    paddingHorizontal: 9,
     paddingVertical: 4,
-    borderRadius: 12,
+    borderRadius: 10,
   },
   orderStatusText: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11,
+    fontWeight: '700',
   },
   orderDetails: {
     flexDirection: 'row',
@@ -778,25 +803,93 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   orderAmount: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13.5,
+    fontWeight: '700',
     color: COLORS.PRIMARY,
   },
   orderPax: {
-    fontSize: 14,
-    color: COLORS.TEXT_SECONDARY,
+    fontSize: 13,
+    color: '#888',
     marginLeft: 8,
   },
   orderNotes: {
     fontSize: 12,
-    color: COLORS.TEXT_SECONDARY,
+    color: '#888',
     fontStyle: 'italic',
     marginTop: 4,
   },
   noOrdersText: {
     textAlign: 'center',
-    color: COLORS.TEXT_SECONDARY,
-    fontSize: 14,
+    color: '#aaa',
+    fontSize: 13.5,
     paddingVertical: 20,
+  },
+
+  // CustomAlert
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  alertContent: {
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 22,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  alertIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#23272f',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  alertMessage: {
+    fontSize: 13.5,
+    color: '#777',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  alertButtonSolid: {
+    backgroundColor: COLORS.PRIMARY,
+  },
+  alertButtonOutline: {
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+  },
+  alertButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  alertButtonTextSolid: {
+    color: '#fff',
+  },
+  alertButtonTextOutline: {
+    color: '#777',
   },
 });

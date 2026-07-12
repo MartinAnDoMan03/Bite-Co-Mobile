@@ -8,21 +8,23 @@ import {
   Animated,
   TextInput,
   FlatList,
-  Alert,
   Image,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
   PanResponder,
+  ActivityIndicator,
 } from "react-native";
 import React, { useState, useRef, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AntDesign from "@expo/vector-icons/AntDesign";
+import { MaterialIcons } from "@expo/vector-icons";
 import COLORS from '../constants/color';
 import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
 import config from '../constants/config';
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useLanguage } from '../contexts/LanguageContext';
 
 // Helper function to get auth token
 const getAuthToken = async () => {
@@ -36,16 +38,64 @@ const getAuthToken = async () => {
   }
 };
 
-const HeaderTitleBackCustom = ({
-  title,
-  textColor = "black",
-  state = "kategori",
-  setState,
-}) => {
-  const route = useRouter();
+// Alert kustom, selaras dengan pola CustomAlert di halaman lain
+const ALERT_TYPE_STYLES = {
+  info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
+  success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
+  error: { icon: 'error', color: '#C62828', bg: '#FFEBEE' },
+  warning: { icon: 'warning', color: '#B26A00', bg: '#FFF3E0' },
+};
+
+const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose }) => {
+  const typeStyle = ALERT_TYPE_STYLES[type] || ALERT_TYPE_STYLES.info;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.alertOverlay}>
+        <View style={styles.alertContent}>
+          <View style={[styles.alertIconCircle, { backgroundColor: typeStyle.bg }]}>
+            <MaterialIcons name={typeStyle.icon} size={26} color={typeStyle.color} />
+          </View>
+          <Text style={styles.alertTitle}>{title}</Text>
+          {!!message && <Text style={styles.alertMessage}>{message}</Text>}
+          <View style={styles.alertButtons}>
+            {buttons.map((btn, index) => {
+              const isCancel = btn.style === 'cancel';
+              const isDestructive = btn.style === 'destructive';
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[
+                    styles.alertButton,
+                    isCancel && styles.alertButtonOutline,
+                    isDestructive && styles.alertButtonDestructive,
+                    !isCancel && !isDestructive && styles.alertButtonSolid,
+                  ]}
+                  onPress={() => {
+                    onClose();
+                    btn.onPress && btn.onPress();
+                  }}
+                >
+                  <Text style={[
+                    styles.alertButtonText,
+                    isCancel ? styles.alertButtonTextOutline : styles.alertButtonTextSolid,
+                  ]}>
+                    {btn.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
+const HeaderTitleBackCustom = ({ title, state, setState, t }) => {
+  const router = useRouter();
   const handleBack = () => {
     if (state === "kategori") {
-      route.back();
+      router.back();
     }
     if (state === "menu") {
       setState("kategori");
@@ -55,113 +105,12 @@ const HeaderTitleBackCustom = ({
     }
   };
   return (
-    <View
-      style={{
-        flexDirection: "row",
-        width: "100%",
-        padding: 20,
-        justifyContent: "center",
-      }}
-    >
-      <TouchableOpacity
-        style={{
-          height: 50,
-          width: 50,
-          backgroundColor: COLORS.BACKGROUND,
-          borderRadius: 99,
-          alignItems: "center",
-          justifyContent: "center",
-          position: "absolute",
-          top: 20,
-          left: 20,
-        }}
-        onPress={handleBack}
-      >
-        <AntDesign name="left" size={20} color={COLORS.TEXT} />
+    <View style={styles.header}>
+      <TouchableOpacity onPress={handleBack} style={styles.backBtn} accessibilityLabel={t('daftarMenu.accessibility.back')}>
+        <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
       </TouchableOpacity>
-      <View
-        style={{ height: 50, justifyContent: "center", alignItems: "center" }}
-      >
-        <Text style={{ fontSize: 16, fontWeight: "bold", color: textColor }}>
-          {title}
-        </Text>
-      </View>
-    </View>
-  );
-};
-
-const Dropdown = ({ selectedOption, onSelect }) => {
-  const [visible, setVisible] = useState(false);
-  const slideAnim = useRef(new Animated.Value(0)).current;
-
-  const options = ["Rantangan", "Catering"];
-
-  useEffect(() => {
-    if (visible) {
-      Animated.timing(slideAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    } else {
-      slideAnim.setValue(0);
-    }
-  }, [visible]);
-
-  const handleSelect = (option) => {
-    onSelect(option);
-    closeModal();
-  };
-
-  const closeModal = () => {
-    Animated.timing(slideAnim, {
-      toValue: 0,
-      duration: 300,
-      useNativeDriver: true,
-    }).start(() => setVisible(false));
-  };
-
-  const translateY = slideAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [300, 0],
-  });
-
-  return (
-    <View style={styles.dropdownWrapper}>
-      <TouchableOpacity
-        style={styles.dropdownButton}
-        onPress={() => setVisible(true)}
-      >
-        <Text style={styles.dropdownButtonText}>{selectedOption}</Text>
-      </TouchableOpacity>
-
-      <Modal
-        transparent={true}
-        visible={visible}
-        animationType="none"
-        onRequestClose={closeModal}
-      >
-        <TouchableWithoutFeedback onPress={closeModal}>
-          <View style={styles.modalOverlay} />
-        </TouchableWithoutFeedback>
-
-        <Animated.View
-          style={[styles.bottomModalContent, { transform: [{ translateY }] }]}
-        >
-          {options.map((option) => (
-            <TouchableOpacity
-              key={option}
-              style={[
-                styles.option,
-                selectedOption === option && styles.selectedOption,
-              ]}
-              onPress={() => handleSelect(option)}
-            >
-              <Text style={styles.optionText}>{option}</Text>
-            </TouchableOpacity>
-          ))}
-        </Animated.View>
-      </Modal>
+      <Text style={styles.headerTitle} numberOfLines={1}>{title}</Text>
+      <View style={{ width: 26 }} />
     </View>
   );
 };
@@ -171,6 +120,8 @@ const ScreenTambahMenu = ({
   setState,
   selectedCategory,
   fetchCategories,
+  showAlert,
+  t,
 }) => {
   const [menuName, setMenuName] = useState("");
   const [description, setDescription] = useState("");
@@ -193,7 +144,7 @@ const ScreenTambahMenu = ({
 
   const handleAddMenu = async () => {
     if (!menuName || !description || !price) {
-      Alert.alert("Error", "Please fill all fields");
+      showAlert(t('common.error'), t('daftarMenu.alerts.incompleteFields'), [{ text: t('common.ok') }], "error");
       return;
     }
 
@@ -228,23 +179,24 @@ const ScreenTambahMenu = ({
         throw new Error("Failed to add menu");
       }
 
-      Alert.alert("Success", "Menu added successfully");
+      showAlert(t('common.success'), t('daftarMenu.alerts.addMenuSuccess'), [{ text: t('common.ok') }], "success");
       fetchCategories(); // Refresh the categories
       setState("menu"); // Go back to menu screen
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to add menu");
+      showAlert(t('common.error'), t('daftarMenu.alerts.addMenuFailed'), [{ text: t('common.ok') }], "error");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={{ flex: 1 }}>
+    <SafeAreaView style={styles.container}>
       <HeaderTitleBackCustom
-        title="Tambah Menu"
+        title={t('daftarMenu.quickAdd.header')}
         state={state}
         setState={setState}
+        t={t}
       />
       <KeyboardAvoidingView
         style={{ flex: 1 }}
@@ -252,150 +204,74 @@ const ScreenTambahMenu = ({
       >
         <ScrollView
           style={{ flex: 1 }}
-          contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
+          contentContainerStyle={{ padding: 16, paddingBottom: 32 }}
           keyboardShouldPersistTaps="handled"
         >
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "bold",
-            }}
-          >
-            Detail menu
-          </Text>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "bold",
-              marginTop: 20,
-            }}
-          >
-            Foto
-          </Text>
-          <Text
-            style={{
-              fontSize: 16,
-            }}
-          >
-            Upload foto mu biar pelanggan lebih tertarik
-          </Text>
-          <TouchableOpacity
-            style={{
-              marginTop: 20,
-              borderColor: COLORS.TEXTSECONDARY,
-              width: 100,
-              height: 100,
-              borderWidth: 1,
-              borderRadius: 10,
-              justifyContent: "center",
-              alignItems: "center",
-            }}
-            onPress={pickImage}
-          >
-            {image ? (
-              <Image
-                source={{ uri: image }}
-                style={{ width: 100, height: 100, borderRadius: 10 }}
-              />
-            ) : (
-              <View
-                style={{
-                  width: 24,
-                  height: 24,
-                  backgroundColor: COLORS.GREEN3,
-                  borderRadius: 99,
-                  justifyContent: "center",
-                  alignItems: "center",
-                }}
-              >
-                <Text
-                  style={{
-                    fontSize: 18,
-                    fontWeight: "bold",
-                    color: "white",
-                  }}
-                >
-                  +
-                </Text>
-              </View>
-            )}
-          </TouchableOpacity>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "bold",
-              marginTop: 20,
-            }}
-          >
-            Nama
-          </Text>
-          <View>
+          <View style={styles.card}>
+            <Text style={styles.label}>{t('daftarMenu.quickAdd.photoLabel')}</Text>
+            <Text style={styles.helperText}>
+              {t('daftarMenu.quickAdd.photoHelper')}
+            </Text>
+            <TouchableOpacity
+              style={styles.imagePickerBox}
+              onPress={pickImage}
+              activeOpacity={0.85}
+            >
+              {image ? (
+                <Image
+                  source={{ uri: image }}
+                  style={styles.imagePickerPreview}
+                />
+              ) : (
+                <View style={styles.imagePickerPlus}>
+                  <MaterialIcons name="add" size={22} color="#fff" />
+                </View>
+              )}
+            </TouchableOpacity>
+
+            <Text style={[styles.label, { marginTop: 18 }]}>{t('daftarMenu.quickAdd.nameLabel')}</Text>
             <TextInput
               style={styles.input}
-              placeholder="Cth: Puding"
+              placeholder={t('daftarMenu.quickAdd.namePlaceholder')}
+              placeholderTextColor="#aaa"
               value={menuName}
               onChangeText={setMenuName}
             />
-          </View>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "bold",
-              marginTop: 20,
-            }}
-          >
-            Deskripsi
-          </Text>
-          <View>
+
+            <Text style={styles.label}>{t('daftarMenu.quickAdd.descriptionLabel')}</Text>
             <TextInput
               multiline
               numberOfLines={4}
-              height={100}
-              style={styles.input}
+              style={[styles.input, styles.textArea]}
+              placeholder={t('daftarMenu.quickAdd.descriptionPlaceholder')}
+              placeholderTextColor="#aaa"
               value={description}
               onChangeText={setDescription}
-              placeholder="Deskripsi menu..."
+              textAlignVertical="top"
             />
-          </View>
-          <Text
-            style={{
-              fontSize: 16,
-              fontWeight: "bold",
-              marginTop: 20,
-            }}
-          >
-            Harga
-          </Text>
-          <View>
+
+            <Text style={styles.label}>{t('daftarMenu.quickAdd.priceLabel')}</Text>
             <TextInput
-              style={styles.input}
-              placeholder="Cth: 10000"
+              style={[styles.input, { marginBottom: 4 }]}
+              placeholder={t('daftarMenu.quickAdd.pricePlaceholder')}
+              placeholderTextColor="#aaa"
               value={price}
               onChangeText={setPrice}
               keyboardType="numeric"
             />
           </View>
+
           <TouchableOpacity
-            style={{
-              marginTop: 20,
-              backgroundColor: COLORS.GREEN3,
-              paddingVertical: 10,
-              borderRadius: 12,
-              alignItems: "center",
-              opacity: isLoading ? 0.7 : 1,
-            }}
+            style={[styles.primaryButton, isLoading && { opacity: 0.6 }]}
             onPress={handleAddMenu}
             disabled={isLoading}
+            activeOpacity={0.85}
           >
-            <Text
-              style={{
-                color: "white",
-                fontSize: 16,
-                fontWeight: "bold",
-              }}
-            >
-              {isLoading ? "Menyimpan..." : "Simpan"}
-            </Text>
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.primaryButtonText}>{t('daftarMenu.quickAdd.saveButton')}</Text>
+            )}
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -409,12 +285,11 @@ const DaftarKetegori = ({
   onPress,
   onEdit,
   onDelete,
-  hideDelete = false,
 }) => {
   const translateX = useRef(new Animated.Value(0)).current;
   const [isRevealed, setIsRevealed] = useState(false);
 
-  const actionWidth = hideDelete ? -40 : -80; // Adjust width based on number of buttons
+  const actionWidth = -80;
 
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: (evt, gestureState) => {
@@ -491,7 +366,7 @@ const DaftarKetegori = ({
               <View style={styles.amountBadge}>
                 <Text style={styles.amountText}>{amount}</Text>
               </View>
-              <AntDesign name="right" size={24} color={COLORS.TEXT} />
+              <MaterialIcons name="chevron-right" size={22} color="#c9c9c9" />
             </View>
           </TouchableOpacity>
         </Animated.View>
@@ -503,42 +378,19 @@ const DaftarKetegori = ({
           >
             <AntDesign name="edit" size={16} color="white" />
           </TouchableOpacity>
-          {!hideDelete && (
-            <TouchableOpacity
-              style={[styles.actionButton, styles.deleteButton]}
-              onPress={onDelete}
-            >
-              <AntDesign name="delete" size={16} color="white" />
-            </TouchableOpacity>
-          )}
+          <TouchableOpacity
+            style={[styles.actionButton, styles.deleteButton]}
+            onPress={onDelete}
+          >
+            <AntDesign name="delete" size={16} color="white" />
+          </TouchableOpacity>
         </View>
       </View>
     </View>
   );
 };
 
-const RantanganPackageItem = ({ nama, description, price, onEdit }) => {
-  return (
-    <TouchableOpacity
-      style={styles.rantanganContainer}
-      onPress={onEdit}
-      activeOpacity={0.7}
-    >
-      <View style={styles.rantanganContent}>
-        <View style={styles.rantanganDetails}>
-          <Text style={styles.rantanganName}>{nama}</Text>
-          <Text style={styles.rantanganDescription}>{description}</Text>
-          <Text style={styles.rantanganPrice}>Rp {price.toLocaleString()}</Text>
-        </View>
-        <View style={styles.rantanganEditIcon}>
-          <AntDesign name="edit" size={20} color="#666666" />
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-};
-
-const MenuItem = ({ item, onEdit, onDelete }) => {
+const MenuItem = ({ item, onEdit, onDelete, t }) => {
   const translateX = useRef(new Animated.Value(0)).current;
   const [isRevealed, setIsRevealed] = useState(false);
 
@@ -622,7 +474,7 @@ const MenuItem = ({ item, onEdit, onDelete }) => {
               <Text style={styles.menuItemName}>{item.name}</Text>
               <Text style={styles.menuItemDescription}>{item.description}</Text>
               <Text style={styles.menuItemPrice}>
-                Rp {item.price.toLocaleString()}
+                {t('daftarMenu.priceFormat', { price: item.price.toLocaleString() })}
               </Text>
             </View>
           </TouchableOpacity>
@@ -654,36 +506,15 @@ const ScreenKategori = ({
   state,
   setState,
   fetchCategories,
-  rantanganPackages,
-  setRantanganPackages,
-  fetchRantanganPackages,
+  showAlert,
+  t,
 }) => {
-  const [selectedOption, setSelectedOption] = useState("Rantangan");
   const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
   const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
-  const [showEditRantanganModal, setShowEditRantanganModal] = useState(false);
   const [newCategoryName, setNewCategoryName] = useState("");
   const [editingCategory, setEditingCategory] = useState(null);
-  const [editingRantangan, setEditingRantangan] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState("");
-  const [editCategoryType, setEditCategoryType] = useState("Catering");
-  const [editRantanganName, setEditRantanganName] = useState("");
-  const [editRantanganDescription, setEditRantanganDescription] = useState("");
-  const [editRantanganPrice, setEditRantanganPrice] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const [showRantanganSimpanModal, setShowRantanganSimpanModal] = useState(false);
-  const [paketHarian, setPaketHarian] = useState("");
-  const [paketMingguan, setPaketMingguan] = useState("");
-  const [paketBulanan, setPaketBulanan] = useState("");
-  const [rantanganEditTemp, setRantanganEditTemp] = useState(null); // local temp for edit
-  const [editRantanganIdx, setEditRantanganIdx] = useState(null); // index for editing rantangan
-
-  // State for editing all 3 rantangan packages at once
-  const [editRantanganArray, setEditRantanganArray] = useState([
-    { type: "Harian", name: "", description: "", price: "" },
-    { type: "Mingguan", name: "", description: "", price: "" },
-    { type: "Bulanan", name: "", description: "", price: "" },
-  ]);
 
   const handleAddCategory = async () => {
     if (newCategoryName.trim() === "") return;
@@ -699,7 +530,7 @@ const ScreenKategori = ({
         },
         body: JSON.stringify({
           name: newCategoryName,
-          type: selectedOption.toLowerCase(),
+          type: "catering",
         }),
       });
 
@@ -714,7 +545,7 @@ const ScreenKategori = ({
       setShowAddCategoryModal(false);
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to add category");
+      showAlert(t('common.error'), t('daftarMenu.alerts.addCategoryFailed'), [{ text: t('common.ok') }], "error");
     } finally {
       setIsLoading(false);
     }
@@ -723,20 +554,17 @@ const ScreenKategori = ({
   const handleEditCategory = (category) => {
     setEditingCategory(category);
     setEditCategoryName(category.name);
-    setEditCategoryType(
-      category.type.charAt(0).toUpperCase() + category.type.slice(1)
-    );
     setShowEditCategoryModal(true);
   };
 
   const handleDeleteCategory = async (category) => {
-    Alert.alert(
-      "Hapus Kategori",
-      "Apakah anda yakin ingin menghapus kategori ini? Semua menu dalam kategori ini akan terhapus.",
+    showAlert(
+      t('daftarMenu.alerts.deleteCategoryTitle'),
+      t('daftarMenu.alerts.deleteCategoryMessage'),
       [
-        { text: "Batal", style: "cancel" },
+        { text: t('common.cancel'), style: "cancel" },
         {
-          text: "Hapus",
+          text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
             try {
@@ -755,21 +583,22 @@ const ScreenKategori = ({
                 throw new Error("Failed to delete category");
               }
 
-              Alert.alert("Success", "Category deleted successfully");
+              showAlert(t('common.success'), t('daftarMenu.alerts.deleteCategorySuccess'), [{ text: t('common.ok') }], "success");
               fetchCategories();
             } catch (error) {
               console.error(error);
-              Alert.alert("Error", "Failed to delete category");
+              showAlert(t('common.error'), t('daftarMenu.alerts.deleteCategoryFailed'), [{ text: t('common.ok') }], "error");
             }
           },
         },
-      ]
+      ],
+      "warning"
     );
   };
 
   const handleUpdateCategory = async () => {
     if (!editCategoryName.trim()) {
-      Alert.alert("Error", "Category name is required");
+      showAlert(t('common.error'), t('daftarMenu.alerts.categoryNameRequired'), [{ text: t('common.ok') }], "error");
       return;
     }
 
@@ -786,7 +615,6 @@ const ScreenKategori = ({
           },
           body: JSON.stringify({
             name: editCategoryName,
-            type: editCategoryType.toLowerCase(),
           }),
         }
       );
@@ -795,86 +623,12 @@ const ScreenKategori = ({
         throw new Error("Failed to update category");
       }
 
-      Alert.alert("Success", "Category updated successfully");
+      showAlert(t('common.success'), t('daftarMenu.alerts.updateCategorySuccess'), [{ text: t('common.ok') }], "success");
       setShowEditCategoryModal(false);
       fetchCategories();
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to update category");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleEditRantangan = (item, idx) => {
-    setEditingRantangan(item);
-    setEditRantanganName(item.name);
-    setEditRantanganDescription(item.description);
-    setEditRantanganPrice(item.price.toString());
-    setEditRantanganIdx(idx);
-    setShowEditRantanganModal(true);
-  };
-
-  // Edit Rantangan: Save locally first
-  const handleEditRantanganLocal = () => {
-    if (!editRantanganName.trim() || !editRantanganDescription.trim() || !editRantanganPrice) {
-      Alert.alert("Error", "Nama, deskripsi, dan harga semua paket harus diisi.");
-      return;
-    }
-    const updated = {
-      ...editingRantangan,
-      name: editRantanganName,
-      description: editRantanganDescription,
-      price: Number(editRantanganPrice),
-    };
-    // Update only the selected package in the array
-    const newArr = rantanganPackages.map((pkg, idx) => idx === editRantanganIdx ? updated : pkg);
-    setRantanganEditTemp(newArr);
-    setRantanganPackages(newArr);
-    setShowEditRantanganModal(false);
-    Alert.alert("Berhasil", "Perubahan paket disimpan sementara. Klik Simpan ke API untuk mengirim.");
-  };
-
-  // Save to API (edit only)
-  const handleEditRantanganAPI = async () => {
-    if (!rantanganEditTemp) {
-      Alert.alert("Error", "Edit paket terlebih dahulu.");
-      return;
-    }
-    // Validate all fields strictly
-    for (const pkg of rantanganEditTemp) {
-      if (!pkg.type || !pkg.name || !pkg.description || pkg.price === undefined || pkg.price === null || pkg.price === "" || isNaN(Number(pkg.price)) || Number(pkg.price) <= 1000) {
-        console.log('Validation failed for package:', pkg);
-        Alert.alert("Error", "Nama, deskripsi, dan harga semua paket harus diisi dan harga harus lebih dari 1000.");
-        return;
-      }
-    }
-    setIsLoading(true);
-    try {
-      // Prepare payload as array of 3 packages
-      const payload = rantanganEditTemp.map(pkg => ({
-        type: pkg.type ? pkg.type.toLowerCase() : '',
-        name: pkg.name,
-        description: pkg.description,
-        price: Number(pkg.price),
-      }));
-      console.log('PUT /seller/rantangan payload:', JSON.stringify({ packages: payload }, null, 2));
-      const response = await fetch(`${config.API_URL}/seller/rantangan`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${await getAuthToken()}`,
-        },
-        body: JSON.stringify({ packages: payload }),
-      });
-      const resJson = await response.json().catch(() => ({}));
-      console.log('PUT /seller/rantangan response:', resJson);
-      if (!response.ok) throw new Error(resJson.message || "Gagal simpan ke API");
-      Alert.alert("Sukses", "Paket rantangan berhasil disimpan ke server");
-      setRantanganEditTemp(null);
-      fetchRantanganPackages();
-    } catch (e) {
-      Alert.alert("Error", e.message);
+      showAlert(t('common.error'), t('daftarMenu.alerts.updateCategoryFailed'), [{ text: t('common.ok') }], "error");
     } finally {
       setIsLoading(false);
     }
@@ -887,155 +641,38 @@ const ScreenKategori = ({
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBackCustom title="Menu" state={state} setState={setState} />
-
-      <View style={styles.headerContainer}>
-        <View style={styles.dropdownContainer}>
-          <Dropdown
-            selectedOption={selectedOption}
-            onSelect={setSelectedOption}
-          />
-        </View>
-      </View>
+      <HeaderTitleBackCustom title={t('daftarMenu.header.menuTitle')} state={state} setState={setState} t={t} />
 
       <ScrollView style={styles.contentContainer}>
-        {selectedOption === "Rantangan"
-          ? (
-            <>
-              {rantanganPackages.map((item, idx) => (
-                <RantanganPackageItem
-                  key={item.type}
-                  nama={item.name}
-                  description={item.description}
-                  price={item.price}
-                  onEdit={() => handleEditRantangan(item, idx)}
-                />
-              ))}
-              {/* Simpan ke API Button for Rantangan Edit */}
-              {rantanganEditTemp && (
-                <View style={{ alignItems: "center", marginVertical: 20 }}>
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: COLORS.GREEN3,
-                      paddingVertical: 12,
-                      borderRadius: 12,
-                      alignItems: "center",
-                      width: "90%",
-                    }}
-                    onPress={handleEditRantanganAPI}
-                    disabled={isLoading}
-                  >
-                    <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>
-                      {isLoading ? "Menyimpan..." : "Simpan ke API"}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              )}
-            </>
-          )
-          : // Catering Categories List
-            KategoriList.map((item) => (
-              <DaftarKetegori
-                key={item.id}
-                nama={item.name}
-                amount={item.items?.length || 0}
-                onPress={() => handleCategoryPress(item)}
-                onEdit={() => handleEditCategory(item)}
-                onDelete={() => handleDeleteCategory(item)}
-              />
-            ))}
+        {KategoriList.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              {t('daftarMenu.emptyCategory')}
+            </Text>
+          </View>
+        ) : (
+          KategoriList.map((item) => (
+            <DaftarKetegori
+              key={item.id}
+              nama={item.name}
+              amount={item.items?.length || 0}
+              onPress={() => handleCategoryPress(item)}
+              onEdit={() => handleEditCategory(item)}
+              onDelete={() => handleDeleteCategory(item)}
+            />
+          ))
+        )}
       </ScrollView>
 
-      {selectedOption === "Catering" && (
-        <View
-          style={{
-            padding: 20,
-          }}
+      <View style={{ padding: 16 }}>
+        <TouchableOpacity
+          style={styles.primaryButton}
+          onPress={() => setShowAddCategoryModal(true)}
+          activeOpacity={0.85}
         >
-          <TouchableOpacity
-            style={{
-              backgroundColor: COLORS.GREEN3,
-              paddingVertical: 12,
-              borderRadius: 12,
-              alignItems: "center",
-              shadowColor: "#000",
-              shadowOffset: {
-                width: 0,
-                height: 2,
-              },
-              shadowOpacity: 0.25,
-              shadowRadius: 3.84,
-              elevation: 5,
-            }}
-            onPress={() => setShowAddCategoryModal(true)}
-          >
-            <Text
-              style={{
-                color: "#fff",
-                fontSize: 16,
-                fontWeight: "600",
-              }}
-            >
-              Tambah Kategori
-            </Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
-      {/* Edit Rantangan Modal (edit all 3 at once) */}
-      <Modal
-        transparent={true}
-        visible={showEditRantanganModal}
-        animationType="fade"
-        onRequestClose={() => setShowEditRantanganModal(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setShowEditRantanganModal(false)}>
-          <View style={styles.modalOverlay} />
-        </TouchableWithoutFeedback>
-        <KeyboardAvoidingView
-          style={styles.centerModalContent}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-            <Text style={styles.modalTitle}>Edit Paket {editingRantangan?.type}</Text>
-            <TextInput
-              style={styles.input}
-              placeholder={`Nama Paket ${editingRantangan?.type || ''}`}
-              value={editRantanganName}
-              onChangeText={setEditRantanganName}
-            />
-            <TextInput
-              style={[styles.input, { height: 80 }]}
-              placeholder={`Deskripsi Paket ${editingRantangan?.type || ''}`}
-              value={editRantanganDescription}
-              onChangeText={setEditRantanganDescription}
-              multiline
-              numberOfLines={3}
-            />
-            <TextInput
-              style={styles.input}
-              placeholder={`Harga Paket ${editingRantangan?.type || ''}`}
-              value={editRantanganPrice}
-              onChangeText={setEditRantanganPrice}
-              keyboardType="numeric"
-            />
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowEditRantanganModal(false)}
-              >
-                <Text style={styles.buttonText}>Batal</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
-                onPress={handleEditRantanganLocal}
-              >
-                <Text style={styles.buttonText}>Simpan</Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
+          <Text style={styles.primaryButtonText}>{t('daftarMenu.addCategoryButton')}</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* Add Category Modal */}
       <Modal
@@ -1058,11 +695,12 @@ const ScreenKategori = ({
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.modalTitle}>Tambah Kategori Baru</Text>
+            <Text style={styles.modalTitle}>{t('daftarMenu.modal.addCategoryTitle')}</Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Nama Kategori"
+              placeholder={t('daftarMenu.modal.categoryNamePlaceholder')}
+              placeholderTextColor="#aaa"
               value={newCategoryName}
               onChangeText={setNewCategoryName}
               autoFocus={true}
@@ -1073,16 +711,16 @@ const ScreenKategori = ({
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowAddCategoryModal(false)}
               >
-                <Text style={styles.buttonText}>Batal</Text>
+                <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
+                style={[styles.modalButton, styles.confirmButton]}
                 onPress={handleAddCategory}
                 disabled={isLoading}
               >
-                <Text style={styles.buttonText}>
-                  {isLoading ? "Menambahkan..." : "Tambah"}
+                <Text style={styles.confirmButtonText}>
+                  {isLoading ? t('daftarMenu.modal.adding') : t('daftarMenu.modal.add')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1111,48 +749,45 @@ const ScreenKategori = ({
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.modalTitle}>Edit Kategori</Text>
+            <Text style={styles.modalTitle}>{t('daftarMenu.modal.editCategoryTitle')}</Text>
 
             <TextInput
               style={styles.input}
-              placeholder="Nama Kategori"
+              placeholder={t('daftarMenu.modal.categoryNamePlaceholder')}
+              placeholderTextColor="#aaa"
               value={editCategoryName}
               onChangeText={setEditCategoryName}
               autoFocus={true}
             />
 
-            <Dropdown
-              selectedOption={editCategoryType}
-              onSelect={setEditCategoryType}
-            />
-
-            <View style={[styles.modalButtonContainer, { marginTop: 10 }]}>
+            <View style={[styles.modalButtonContainer, { marginTop: 14 }]}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowEditCategoryModal(false)}
               >
-                <Text style={styles.buttonText}>Batal</Text>
+                <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
+                style={[styles.modalButton, styles.confirmButton]}
                 onPress={handleUpdateCategory}
                 disabled={isLoading}
               >
-                <Text style={styles.buttonText}>
-                  {isLoading ? "Menyimpan..." : "Simpan"}
+                <Text style={styles.confirmButtonText}>
+                  {isLoading ? t('daftarMenu.modal.saving') : t('daftarMenu.modal.save')}
                 </Text>
               </TouchableOpacity>
             </View>
 
             <TouchableOpacity
-              style={[styles.deleteButtonModal, { marginTop: 20 }]}
+              style={[styles.deleteButtonModal, { marginTop: 16 }]}
               onPress={() => {
                 setShowEditCategoryModal(false);
                 handleDeleteCategory(editingCategory);
               }}
+              activeOpacity={0.85}
             >
-              <Text style={styles.deleteButtonText}>Hapus Kategori</Text>
+              <Text style={styles.deleteButtonModalText}>{t('daftarMenu.modal.deleteCategoryButton')}</Text>
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -1161,8 +796,7 @@ const ScreenKategori = ({
   );
 };
 
-const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
-  const [selectedOption, setSelectedOption] = useState("Rantangan");
+const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAlert, t }) => {
   const [editingItem, setEditingItem] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
   const [editName, setEditName] = useState("");
@@ -1181,43 +815,48 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
   };
 
   const handleDeleteMenu = async (item) => {
-    Alert.alert("Hapus Menu", "Apakah anda yakin ingin menghapus menu ini?", [
-      { text: "Batal", style: "cancel" },
-      {
-        text: "Hapus",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            const response = await fetch(`${config.API_URL}/seller/menu`, {
-              method: "DELETE",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${await getAuthToken()}`,
-              },
-              body: JSON.stringify({
-                categoryId: selectedCategory.id,
-                menuId: item.id,
-              }),
-            });
+    showAlert(
+      t('daftarMenu.alerts.deleteMenuTitle'),
+      t('daftarMenu.alerts.deleteMenuMessage'),
+      [
+        { text: t('common.cancel'), style: "cancel" },
+        {
+          text: t('common.delete'),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const response = await fetch(`${config.API_URL}/seller/menu`, {
+                method: "DELETE",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${await getAuthToken()}`,
+                },
+                body: JSON.stringify({
+                  categoryId: selectedCategory.id,
+                  menuId: item.id,
+                }),
+              });
 
-            if (!response.ok) {
-              throw new Error("Failed to delete menu");
+              if (!response.ok) {
+                throw new Error("Failed to delete menu");
+              }
+
+              showAlert(t('common.success'), t('daftarMenu.alerts.deleteMenuSuccess'), [{ text: t('common.ok') }], "success");
+              fetchCategories();
+            } catch (error) {
+              console.error(error);
+              showAlert(t('common.error'), t('daftarMenu.alerts.deleteMenuFailed'), [{ text: t('common.ok') }], "error");
             }
-
-            Alert.alert("Success", "Menu deleted successfully");
-            fetchCategories();
-          } catch (error) {
-            console.error(error);
-            Alert.alert("Error", "Failed to delete menu");
-          }
+          },
         },
-      },
-    ]);
+      ],
+      "warning"
+    );
   };
 
   const handleUpdateMenu = async () => {
     if (!editName || !editDescription || !editPrice) {
-      Alert.alert("Error", "Please fill all fields");
+      showAlert(t('common.error'), t('daftarMenu.alerts.incompleteFields'), [{ text: t('common.ok') }], "error");
       return;
     }
 
@@ -1252,12 +891,12 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
         throw new Error("Failed to update menu");
       }
 
-      Alert.alert("Success", "Menu updated successfully");
+      showAlert(t('common.success'), t('daftarMenu.alerts.updateMenuSuccess'), [{ text: t('common.ok') }], "success");
       setShowEditModal(false);
       fetchCategories();
     } catch (error) {
       console.error(error);
-      Alert.alert("Error", "Failed to update menu");
+      showAlert(t('common.error'), t('daftarMenu.alerts.updateMenuFailed'), [{ text: t('common.ok') }], "error");
     } finally {
       setIsLoading(false);
     }
@@ -1277,17 +916,13 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
   };
 
   return (
-    <SafeAreaView
-      style={{
-        flex: 1,
-        justifyContent: "space-between",
-      }}
-    >
+    <SafeAreaView style={[styles.container, { justifyContent: "space-between" }]}>
       <View style={{ flex: 1 }}>
         <HeaderTitleBackCustom
           title={selectedCategory.name}
           state={state}
           setState={setState}
+          t={t}
         />
         <FlatList
           data={selectedCategory.items || []}
@@ -1296,6 +931,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
               item={item}
               onEdit={() => handleEditMenu(item)}
               onDelete={() => handleDeleteMenu(item)}
+              t={t}
             />
           )}
           keyExtractor={(item) => item.id.toString()}
@@ -1322,66 +958,48 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
             contentContainerStyle={{ flexGrow: 1 }}
             keyboardShouldPersistTaps="handled"
           >
-            <Text style={styles.modalTitle}>Edit Menu</Text>
+            <Text style={styles.modalTitle}>{t('daftarMenu.modal.editMenuTitle')}</Text>
 
             <TouchableOpacity
-              style={{
-                marginVertical: 10,
-                borderColor: COLORS.TEXTSECONDARY,
-                width: 100,
-                height: 100,
-                borderWidth: 1,
-                borderRadius: 10,
-                justifyContent: "center",
-                alignItems: "center",
-                alignSelf: "center",
-              }}
+              style={[styles.imagePickerBox, { alignSelf: "center", marginBottom: 16 }]}
               onPress={pickImage}
+              activeOpacity={0.85}
             >
               {editImage ? (
                 <Image
                   source={{ uri: editImage }}
-                  style={{ width: 100, height: 100, borderRadius: 10 }}
+                  style={styles.imagePickerPreview}
                 />
               ) : (
-                <View
-                  style={{
-                    width: 24,
-                    height: 24,
-                    backgroundColor: COLORS.GREEN3,
-                    borderRadius: 99,
-                    justifyContent: "center",
-                    alignItems: "center",
-                  }}
-                >
-                  <Text
-                    style={{ fontSize: 18, fontWeight: "bold", color: "white" }}
-                  >
-                    +
-                  </Text>
+                <View style={styles.imagePickerPlus}>
+                  <MaterialIcons name="add" size={22} color="#fff" />
                 </View>
               )}
             </TouchableOpacity>
 
             <TextInput
               style={styles.input}
-              placeholder="Nama Menu"
+              placeholder={t('daftarMenu.modal.menuNamePlaceholder')}
+              placeholderTextColor="#aaa"
               value={editName}
               onChangeText={setEditName}
             />
 
             <TextInput
               style={[styles.input, { height: 100 }]}
-              placeholder="Deskripsi"
+              placeholder={t('daftarMenu.modal.descriptionPlaceholder')}
+              placeholderTextColor="#aaa"
               value={editDescription}
               onChangeText={setEditDescription}
               multiline
               numberOfLines={4}
+              textAlignVertical="top"
             />
 
             <TextInput
               style={styles.input}
-              placeholder="Harga"
+              placeholder={t('daftarMenu.modal.pricePlaceholder')}
+              placeholderTextColor="#aaa"
               value={editPrice}
               onChangeText={setEditPrice}
               keyboardType="numeric"
@@ -1392,47 +1010,30 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
                 style={[styles.modalButton, styles.cancelButton]}
                 onPress={() => setShowEditModal(false)}
               >
-                <Text style={styles.buttonText}>Batal</Text>
+                <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.modalButton, styles.addButton]}
+                style={[styles.modalButton, styles.confirmButton]}
                 onPress={handleUpdateMenu}
                 disabled={isLoading}
               >
-                <Text style={styles.buttonText}>
-                  {isLoading ? "Menyimpan..." : "Simpan"}
+                <Text style={styles.confirmButtonText}>
+                  {isLoading ? t('daftarMenu.modal.saving') : t('daftarMenu.modal.save')}
                 </Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
-      <View
-        style={{
-          alignItems: "center",
-        }}
-      >
+
+      <View style={{ alignItems: "center", padding: 16 }}>
         <TouchableOpacity
-          style={{
-            paddingVertical: 10,
-            paddingHorizontal: 20,
-            backgroundColor: COLORS.GREEN3,
-            borderRadius: 99,
-            width: "90%",
-            alignItems: "center",
-          }}
+          style={[styles.primaryButton, { width: "100%" }]}
           onPress={() => setState("tambahMenu")}
+          activeOpacity={0.85}
         >
-          <Text
-            style={{
-              color: "white",
-              fontSize: 16,
-              fontWeight: "bold",
-            }}
-          >
-            Tambah Menu
-          </Text>
+          <Text style={styles.primaryButtonText}>{t('daftarMenu.addMenuButton')}</Text>
         </TouchableOpacity>
       </View>
     </SafeAreaView>
@@ -1440,11 +1041,17 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories }) => {
 };
 
 const Daftarmenu = () => {
+  const { t } = useLanguage();
   const [state, setState] = useState("kategori");
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [KategoriList, setKategoriList] = useState([]);
-  const [rantanganPackages, setRantanganPackages] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [customAlert, setCustomAlert] = useState({ visible: false, title: '', message: '', buttons: [], type: 'info' });
+
+  const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
+    setCustomAlert({ visible: true, title, message, buttons, type });
+  };
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   const fetchCategories = async () => {
     try {
@@ -1469,44 +1076,21 @@ const Daftarmenu = () => {
       setKategoriList(result.data || result);
     } catch (error) {
       console.error("Fetch categories error:", error);
-      Alert.alert("Error", `Failed to load menu data: ${error.message}`);
+      showAlert(t('common.error'), t('daftarMenu.alerts.fetchFailed', { message: error.message }), [{ text: t('common.ok') }], "error");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const fetchRantanganPackages = async () => {
-    try {
-      const response = await fetch(`${config.API_URL}/seller/rantangan`, {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${await getAuthToken()}`,
-        },
-      });
-      if (!response.ok) {
-        throw new Error("Failed to fetch rantangan packages");
-      }
-      const result = await response.json();
-      setRantanganPackages(result.data || []);
-    } catch (error) {
-      console.error("Fetch rantangan packages error:", error);
-      Alert.alert("Error", "Failed to load rantangan packages");
-    }
-  };
-
   useEffect(() => {
-    const fetchData = async () => {
-      await Promise.all([fetchCategories(), fetchRantanganPackages()]);
-    };
-    fetchData();
+    fetchCategories();
   }, []);
 
   if (isLoading && state === "kategori") {
     return (
-      <SafeAreaView
-        style={{ flex: 1, justifyContent: "center", alignItems: "center" }}
-      >
-        <Text>Loading...</Text>
+      <SafeAreaView style={[styles.container, { justifyContent: "center", alignItems: "center" }]}>
+        <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        <Text style={styles.loadingText}>{t('daftarMenu.loading')}</Text>
       </SafeAreaView>
     );
   }
@@ -1521,9 +1105,8 @@ const Daftarmenu = () => {
           setState={setState}
           state={state}
           fetchCategories={fetchCategories}
-          rantanganPackages={rantanganPackages}
-          setRantanganPackages={setRantanganPackages}
-          fetchRantanganPackages={fetchRantanganPackages}
+          showAlert={showAlert}
+          t={t}
         />
       ) : null}
       {state === "menu" ? (
@@ -1532,6 +1115,8 @@ const Daftarmenu = () => {
           setState={setState}
           state={state}
           fetchCategories={fetchCategories}
+          showAlert={showAlert}
+          t={t}
         />
       ) : null}
       {state === "tambahMenu" ? (
@@ -1540,111 +1125,188 @@ const Daftarmenu = () => {
           setState={setState}
           selectedCategory={selectedCategory}
           fetchCategories={fetchCategories}
+          showAlert={showAlert}
+          t={t}
         />
       ) : null}
+
+      <CustomAlert
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        buttons={customAlert.buttons}
+        type={customAlert.type}
+        onClose={closeAlert}
+      />
     </>
   );
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F6FA',
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { flex: 1, fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY, textAlign: 'center' },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 13.5,
+    color: '#888',
+  },
+  emptyState: {
+    padding: 32,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 13.5,
+    color: '#888',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
   },
-  // Container styles
-  container: {
-    flex: 1,
-    backgroundColor: COLORS.BACKGROUND,
-  },
   contentContainer: {
     flex: 1,
-  },
-  headerContainer: {
-    backgroundColor: "#fff",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    paddingBottom: 12,
+    paddingTop: 16,
   },
 
-  // Rantangan styles
-  rantanganContainer: {
+  // Card umum
+  card: {
     backgroundColor: "#fff",
-    marginBottom: 1,
+    borderRadius: 14,
+    padding: 16,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  rantanganContent: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-  },
-  rantanganDetails: {
-    flex: 1,
-    marginRight: 16,
-  },
-  rantanganName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#272727",
+  label: {
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#23272f",
     marginBottom: 6,
   },
-  rantanganDescription: {
+  helperText: {
+    fontSize: 12.5,
+    color: "#888",
+    marginBottom: 12,
+  },
+  imagePickerBox: {
+    width: 90,
+    height: 90,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: "#e5e5e5",
+    borderStyle: "dashed",
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#F5F6FA",
+    overflow: "hidden",
+  },
+  imagePickerPreview: {
+    width: "100%",
+    height: "100%",
+  },
+  imagePickerPlus: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: COLORS.PRIMARY,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  input: {
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#e5e5e5",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
     fontSize: 14,
-    color: "#666666",
-    marginBottom: 8,
-    lineHeight: 20,
+    color: "#23272f",
   },
-  rantanganPrice: {
-    fontSize: 16,
-    fontWeight: "bold",
-    color: COLORS.GREEN3,
+  textArea: {
+    height: 100,
   },
-  rantanganEditIcon: {
-    padding: 8,
-    marginLeft: 8,
+
+  primaryButton: {
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 30,
+    paddingVertical: 15,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 18,
+  },
+  primaryButtonText: {
+    color: "#fff",
+    fontSize: 15,
+    fontWeight: "700",
   },
 
   // Category styles
   categoryContainer: {
     overflow: "hidden",
-    backgroundColor: "#fff",
-    marginBottom: 1,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 14,
   },
   categoryWrapper: {
     position: "relative",
     backgroundColor: "#fff",
+    borderRadius: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   categoryContent: {
     backgroundColor: "#fff",
+    borderRadius: 14,
     zIndex: 1,
   },
   categoryTouchable: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 20,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
   },
   categoryName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#272727",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#23272f",
   },
   categoryRight: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 10,
   },
   amountBadge: {
-    backgroundColor: COLORS.GREEN3,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 99,
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
   },
   amountText: {
     color: "#fff",
-    fontWeight: "600",
-    fontSize: 14,
+    fontWeight: "700",
+    fontSize: 12.5,
   },
   categoryActions: {
     position: "absolute",
@@ -1657,180 +1319,119 @@ const styles = StyleSheet.create({
     gap: 8,
   },
 
-  // Dropdown styles
-  dropdownContainer: {
-    paddingVertical: 12,
-    backgroundColor: "#fff",
-    alignItems: "center",
-  },
-  dropdownWrapper: {
-    alignItems: "center",
-  },
-  dropdownButton: {
-    backgroundColor: COLORS.GREEN3,
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    borderRadius: 99,
-    alignItems: "center",
-  },
-  dropdownButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-
-  // Add button styles
-  addButtonContainer: {
-    padding: 20,
-    backgroundColor: "#fff",
-    borderTopWidth: 1,
-    borderTopColor: "#eee",
-  },
-  addButton: {
-    backgroundColor: COLORS.GREEN3,
-    paddingVertical: 12,
-    borderRadius: 8,
-    alignItems: "center",
-  },
-  addButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
   deleteButtonModal: {
-    backgroundColor: "#dc3545",
+    backgroundColor: "#FFEBEE",
     paddingVertical: 12,
-    borderRadius: 8,
+    borderRadius: 30,
     alignItems: "center",
-    marginBottom: 20,
   },
-  deleteButtonText: {
-    color: "#fff",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  bottomModalContent: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
-    backgroundColor: "white",
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 30,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
+  deleteButtonModalText: {
+    color: "#C62828",
+    fontSize: 14,
+    fontWeight: "700",
   },
   centerModalContent: {
     position: "absolute",
-    top: "30%",
-    left: "10%",
-    right: "10%",
+    top: "25%",
+    left: "8%",
+    right: "8%",
     backgroundColor: "white",
-    borderRadius: 20,
+    borderRadius: 18,
     padding: 20,
     shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 4,
-    elevation: 5,
-  },
-  option: {
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-  },
-  selectedOption: {
-    backgroundColor: COLORS.GREEN3,
-    borderRadius: 5,
-  },
-  optionText: {
-    fontSize: 16,
-    textAlign: "center",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    elevation: 6,
   },
   modalTitle: {
-    fontSize: 18,
-    fontWeight: "bold",
-    marginBottom: 20,
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#23272f",
+    marginBottom: 18,
     textAlign: "center",
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: "#ddd",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 20,
-    fontSize: 16,
   },
   modalButtonContainer: {
     flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 20,
+    gap: 10,
   },
   modalButton: {
     flex: 1,
-    padding: 12,
-    borderRadius: 8,
+    paddingVertical: 12,
+    borderRadius: 30,
     alignItems: "center",
-    marginHorizontal: 5,
   },
   cancelButton: {
-    backgroundColor: "#e0e0e0",
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: "#e5e5e5",
   },
-  addButton: {
-    backgroundColor: COLORS.GREEN3,
+  cancelButtonText: {
+    color: "#777",
+    fontWeight: "700",
+    fontSize: 14,
   },
-  buttonText: {
-    color: "white",
-    fontWeight: "bold",
+  confirmButton: {
+    backgroundColor: COLORS.PRIMARY,
+  },
+  confirmButtonText: {
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 14,
   },
   menuItemContainer: {
     overflow: "hidden",
-    borderBottomWidth: 1,
-    borderBottomColor: "#eee",
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderRadius: 14,
   },
   menuItemWrapper: {
     position: "relative",
     backgroundColor: "#fff",
+    borderRadius: 14,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   menuItemContent: {
     backgroundColor: "#fff",
+    borderRadius: 14,
     zIndex: 1,
   },
   menuItemTouchable: {
     flexDirection: "row",
     alignItems: "center",
-    padding: 16,
+    padding: 14,
   },
   menuItemImage: {
-    width: 60,
-    height: 60,
-    borderRadius: 8,
+    width: 56,
+    height: 56,
+    borderRadius: 10,
     marginRight: 12,
   },
   menuItemDetails: {
     flex: 1,
   },
   menuItemName: {
-    fontSize: 16,
-    fontWeight: "bold",
-    marginBottom: 4,
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#23272f",
+    marginBottom: 3,
   },
   menuItemDescription: {
-    fontSize: 14,
-    color: "#666",
+    fontSize: 12.5,
+    color: "#888",
     marginBottom: 4,
   },
   menuItemPrice: {
-    fontSize: 14,
-    fontWeight: "bold",
-    color: COLORS.GREEN3,
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: COLORS.PRIMARY,
   },
   menuList: {
+    padding: 16,
     paddingBottom: 20,
   },
   menuItemActions: {
@@ -1851,10 +1452,81 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   editButton: {
-    backgroundColor: COLORS.GREEN3,
+    backgroundColor: COLORS.PRIMARY,
   },
   deleteButton: {
-    backgroundColor: "#dc3545",
+    backgroundColor: "#C62828",
+  },
+
+  // CustomAlert
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  alertContent: {
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 22,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  alertIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#23272f',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  alertMessage: {
+    fontSize: 13.5,
+    color: '#777',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  alertButtonSolid: {
+    backgroundColor: COLORS.PRIMARY,
+  },
+  alertButtonDestructive: {
+    backgroundColor: '#C62828',
+  },
+  alertButtonOutline: {
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+  },
+  alertButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  alertButtonTextSolid: {
+    color: '#fff',
+  },
+  alertButtonTextOutline: {
+    color: '#777',
   },
 });
 

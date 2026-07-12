@@ -5,39 +5,46 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Image,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
-import HeaderTitleBack from '../../components/HeaderTitleBack';
+import { useRouter } from 'expo-router';
 import COLORS from '../constants/color';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const GiziProSeller = () => {
+  const router = useRouter();
+  const { t } = useLanguage();
+
   const features = [
     {
       icon: 'assessment',
       title: 'Analisis Nutrisi',
       description: 'Analisis detail kandungan gizi setiap menu makanan',
       color: COLORS.PRIMARY,
+      bg: '#F7EAEF',
     },
     {
       icon: 'restaurant-menu',
       title: 'Menu Sehat',
       description: 'Rekomendasi menu dengan kandungan gizi seimbang',
-      color: COLORS.GREEN4,
+      color: '#2E7D32',
+      bg: '#E8F5E9',
     },
     {
       icon: 'local-hospital',
       title: 'Konsultasi Ahli',
       description: 'Konsultasi dengan ahli gizi profesional',
-      color: '#FF9800',
+      color: '#B26A00',
+      bg: '#FFF3E0',
     },
     {
       icon: 'trending-up',
       title: 'Laporan Gizi',
       description: 'Laporan perkembangan nilai gizi menu Anda',
-      color: '#9C27B0',
+      color: '#6A1B9A',
+      bg: '#F3E5F5',
     },
   ];
 
@@ -53,17 +60,17 @@ const GiziProSeller = () => {
     const phoneNumber = '6281234567890';
     const message = 'Halo, saya tertarik dengan layanan GiziPro untuk warung saya';
     const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
-    
+
     Linking.openURL(url).catch(() => {
       // Fallback jika WhatsApp tidak terinstall
       Linking.openURL(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`);
     });
   };
 
-  const FeatureCard = ({ icon, title, description, color }) => (
-    <View style={styles.featureCard}>
-      <View style={[styles.featureIcon, { backgroundColor: color + '20' }]}>
-        <MaterialIcons name={icon} size={32} color={color} />
+  const FeatureCard = ({ icon, title, description, color, bg }) => (
+    <View style={[styles.featureCard, styles.shadow]}>
+      <View style={[styles.featureIcon, { backgroundColor: bg }]}>
+        <MaterialIcons name={icon} size={24} color={color} />
       </View>
       <Text style={styles.featureTitle}>{title}</Text>
       <Text style={styles.featureDescription}>{description}</Text>
@@ -72,13 +79,20 @@ const GiziProSeller = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="GiziPro" />
-      
-      <ScrollView style={styles.scrollView}>
+      {/* Header selaras dengan halaman lain */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>GiziPro</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 24 }}>
         {/* Header Section */}
-        <View style={styles.header}>
+        <View style={[styles.intro, styles.shadow]}>
           <View style={styles.logoContainer}>
-            <MaterialIcons name="eco" size={48} color={COLORS.PRIMARY} />
+            <MaterialIcons name="eco" size={38} color={COLORS.PRIMARY} />
           </View>
           <Text style={styles.title}>GiziPro untuk Warung</Text>
           <Text style={styles.subtitle}>
@@ -87,27 +101,29 @@ const GiziProSeller = () => {
         </View>
 
         {/* Features Grid */}
-        <View style={styles.featuresSection}>
-          <Text style={styles.sectionTitle}>Fitur Unggulan</Text>
-          <View style={styles.featuresGrid}>
-            {features.map((feature, index) => (
-              <FeatureCard
-                key={index}
-                icon={feature.icon}
-                title={feature.title}
-                description={feature.description}
-                color={feature.color}
-              />
-            ))}
-          </View>
+        <Text style={styles.sectionTitle}>Fitur Unggulan</Text>
+        <View style={styles.featuresGrid}>
+          {features.map((feature, index) => (
+            <FeatureCard
+              key={index}
+              icon={feature.icon}
+              title={feature.title}
+              description={feature.description}
+              color={feature.color}
+              bg={feature.bg}
+            />
+          ))}
         </View>
 
         {/* Benefits Section */}
-        <View style={styles.benefitsSection}>
-          <Text style={styles.sectionTitle}>Manfaat untuk Warung Anda</Text>
+        <Text style={styles.sectionTitle}>Manfaat untuk Warung Anda</Text>
+        <View style={[styles.benefitsCard, styles.shadow]}>
           {benefits.map((benefit, index) => (
-            <View key={index} style={styles.benefitItem}>
-              <MaterialIcons name="check-circle" size={20} color={COLORS.GREEN3} />
+            <View
+              key={index}
+              style={[styles.benefitItem, index === benefits.length - 1 && { borderBottomWidth: 0 }]}
+            >
+              <MaterialIcons name="check-circle" size={18} color="#2E7D32" />
               <Text style={styles.benefitText}>{benefit}</Text>
             </View>
           ))}
@@ -118,11 +134,12 @@ const GiziProSeller = () => {
           <TouchableOpacity
             style={styles.ctaButton}
             onPress={handleContactGiziPro}
+            activeOpacity={0.8}
           >
-            <MaterialIcons name="whatsapp" size={24} color="white" />
+            <MaterialIcons name="chat" size={20} color="white" />
             <Text style={styles.ctaButtonText}>Hubungi Konsultan</Text>
           </TouchableOpacity>
-          
+
           <Text style={styles.ctaDescription}>
             Dapatkan konsultasi gratis untuk mengetahui kebutuhan gizi warung Anda
           </Text>
@@ -137,45 +154,66 @@ export default GiziProSeller;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f8f9fa',
+    backgroundColor: '#F5F6FA',
   },
+  // Header
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+
   scrollView: {
     flex: 1,
+    paddingHorizontal: 16,
   },
-  header: {
+  intro: {
     backgroundColor: 'white',
     alignItems: 'center',
-    paddingVertical: 32,
+    paddingVertical: 26,
     paddingHorizontal: 20,
-    marginBottom: 20,
+    borderRadius: 14,
+    marginTop: 16,
   },
   logoContainer: {
-    backgroundColor: COLORS.PRIMARY + '20',
-    borderRadius: 25,
-    padding: 12,
-    marginBottom: 16,
+    backgroundColor: '#F7EAEF',
+    borderRadius: 20,
+    padding: 10,
+    marginBottom: 14,
   },
   title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 19,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 16,
-    color: '#666',
+    fontSize: 13.5,
+    color: '#888',
     textAlign: 'center',
-    lineHeight: 24,
-  },
-  featuresSection: {
-    paddingHorizontal: 20,
-    marginBottom: 32,
+    lineHeight: 20,
   },
   sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 16,
+    fontSize: 15,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+    marginTop: 18,
+    marginBottom: 10,
   },
   featuresGrid: {
     flexDirection: 'row',
@@ -184,82 +222,81 @@ const styles = StyleSheet.create({
   },
   featureCard: {
     backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 14,
     width: '48%',
-    marginBottom: 12,
+    marginBottom: 10,
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
   },
   featureIcon: {
-    borderRadius: 20,
-    padding: 12,
-    marginBottom: 12,
+    width: 46,
+    height: 46,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 10,
   },
   featureTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-    marginBottom: 8,
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 5,
     textAlign: 'center',
   },
   featureDescription: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 11,
+    color: '#888',
     textAlign: 'center',
-    lineHeight: 16,
+    lineHeight: 15,
   },
-  benefitsSection: {
+  benefitsCard: {
     backgroundColor: 'white',
-    paddingHorizontal: 20,
-    paddingVertical: 24,
-    marginBottom: 20,
+    borderRadius: 14,
+    paddingHorizontal: 14,
   },
   benefitItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 12,
+    gap: 10,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
   },
   benefitText: {
-    fontSize: 14,
-    color: '#333',
+    fontSize: 13,
+    color: '#444',
     flex: 1,
-    lineHeight: 20,
+    lineHeight: 18,
   },
   ctaSection: {
-    paddingHorizontal: 20,
-    paddingBottom: 32,
     alignItems: 'center',
+    marginTop: 20,
   },
   ctaButton: {
     backgroundColor: '#25D366',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 16,
-    paddingHorizontal: 32,
-    borderRadius: 25,
-    marginBottom: 16,
+    paddingVertical: 14,
+    paddingHorizontal: 28,
+    borderRadius: 30,
+    marginBottom: 12,
     gap: 8,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   ctaButtonText: {
     color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14.5,
+    fontWeight: '700',
   },
   ctaDescription: {
-    fontSize: 12,
-    color: '#666',
+    fontSize: 11.5,
+    color: '#999',
     textAlign: 'center',
     lineHeight: 16,
+    paddingHorizontal: 30,
   },
 });

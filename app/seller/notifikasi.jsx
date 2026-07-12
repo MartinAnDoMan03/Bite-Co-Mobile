@@ -10,50 +10,50 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import HeaderTitleBack from '../../components/HeaderTitleBack';
 import COLORS from '../constants/color';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const Notifikasi = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [refreshing, setRefreshing] = useState(false);
   const [activeFilter, setActiveFilter] = useState('all');
+
+  const FILTERS = [
+    { key: 'all', label: t('pesanan.filters.all') },
+    { key: 'unread', label: t('notifikasi.filters.unread') },
+    { key: 'read', label: t('notifikasi.filters.read') },
+  ];
 
   // Empty notification screen - no data fetching
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
-      <MaterialIcons name="notifications-none" size={80} color="#E0E0E0" />
-      <Text style={styles.emptyTitle}>Belum Ada Notifikasi</Text>
+      <View style={styles.emptyIconBox}>
+        <MaterialIcons name="notifications-none" size={44} color={COLORS.PRIMARY} />
+      </View>
+      <Text style={styles.emptyTitle}>{t('notifikasi.empty.title')}</Text>
       <Text style={styles.emptySubtitle}>
-        Notifikasi akan muncul di sini ketika ada aktivitas baru
+        {t('notifikasi.empty.subtitle')}
       </Text>
     </View>
   );
 
   const renderFilterButtons = () => (
-    <View style={styles.filterContainer}>
-      {[
-        { key: 'all', label: 'Semua' },
-        { key: 'unread', label: 'Belum Dibaca' },
-        { key: 'read', label: 'Sudah Dibaca' },
-      ].map((filter) => (
-        <TouchableOpacity
-          key={filter.key}
-          style={[
-            styles.filterButton,
-            activeFilter === filter.key && styles.activeFilterButton,
-          ]}
-          onPress={() => setActiveFilter(filter.key)}
-        >
-          <Text
-            style={[
-              styles.filterButtonText,
-              activeFilter === filter.key && styles.activeFilterButtonText,
-            ]}
+    <View style={styles.filterBar}>
+      {FILTERS.map((filter) => {
+        const active = activeFilter === filter.key;
+        return (
+          <TouchableOpacity
+            key={filter.key}
+            style={[styles.filterChip, active && styles.filterChipActive]}
+            onPress={() => setActiveFilter(filter.key)}
           >
-            {filter.label}
-          </Text>
-        </TouchableOpacity>
-      ))}
+            <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+              {filter.label}
+            </Text>
+          </TouchableOpacity>
+        );
+      })}
     </View>
   );
 
@@ -67,10 +67,19 @@ const Notifikasi = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Notifikasi" />
-      
-      {renderFilterButtons()}
-      
+      {/* Header selaras dengan halaman lain */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('pelanggan.accessibility.back')}>
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('notifikasi.header.title')}</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <View style={styles.content}>
+        {renderFilterButtons()}
+      </View>
+
       <FlatList
         data={[]} // Always empty array
         renderItem={() => null} // Never renders items
@@ -79,8 +88,8 @@ const Notifikasi = () => {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={onRefresh}
-            colors={[COLORS.primary]}
-            tintColor={COLORS.primary}
+            colors={[COLORS.PRIMARY]}
+            tintColor={COLORS.PRIMARY}
           />
         }
         style={styles.list}
@@ -93,34 +102,49 @@ const Notifikasi = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FA',
+    backgroundColor: '#F5F6FA',
   },
-  filterContainer: {
+  // Header
+  header: {
     flexDirection: 'row',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    backgroundColor: '#FFFFFF',
-    marginBottom: 1,
-  },
-  filterButton: {
-    flex: 1,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    marginHorizontal: 4,
-    borderRadius: 20,
-    backgroundColor: '#F5F5F5',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
   },
-  activeFilterButton: {
-    backgroundColor: COLORS.primary,
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
+
+  content: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
   },
-  filterButtonText: {
-    fontSize: 14,
-    color: '#757575',
-    fontWeight: '500',
+  filterBar: {
+    flexDirection: 'row',
+    gap: 8,
   },
-  activeFilterButtonText: {
-    color: '#FFFFFF',
+  filterChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  filterChipActive: {
+    backgroundColor: COLORS.PRIMARY,
+    borderColor: COLORS.PRIMARY,
+  },
+  filterChipText: {
+    fontSize: 13,
+    color: '#888',
+    fontWeight: '600',
+  },
+  filterChipTextActive: {
+    color: '#fff',
   },
   list: {
     flex: 1,
@@ -135,18 +159,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: 32,
     paddingVertical: 64,
   },
+  emptyIconBox: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    backgroundColor: '#F7EAEF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
   emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#424242',
-    marginTop: 16,
-    marginBottom: 8,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 6,
   },
   emptySubtitle: {
-    fontSize: 14,
-    color: '#757575',
+    fontSize: 13.5,
+    color: '#888',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 19,
   },
 });
 
