@@ -511,10 +511,94 @@ const openCameraFor = async (isKtp) => {
       // isValidKTP === null artinya API gagal
       setKtpImage(result.assets[0]);
     } else {
+     setLoading(true);
+      const validation = await validateSelfieWithKTP(result.assets[0].uri);
+      setLoading(false);
+
+      if (validation === null) {
+        setSelfieImage(result.assets[0]);
+        return;
+      }
+
+      if (!validation.hasFace) {
+        Alert.alert(
+          'Wajah Tidak Terdeteksi',
+          'Pastikan wajah terlihat jelas dalam foto. Pastikan:\n\n• Wajah menghadap kamera\n• Pencahayaan cukup\n• Tidak ada objek lain yang menutupi wajah\n\nSilahkan coba kembali',
+          [{ text: 'Coba Lagi', style: 'default' }]
+        );
+        return;
+      }
+
+      if (!validation.hasKTPText) {
+        Alert.alert(
+          'KTP Tidak Terdeteksi',
+          'Pastikan KTP terlihat jelas dalam foto. Pastikan:\n\n• KTP menghadap kamera\n• Pencahayaan cukup\n• Tidak ada objek lain yang menutupi KTP\n\nSilahkan coba kembali',
+          [{ text: 'Coba Lagi', style: 'default' }]
+        );
+        return;
+      }
+
       setSelfieImage(result.assets[0]);
     }
   }
 };
+
+  // Validasi KTP menggunakan Google Vision API
+  const validateKTP = async (imageUri) => {
+  try {
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const visionResponse = await axios.post(
+      `https://vision.googleapis.com/v1/images:annotate?key=${config.GOOGLE_MAPS_API_KEY}`,
+      {
+        requests: [{
+          image: { content: base64 },
+          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
+        }]
+      }
+    );
+    const detectedText = visionResponse.data.responses[0]?.fullTextAnnotation?.text?.toUpperCase() || '';
+    const ktpKeywords = ['NIK', 'NAMA', 'TEMPAT', 'LAHIR', 'ALAMAT', 'JENIS', 'KELAMIN', 'KECAMATAN', 'PEKERJAAN', 'KEWARGANEGARAAN'];
+    const matchCount = ktpKeywords.filter(keyword => detectedText.includes(keyword)).length;
+    return matchCount >= 3;
+  } catch (error) {
+    console.error('Error validating KTP image:', error);
+    return null;
+  }
+};
+
+// Validasi selfie dengan KTP menggunakan Google Vision API
+const validateSelfieWithKTP = async (imageUri) => {
+  try {
+    const base64 = await FileSystem.readAsStringAsync(imageUri, {
+      encoding: FileSystem.EncodingType.Base64,
+    });
+    const visionResponse = await axios.post(
+      `https://vision.googleapis.com/v1/images:annotate?key=${config.GOOGLE_MAPS_API_KEY}`,
+      {
+        requests: [{
+          image: { content: base64 },
+          features: [
+            { type: 'FACE_DETECTION', maxResults: 5 },
+            { type: 'TEXT_DETECTION', maxResults: 1 }
+          ]
+        }]
+      }
+    );
+    const response = visionResponse.data.responses[0];
+    const faces = response.faceAnnotations || [];
+    const hasFace = faces.length > 0;
+    const detectedText = response.fullTextAnnotation?.text?.toUpperCase() || '';
+    const ktpKeywords = ['NIK', 'NAMA', 'TEMPAT', 'LAHIR', 'ALAMAT', 'JENIS', 'KELAMIN', 'KECAMATAN', 'PEKERJAAN', 'KEWARGANEGARAAN'];
+    const matchCount = ktpKeywords.filter(keyword => detectedText.includes(keyword)).length; // ✅ fixed typo
+    const hasKTPText = matchCount >= 2;
+    return { hasFace, hasKTPText };
+  } catch (error) {
+    console.error('Error validating selfie:', error);
+    return null;
+  }
+}; 
 
   const requestPickImage = async (isKtp) => {
     const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
@@ -543,33 +627,6 @@ const openCameraFor = async (isKtp) => {
       openCameraFor(pendingIsKtp);
     }, Platform.OS === "android" ? 500 : 0);
   };
-
-// Validasi KTP menggunakan Google Vision API
-const validateKTP = async (imageUri) => {
-  try {
-    const base64 = await FileSystem.readAsStringAsync(imageUri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    const visionResponse = await axios.post(
-      `https://vision.googleapis.com/v1/images:annotate?key=${config.GOOGLE_MAPS_API_KEY}`,
-      {
-        requests: [{
-          image: { content: base64 },
-          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
-        }]
-      }
-    );
-
-    const detectedText = visionResponse.data.responses[0]?.fullTextAnnotation?.text?.toUpperCase() || '';
-    const ktpKeywords = ['NIK', 'NAMA', 'TEMPAT', 'LAHIR', 'ALAMAT', 'JENIS', 'KELAMIN', 'KECAMATAN', 'PEKERJAAN', 'KEWARGANEGARAAN'];
-    const matchCount = ktpKeywords.filter(keyword => detectedText.includes(keyword)).length;
-    return matchCount >= 3;
-  } catch (error) {
-    console.error('Error validating KTP image:', error);
-    return null;
-  }
-};
 
   const handleContinue = () => {
     if (!ktpImage || !selfieImage) {

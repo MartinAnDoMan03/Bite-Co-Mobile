@@ -5,6 +5,10 @@ import { MaterialIcons } from "@expo/vector-icons";
 import COLORS from '../constants/color';
 import { useRouter } from "expo-router";
 import { useLanguage } from '../contexts/LanguageContext';
+import { ScrollView, ActivityIndicator } from "react-native";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import axios from "axios";
+import config from '../constants/config';
 
 // Data jadwal pengantaran (sementara masih statis, gampang diganti fetch API nanti)
 // statusKey dipakai untuk logika (filter & warna), label tampilan diambil lewat t()
@@ -23,6 +27,7 @@ const SCHEDULE_DATA = [
 const STATUS_STYLES = {
   completed: { bg: "#E8F5E9", color: "#2E7D32" },
   processing: { bg: "#FFF3E0", color: "#B26A00" },
+  delivery: { bg: "#E3F2FD", color: "#1565C0" },
   cancelled: { bg: "#FFEBEE", color: "#C62828" },
 };
 const getStatusStyle = (statusKey) =>
@@ -65,32 +70,72 @@ const JadwalPengantaran = () => {
   const router = useRouter();
   const { t } = useLanguage();
   const [activeFilter, setActiveFilter] = React.useState("all");
+  const [orders, setOrders] = React.useState([]);
+  const [loading, setLoading] = React.useState(true);
+  const [buyerMap, setBuyerMap] = React.useState({});
 
-  // Filter tabs di atas list
+  React.useEffect(() => {
+    const fetchDeliveryOrders = async () => {
+      try {
+        const token = await AsyncStorage.getItem("sellerToken");
+        const res = await axios.get(`${config.API_URL}/seller/orders`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const allOrders = res.data.orders || [];
+
+        // Only show orders in active delivery states
+        const deliveryOrders = allOrders.filter((o) =>
+          ['processing', 'delivery'].includes(o.statusProgress || o.status)
+        );
+        setOrders(deliveryOrders);
+
+        // Fetch buyer names
+        const uniqueBuyerIds = [...new Set(deliveryOrders.map((o) => o.buyerId).filter(Boolean))];
+        uniqueBuyerIds.forEach(async (buyerId) => {
+          try {
+            const buyerRes = await axios.get(`${config.API_URL}/buyer/profile/${buyerId}`);
+            if (buyerRes.data?.name) {
+              setBuyerMap((prev) => ({ ...prev, [buyerId]: buyerRes.data.name }));
+            }
+          } catch {}
+        });
+      } catch (e) {
+        setOrders([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDeliveryOrders();
+  }, []);
+
   const FILTERS = [
     { key: "all", label: t('jadwalPengantaran.filters.all') },
     { key: "processing", label: t('jadwalPengantaran.filters.processing') },
-    { key: "completed", label: t('jadwalPengantaran.filters.completed') },
+    { key: "delivery", label: t('jadwalPengantaran.filters.completed') },
   ];
+
+  const filteredData = orders.filter((o) => {
+    const status = o.statusProgress || o.status;
+    if (activeFilter === "all") return true;
+    return status === activeFilter;
+  });
 
   const handlePressCard = (item) => {
     router.push({
       pathname: "seller/DetailPengantaran",
       params: {
-        name: item.name,
-        address: item.address,
-        date: item.date,
-        time: item.time,
-        statusKey: item.statusKey,
+        orderId: item.id,
+        name: buyerMap[item.buyerId] || "-",
+        address: item.deliveryAddress || "-",
+        date: item.createdAt ? new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' }) : "-",
+        time: item.createdAt ? new Date(item.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : "-",
+        statusKey: item.statusProgress || item.status,
       },
     });
   };
 
-  const filteredData = SCHEDULE_DATA.filter((item) => matchesFilter(item.statusKey, activeFilter));
-
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header selaras dengan halaman lain */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('jadwalPengantaran.accessibility.back')}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
@@ -117,25 +162,31 @@ const JadwalPengantaran = () => {
           })}
         </View>
 
-        <View style={{ marginTop: 12, gap: 10 }}>
-          {filteredData.map((item) => (
-            <Card
-              key={item.id}
-              name={item.name}
-              address={item.address}
-              date={item.date}
-              time={item.time}
-              statusLabel={t(`jadwalPengantaran.status.${item.statusKey}`)}
-              statusKey={item.statusKey}
-              onPress={() => handlePressCard(item)}
-            />
-          ))}
-          {filteredData.length === 0 && (
-            <Text style={{ textAlign: "center", color: "#aaa", marginTop: 30 }}>
-              {t('jadwalPengantaran.emptyState')}
-            </Text>
-          )}
-        </View>
+        {loading ? (
+          <ActivityIndicator size="large" color={COLORS.PRIMARY} style={{ marginTop: 40 }} />
+        ) : (
+          <ScrollView style={{ marginTop: 12 }} showsVerticalScrollIndicator={false}>
+            <View style={{ gap: 10, paddingBottom: 24 }}>
+              {filteredData.map((item) => (
+                <Card
+                  key={item.id}
+                  name={buyerMap[item.buyerId] || "-"}
+                  address={item.deliveryAddress || "-"}
+                  date={item.createdAt ? new Date(item.createdAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' }) : "-"}
+                  time={item.createdAt ? new Date(item.createdAt).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) : "-"}
+                  statusLabel={t(`jadwalPengantaran.status.${item.statusProgress || item.status}`) || item.statusProgress}
+                  statusKey={item.statusProgress || item.status}
+                  onPress={() => handlePressCard(item)}
+                />
+              ))}
+              {filteredData.length === 0 && (
+                <Text style={{ textAlign: "center", color: "#aaa", marginTop: 30 }}>
+                  {t('jadwalPengantaran.emptyState')}
+                </Text>
+              )}
+            </View>
+          </ScrollView>
+        )}
       </View>
     </SafeAreaView>
   );

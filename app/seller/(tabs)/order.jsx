@@ -413,6 +413,18 @@ const SellerOrder = () => {
     } catch (e) {}
   };
 
+  const approveOrder = async (orderId) => {
+    try {
+      const token = await AsyncStorage.getItem("sellerToken");
+      await axios.post(
+        `${config.API_URL}/seller/orders/approve`,
+        { orderId, action: 'approve' },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      fetchOrdersAndBuyers();
+    } catch (e) {}
+  };
+
   const completeDailyDelivery = async (orderId) => {
     try {
       const token = await AsyncStorage.getItem("sellerToken");
@@ -504,7 +516,7 @@ const SellerOrder = () => {
                     orderId: order.id,
                   })
                 }
-                onAccept={() => updateOrderStatus(order.id, "processing")}
+                onAccept={() => approveOrder(order.id)}
                 onCancel={() => updateOrderStatus(order.id, "cancelled")}
                 onSendOrder={() => updateOrderStatus(order.id, "delivery")}
                 onCompleteOrder={() => {
