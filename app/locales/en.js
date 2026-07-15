@@ -7,6 +7,7 @@ export default {
     success: 'Success',
     info: 'Info',
     warning: 'Warning',
+    back: 'Back',
   },
 
   settings: {
@@ -949,5 +950,53 @@ detailOrder: {
   subtotal: "Subtotal",
   shipping: "Shipping Fee",
   totalPayment: "Total Payment",
+},
+
+profil: {
+  header: { title: 'Profile' },
+  sections: {
+    storeInfo: 'Store Information',
+    addressDetail: 'Address Details',
+  },
+  imageLabels: {
+    icon: 'Store Icon',
+    banner: 'Store Banner',
+  },
+  info: {
+    storeName: 'Store Name',
+    email: 'Email',
+    phone: 'Phone',
+  },
+  address: {
+    street: 'Street Address',
+    kelurahan: 'Subdistrict',
+    kecamatan: 'District',
+    provinsi: 'Province',
+    postalCode: 'Postal Code',
+    notes: 'Notes',
+    notProvided: 'Not Provided',
+  },
+  pin: {
+    label: 'Location Pin',
+    placeholder: 'Click to set location',
+    manualPlaceholder: 'Enter coordinates (lat, lng)',
+  },
+  actions: {
+    editProfile: 'Edit Profile',
+    saveChanges: 'Save Changes',
+    saving: 'Saving...',
+    logout: 'Log Out',
+    signOut: 'Sign Out',
+    retry: 'Retry',
+  },
+  alerts: {
+    permissionRequired: 'Camera permission is required to select images',
+    updateSuccess: 'Profile updated successfully',
+    updateFailed: 'Failed to update profile. Please try again.',
+  },
+  errors: {
+    noToken: 'Authentication token not found. Please login again.',
+    fetchFailed: 'Failed to load profile data.',
+  },
 },
 };

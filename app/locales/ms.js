@@ -7,6 +7,7 @@ export default {
     success: 'Berjaya',
     info: 'Info',
     warning: 'Amaran',
+    back: 'Kembali',
   },
 
   settings: {
@@ -950,5 +951,53 @@ detailOrder: {
   subtotal: "Subtotal",
   shipping: "Kos Penghantaran",
   totalPayment: "Jumlah Bayaran",
+},
+
+profil: {
+  header: { title: 'Profil' },
+  sections: {
+    storeInfo: 'Maklumat Kedai',
+    addressDetail: 'Butiran Alamat',
+  },
+  imageLabels: {
+    icon: 'Ikon Kedai',
+    banner: 'Spanduk Kedai',
+  },
+  info: {
+    storeName: 'Nama Kedai',
+    email: 'Email',
+    phone: 'Nombor Telefon',
+  },
+  address: {
+    street: 'Alamat Jalan',
+    kelurahan: 'Kelurahan',
+    kecamatan: 'Kecamatan',
+    provinsi: 'Provinsi',
+    postalCode: 'Kod Pos',
+    notes: 'Nota',
+    notProvided: 'Belum Disediakan',
+  },
+  pin: {
+    label: 'Lokasi Kedai',
+    placeholder: 'Klik untuk menetapkan lokasi',
+    manualPlaceholder: 'Masukkan koordinat (lat, lng)',
+  },
+  actions: {
+    editProfile: 'Edit Profil',
+    saveChanges: 'Simpan Perubahan',
+    saving: 'Menyimpan...',
+    logout: 'Keluar',
+    signOut: 'Keluar',
+    retry: 'Cuba Lagi',
+  },
+  alerts: {
+    permissionRequired: 'Kebenaran kamera diperlukan untuk memilih imej',
+    updateSuccess: 'Profil berjaya dikemas kini',
+    updateFailed: 'Gagal mengemaskini profil. Sila cuba lagi.',
+  },
+  errors: {
+    noToken: 'Token pengesahan tidak ditemui. Sila log masuk semula.',
+    fetchFailed: 'Gagal memuatkan data profil.',
+  },
 },
 };

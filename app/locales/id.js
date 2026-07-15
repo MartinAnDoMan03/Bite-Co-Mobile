@@ -7,6 +7,7 @@ export default {
     success: 'Berhasil',
     info: 'Info',
     warning: 'Peringatan',
+    back: 'Kembali',
   },
 
   settings: {
@@ -977,5 +978,53 @@ detailOrder: {
   subtotal: "Subtotal",
   shipping: "Ongkir",
   totalPayment: "Total Bayar",
+},
+
+profil: {
+  header: { title: 'Profil' },
+  sections: {
+    storeInfo: 'Informasi Toko',
+    addressDetail: 'Detail Alamat',
+  },
+  imageLabels: {
+    icon: 'Ikon Toko',
+    banner: 'Banner Toko',
+  },
+  info: {
+    storeName: 'Nama Toko',
+    email: 'Email',
+    phone: 'Nomor Telepon',
+  },
+  address: {
+    street: 'Alamat Jalan',
+    kelurahan: 'Kelurahan',
+    kecamatan: 'Kecamatan',
+    provinsi: 'Provinsi',
+    postalCode: 'Kode Pos',
+    notes: 'Catatan',
+    notProvided: 'Belum Diisi',
+  },
+  pin: {
+    label: 'Lokasi Toko',
+    placeholder: 'Klik untuk mengatur lokasi',
+    manualPlaceholder: 'Masukkan koordinat (lat, lng)',
+  },
+  actions: {
+    editProfile: 'Edit Profil',
+    saveChanges: 'Simpan Perubahan',
+    saving: 'Menyimpan...',
+    logout: 'Keluar',
+    signOut: 'Keluar',
+    retry: 'Coba Lagi',
+  },
+  alerts: {
+    permissionRequired: 'Izin kamera diperlukan untuk memilih gambar',
+    updateSuccess: 'Profil berhasil diperbarui',
+    updateFailed: 'Gagal memperbarui profil. Silakan coba lagi.',
+  },
+  errors: {
+    noToken: 'Token autentikasi tidak ditemukan. Silakan login kembali.',
+    fetchFailed: 'Gagal memuat data profil.',
+  },
 },
 };
