@@ -8,11 +8,15 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLanguage } from '../../contexts/LanguageContext';
 import PaymentWebViewModal from '../../../components/PaymentWebViewModal';
 import { OrderCardSkeleton } from '../../../components/SkeletonLoader';
 import COLORS from '../../constants/color';
 
+const LOCALE_MAP = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' };
+
 const Riwayat = () => {
+  const { t, language } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -20,6 +24,8 @@ const Riwayat = () => {
   const [paymentSnapUrl, setPaymentSnapUrl] = useState(null);
   const [paymentCheckLoading, setPaymentCheckLoading] = useState(false);
   const router = useRouter();
+
+  const dateLocale = LOCALE_MAP[language] || 'id-ID';
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -114,12 +120,12 @@ const Riwayat = () => {
         await axios.patch(`${config.API_URL}/buyer/orders/${order.id}`, { status: 'success' });
         // Optionally, refresh orders list
         fetchOrders();
-        alert('Pembayaran sudah berhasil. Status pesanan diperbarui.');
+        alert(t('buyerRiwayat.alerts.paymentSuccess'));
       } else {
-        alert('Pesanan ini sudah dibayar atau tidak dalam status pending.');
+        alert(t('buyerRiwayat.alerts.alreadyPaidOrNotPending'));
       }
     } catch (e) {
-      alert('Gagal memeriksa status pembayaran.');
+      alert(t('buyerRiwayat.alerts.checkStatusFailed'));
     } finally {
       setPaymentCheckLoading(false);
     }
@@ -142,10 +148,10 @@ const Riwayat = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
       {/* Header selaras dengan halaman Pesanan penjual */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('buyerRiwayat.header.accessibility.back')}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Riwayat Pesanan</Text>
+        <Text style={styles.headerTitle}>{t('buyerRiwayat.header.title')}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -164,9 +170,9 @@ const Riwayat = () => {
           <View style={styles.emptyIconCircle}>
             <MaterialIcons name="history" size={40} color={COLORS.PRIMARY} />
           </View>
-          <Text style={styles.emptyTitle}>Belum Ada Pesanan</Text>
+          <Text style={styles.emptyTitle}>{t('buyerRiwayat.empty.title')}</Text>
           <Text style={styles.emptyDescription}>
-            Riwayat pesanan kamu akan muncul di sini.
+            {t('buyerRiwayat.empty.description')}
           </Text>
         </View>
       ) : (
@@ -182,7 +188,7 @@ const Riwayat = () => {
           showsVerticalScrollIndicator={false}
         >
           <View style={styles.content}>
-            <Text style={styles.sectionTitle}>{orders.length} Pesanan</Text>
+            <Text style={styles.sectionTitle}>{t('buyerRiwayat.sectionTitle', { count: orders.length })}</Text>
             {orders.map(order => {
               const meta = getStatusMeta(order.status);
               return (
@@ -203,7 +209,7 @@ const Riwayat = () => {
                       <View style={styles.dateRow}>
                         <MaterialIcons name="event" size={12} color="#9AA0AC" />
                         <Text style={styles.orderDate}>
-                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString('id-ID', {
+                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString(dateLocale, {
                             day: 'numeric',
                             month: 'long',
                             year: 'numeric',
@@ -218,7 +224,7 @@ const Riwayat = () => {
                       <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
                         <MaterialIcons name={meta.icon} size={12} color={meta.text} />
                         <Text style={[styles.statusText, { color: meta.text }]}>
-                          {order.status || 'Menunggu Pembayaran'}
+                          {order.status || t('buyerRiwayat.statusFallback')}
                         </Text>
                       </View>
                     </View>
@@ -236,7 +242,7 @@ const Riwayat = () => {
                     >
                       <MaterialIcons name="payment" size={16} color="#fff" />
                       <Text style={styles.payButtonText}>
-                        {paymentCheckLoading ? 'Memeriksa...' : 'Lanjutkan Pembayaran'}
+                        {paymentCheckLoading ? t('buyerRiwayat.payButton.checking') : t('buyerRiwayat.payButton.continuePayment')}
                       </Text>
                     </TouchableOpacity>
                   )}

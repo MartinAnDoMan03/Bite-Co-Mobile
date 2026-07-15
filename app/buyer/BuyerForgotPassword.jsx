@@ -14,6 +14,7 @@ import {
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLanguage } from "../contexts/LanguageContext";
 import config from '../constants/config'; 
 import { Ionicons } from "@expo/vector-icons";
 
@@ -29,6 +30,7 @@ const scale = (size, width) => {
 };
 
 const BuyerForgotPassword = () => {
+  const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
@@ -47,9 +49,12 @@ const BuyerForgotPassword = () => {
   // Modal Alert State
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
-  const [alertTitle, setAlertTitle] = useState("Informasi");
+  const [alertTitle, setAlertTitle] = useState(t('buyerForgotPassword.alerts.infoTitle'));
+  // Business key terpisah dari teks judul, supaya nggak patah saat judul diterjemahkan
+  const [alertType, setAlertType] = useState("info");
 
-  const showCustomAlert = (title, message) => {
+  const showCustomAlert = (type, title, message) => {
+    setAlertType(type);
     setAlertTitle(title);
     setAlertMessage(message);
     setShowAlertModal(true);
@@ -58,7 +63,7 @@ const BuyerForgotPassword = () => {
   // Fungsi Langkah 1: Minta OTP
   const handleRequestOTP = async () => {
     if (!email) {
-      showCustomAlert("Gagal", "Harap masukkan email Anda.");
+      showCustomAlert("failed", t('buyerForgotPassword.alerts.failedTitle'), t('buyerForgotPassword.alerts.emptyEmail'));
       return;
     }
 
@@ -73,15 +78,15 @@ const BuyerForgotPassword = () => {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Gagal mengirim OTP");
+        throw new Error(result.message || t('buyerForgotPassword.alerts.otpRequestFailedGeneric'));
       }
 
-      showCustomAlert("Berhasil", "Kode OTP telah dikirim ke email Anda.");
+      showCustomAlert("success", t('buyerForgotPassword.alerts.successTitle'), t('buyerForgotPassword.alerts.otpSent'));
       setStep(2); // Pindah ke langkah input OTP
 
     } catch (error) {
       console.error("Request OTP error:", error);
-      showCustomAlert("Gagal", error.message || "Terjadi kesalahan. Pastikan email terdaftar.");
+      showCustomAlert("failed", t('buyerForgotPassword.alerts.failedTitle'), error.message || t('buyerForgotPassword.alerts.otpRequestFailedGeneric'));
     } finally {
       setIsLoading(false);
     }
@@ -90,7 +95,7 @@ const BuyerForgotPassword = () => {
 // Fungsi Langkah 2 & 3: Verifikasi OTP lalu Reset Password
   const handleResetPassword = async () => {
     if (!otp || !newPassword) {
-      showCustomAlert("Gagal", "OTP dan Password Baru harus diisi.");
+      showCustomAlert("failed", t('buyerForgotPassword.alerts.failedTitle'), t('buyerForgotPassword.alerts.emptyOtpOrPassword'));
       return;
     }
 
@@ -132,7 +137,7 @@ const BuyerForgotPassword = () => {
       }
 
       // Jika berhasil melewati tahap 2 dan 3
-      showCustomAlert("Berhasil", "Password berhasil diubah! Silakan masuk dengan password baru.");
+      showCustomAlert("success", t('buyerForgotPassword.alerts.successTitle'), t('buyerForgotPassword.alerts.passwordResetSuccess'));
       
       setTimeout(() => {
         setShowAlertModal(false);
@@ -141,7 +146,7 @@ const BuyerForgotPassword = () => {
 
     } catch (error) {
       console.error("Reset Password error:", error);
-      showCustomAlert("Gagal", error.message);
+      showCustomAlert("failed", t('buyerForgotPassword.alerts.failedTitle'), error.message);
     } finally {
       setIsLoading(false);
     }
@@ -159,14 +164,14 @@ const BuyerForgotPassword = () => {
           {/* Header Section: judul & deskripsi ada di sini, bukan di bagian putih */}
           <View style={[styles.topSection, { paddingTop: insets.top + 150, paddingHorizontal: SCREEN_WIDTH * 0.09 }]}>
             <Text style={[styles.greeting, { fontSize: scale(26, SCREEN_WIDTH) }]}>
-              {step === 1 ? "Reset Password" : "Buat Password Baru"}
+              {step === 1 ? t('buyerForgotPassword.step1.title') : t('buyerForgotPassword.step2.title')}
             </Text>
             <Text style={[styles.subtitle, { fontSize: scale(13, SCREEN_WIDTH) }]}>
               {step === 1 ? (
-                "Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mereset password Anda."
+                t('buyerForgotPassword.step1.subtitle')
               ) : (
                 <>
-                  Masukkan 6-digit kode OTP yang dikirim ke <Text style={{ fontWeight: 'bold' }}>{email}</Text> beserta password baru Anda.
+                  {t('buyerForgotPassword.step2.subtitlePrefix')} <Text style={{ fontWeight: 'bold' }}>{email}</Text> {t('buyerForgotPassword.step2.subtitleSuffix')}
                 </>
               )}
             </Text>
@@ -179,7 +184,7 @@ const BuyerForgotPassword = () => {
               <>
                 <View style={styles.inputWrap}>
                   <TextInput
-                    placeholder="Email Anda"
+                    placeholder={t('buyerForgotPassword.fields.emailPlaceholder')}
                     placeholderTextColor="#aaa"
                     value={email}
                     onChangeText={setEmail}
@@ -195,7 +200,7 @@ const BuyerForgotPassword = () => {
                   disabled={isLoading}
                 >
                   <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
-                    {isLoading ? "Mengirim..." : "Kirim Kode OTP"}
+                    {isLoading ? t('buyerForgotPassword.buttons.sending') : t('buyerForgotPassword.buttons.sendOtp')}
                   </Text>
                 </TouchableOpacity>
               </>
@@ -203,7 +208,7 @@ const BuyerForgotPassword = () => {
               <>
                 <View style={styles.inputWrap}>
                   <TextInput
-                    placeholder="Kode OTP"
+                    placeholder={t('buyerForgotPassword.fields.otpPlaceholder')}
                     placeholderTextColor="#aaa"
                     value={otp}
                     onChangeText={setOtp}
@@ -215,7 +220,7 @@ const BuyerForgotPassword = () => {
 
                 <View style={styles.inputWrap}>
                   <TextInput
-                    placeholder="Password Baru"
+                    placeholder={t('buyerForgotPassword.fields.newPasswordPlaceholder')}
                     placeholderTextColor="#aaa"
                     value={newPassword}
                     onChangeText={setNewPassword}
@@ -237,12 +242,12 @@ const BuyerForgotPassword = () => {
                   disabled={isLoading}
                 >
                   <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
-                    {isLoading ? "Memproses..." : "Simpan Password Baru"}
+                    {isLoading ? t('buyerForgotPassword.buttons.processing') : t('buyerForgotPassword.buttons.savePassword')}
                   </Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity style={{ marginTop: 15 }} onPress={() => setStep(1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Text style={[styles.resendText, { fontSize: scale(13, SCREEN_WIDTH) }]}>Kirim ulang OTP (Ganti Email)</Text>
+                  <Text style={[styles.resendText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{t('buyerForgotPassword.buttons.resendOtp')}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -256,12 +261,12 @@ const BuyerForgotPassword = () => {
         <View style={styles.alertOverlay}>
           <View style={styles.alertCard}>
             <View style={styles.alertIconWrap}>
-              <Ionicons name={alertTitle === "Berhasil" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
+              <Ionicons name={alertType === "success" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
             </View>
             <Text style={[styles.alertTitle, { fontSize: scale(16, SCREEN_WIDTH) }]}>{alertTitle}</Text>
             <Text style={[styles.alertText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{alertMessage}</Text>
             <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAlertModal(false)}>
-              <Text style={[styles.alertBtnText, { fontSize: scale(13, SCREEN_WIDTH) }]}>Mengerti</Text>
+              <Text style={[styles.alertBtnText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{t('buyerForgotPassword.alerts.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>

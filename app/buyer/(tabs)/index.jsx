@@ -1,6 +1,7 @@
-import { Image, Text, TextInput, TouchableOpacity, View, ScrollView, StyleSheet } from "react-native";
-import React, { useCallback, useEffect, useState } from "react";
+import { Image, Text, TextInput, TouchableOpacity, View, ScrollView, StyleSheet, Animated, Easing, Platform, LayoutAnimation, UIManager } from "react-native";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { useLanguage } from "../../contexts/LanguageContext";
 import COLORS from "../../constants/color";
 import banner1 from "../../../assets/images/banner1.png";
 import gizipro from "../../../assets/images/gizipro.png";
@@ -15,7 +16,30 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
 
-const CircleButton = ({ icon, onPress, text, navigateTo, iconStyle }) => {
+// Aktifkan LayoutAnimation di Android (sama seperti di halaman seller)
+if (
+  Platform.OS === "android" &&
+  UIManager.setLayoutAnimationEnabledExperimental
+) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
+
+// CircleButton mendukung 2 jenis icon:
+// - iconType="image" (default) -> pakai gambar PNG seperti sebelumnya
+// - iconType="material" -> pakai MaterialIcons
+// bgColor/iconColor/bordered dipakai untuk varian terbalik (mis. tombol Bantuan: bg putih, icon maroon)
+const CircleButton = ({
+  icon,
+  onPress,
+  text,
+  navigateTo,
+  iconStyle,
+  iconType = "image",
+  iconName,
+  bgColor,
+  iconColor,
+  bordered,
+}) => {
   const router = useRouter();
   return (
     <View style={{ alignItems: "center" }}>
@@ -28,16 +52,22 @@ const CircleButton = ({ icon, onPress, text, navigateTo, iconStyle }) => {
           }
         }}
         style={{
-          backgroundColor: COLORS.PRIMARY,
+          backgroundColor: bgColor || COLORS.PRIMARY,
           padding: 10,
           borderRadius: 16,
           width: 56,
           height: 56,
           justifyContent: "center",
           alignItems: "center",
+          borderWidth: bordered ? 1.5 : 0,
+          borderColor: bordered ? "#eee" : "transparent",
         }}
       >
-        <Image source={icon} style={[{ width: 28, height: 28 }, iconStyle]} />
+        {iconType === "material" ? (
+          <MaterialIcons name={iconName} size={28} color={iconColor || "white"} />
+        ) : (
+          <Image source={icon} style={[{ width: 28, height: 28 }, iconStyle]} />
+        )}
       </TouchableOpacity>
       <Text
         style={{
@@ -54,11 +84,12 @@ const CircleButton = ({ icon, onPress, text, navigateTo, iconStyle }) => {
 
 // Header baris untuk tiap section: judul di kiri, "Lihat Lainnya" di kanan
 const SectionHeader = ({ title, onSeeAllPress }) => {
+  const { t } = useLanguage();
   return (
     <View style={styles.sectionHeaderRow}>
       <Text style={styles.sectionTitle}>{title}</Text>
       <TouchableOpacity onPress={onSeeAllPress} activeOpacity={0.7} style={styles.seeAllButton}>
-        <Text style={styles.seeAllText}>Lihat Lainnya</Text>
+        <Text style={styles.seeAllText}>{t('buyerBeranda.seeAll')}</Text>
         <MaterialIcons name="chevron-right" size={18} color={COLORS.PRIMARY} />
       </TouchableOpacity>
     </View>
@@ -66,6 +97,7 @@ const SectionHeader = ({ title, onSeeAllPress }) => {
 };
 
 const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress }) => {
+  const { t } = useLanguage();
   return (
     <TouchableOpacity style={styles.storeCard} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.storeLogoWrapperFull}>
@@ -80,7 +112,7 @@ const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress 
       <View style={styles.storeInfoRow}>
         <MaterialIcons name="location-on" size={16} color={COLORS.PRIMARY} style={{ marginRight: 2 }} />
         <Text style={styles.distanceText}>
-          {Distance === "-" ? "Jarak tidak diketahui" : `${Distance} km`}
+          {Distance === "-" ? t('buyerBeranda.distanceUnknown') : t('buyerBeranda.distanceUnit', { distance: Distance })}
         </Text>
       </View>
     </TouchableOpacity>
@@ -88,6 +120,7 @@ const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress 
 };
 
 const ExpandableMenu = () => {
+  const { t } = useLanguage();
   const [stores, setStores] = useState([]);
   const [rantanganStores, setRantanganStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -95,7 +128,28 @@ const ExpandableMenu = () => {
   const [error, setError] = useState(null);
   const [rantanganError, setRantanganError] = useState(null);
   const [buyerLocation, setBuyerLocation] = useState(null);
+  const [menuExpanded, setMenuExpanded] = useState(false);
+  const rotateAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
+
+  const toggleMenuExpand = () => {
+    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+    setMenuExpanded((prev) => !prev);
+  };
+
+  useEffect(() => {
+    Animated.timing(rotateAnim, {
+      toValue: menuExpanded ? 1 : 0,
+      duration: 300,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    }).start();
+  }, [menuExpanded]);
+
+  const chevronRotate = rotateAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ["0deg", "180deg"],
+  });
 
   // Load buyer's pinpoint location from AsyncStorage
   const loadBuyerLocation = async () => {
@@ -142,14 +196,14 @@ const ExpandableMenu = () => {
           }))
         );
       } else {
-        setError("Gagal memuat data toko");
+        setError(t('buyerBeranda.sections.catering.fetchFailed'));
       }
     } catch (e) {
-      setError("Gagal memuat data toko");
+      setError(t('buyerBeranda.sections.catering.fetchFailed'));
     } finally {
       setLoading(false);
     }
-  }, [buyerLocation]);
+  }, [buyerLocation, t]);
 
   const fetchRantanganStores = useCallback(async () => {
     setRantanganLoading(true);
@@ -176,14 +230,14 @@ const ExpandableMenu = () => {
           }))
         );
       } else {
-        setRantanganError("Gagal memuat data rantangan");
+        setRantanganError(t('buyerBeranda.sections.rantangan.fetchFailed'));
       }
     } catch (e) {
-      setRantanganError("Gagal memuat data rantangan");
+      setRantanganError(t('buyerBeranda.sections.rantangan.fetchFailed'));
     } finally {
       setRantanganLoading(false);
     }
-  }, [buyerLocation]);
+  }, [buyerLocation, t]);
 
   // Load buyer location on component mount
   useEffect(() => {
@@ -222,16 +276,44 @@ const ExpandableMenu = () => {
         <MaterialIcons name="search" size={20} color={COLORS.TEXTSECONDARY} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Mau makan apa hari ini?"
+          placeholder={t('buyerBeranda.searchPlaceholder')}
           placeholderTextColor={COLORS.TEXTSECONDARY}
         />
       </View>
 
-      <View style={styles.categories}>
-        <CircleButton icon={iconCatering} text={"Catering"} navigateTo="buyer/CateringList" />
-        <CircleButton icon={iconRantangan} text={"Rantangan"} navigateTo="buyer/RantanganList" />
-        <CircleButton icon={gizipro} text={"Gizi Pro"} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} />
-        <CircleButton icon={iconBiteEco} text={"Bite Eco"} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} />
+      {/* Baris menu utama - selalu tampil */}
+      <View style={styles.categoriesSection}>
+        <View style={styles.categories}>
+          <CircleButton icon={iconCatering} text={t('buyerBeranda.categories.catering')} navigateTo="buyer/CateringList" />
+          <CircleButton icon={iconRantangan} text={t('buyerBeranda.categories.rantangan')} navigateTo="buyer/RantanganList" />
+          <CircleButton icon={gizipro} text={t('buyerBeranda.categories.giziPro')} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} />
+          <CircleButton icon={iconBiteEco} text={t('buyerBeranda.categories.biteCo')} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} />
+        </View>
+
+        {/* Baris menu tambahan - hanya tampil saat expanded */}
+        {menuExpanded && (
+          <View style={[styles.categories, styles.categoriesSecondRow]}>
+            <CircleButton
+              iconType="material"
+              iconName="live-help"
+              text={t('buyerBeranda.categories.bantuan')}
+              navigateTo="buyer/bantuan"
+            />
+            <CircleButton
+              iconType="material"
+              iconName="settings"
+              text={t('buyerBeranda.categories.pengaturan')}
+              navigateTo="buyer/settings"
+            />
+          </View>
+        )}
+
+        {/* Tombol expand/collapse */}
+        <TouchableOpacity onPress={toggleMenuExpand} style={styles.expandButton}>
+          <Animated.View style={[styles.expandButtonCircle, { transform: [{ rotate: chevronRotate }] }]}>
+            <MaterialIcons name="keyboard-arrow-down" size={22} color={COLORS.PRIMARY} />
+          </Animated.View>
+        </TouchableOpacity>
       </View>
 
       {/* Notice lokasi ditampilkan sekali saja untuk seluruh halaman */}
@@ -239,14 +321,14 @@ const ExpandableMenu = () => {
         <View style={styles.locationNotice}>
           <MaterialIcons name="info" size={16} color={COLORS.PRIMARY} />
           <Text style={styles.locationNoticeText}>
-            Set lokasi Anda di Profile untuk melihat jarak ke catering & rantangan
+            {t('buyerBeranda.locationNotice')}
           </Text>
         </View>
       )}
 
       <View style={styles.storeSection}>
         <SectionHeader
-          title="Rekomendasi Catering"
+          title={t('buyerBeranda.sections.catering.title')}
           onSeeAllPress={() => router.push("buyer/CateringList")}
         />
         <View style={styles.divider} />
@@ -265,11 +347,11 @@ const ExpandableMenu = () => {
               style={styles.retryButton}
               onPress={() => fetchStores()}
             >
-              <Text style={styles.retryButtonText}>Coba Lagi</Text>
+              <Text style={styles.retryButtonText}>{t('buyerBeranda.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : previewStores.length === 0 ? (
-          <Text style={styles.emptyText}>Belum ada catering tersedia</Text>
+          <Text style={styles.emptyText}>{t('buyerBeranda.sections.catering.empty')}</Text>
         ) : (
           <View style={styles.storeGrid}>
             {previewStores.map(store => (
@@ -294,7 +376,7 @@ const ExpandableMenu = () => {
 
       <View style={styles.storeSection}>
         <SectionHeader
-          title="Rekomendasi Rantangan"
+          title={t('buyerBeranda.sections.rantangan.title')}
           onSeeAllPress={() => router.push("buyer/RantanganList")}
         />
         <View style={styles.divider} />
@@ -313,11 +395,11 @@ const ExpandableMenu = () => {
               style={styles.retryButton}
               onPress={() => fetchRantanganStores()}
             >
-              <Text style={styles.retryButtonText}>Coba Lagi</Text>
+              <Text style={styles.retryButtonText}>{t('buyerBeranda.retry')}</Text>
             </TouchableOpacity>
           </View>
         ) : previewRantanganStores.length === 0 ? (
-          <Text style={styles.emptyText}>Belum ada rantangan tersedia</Text>
+          <Text style={styles.emptyText}>{t('buyerBeranda.sections.rantangan.empty')}</Text>
         ) : (
           <View style={styles.storeGrid}>
             {previewRantanganStores.map(store => (
@@ -390,11 +472,30 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     elevation: 1,
   },
+  categoriesSection: {
+    marginVertical: 22,
+  },
   categories: {
     flexDirection: "row",
     justifyContent: "space-evenly",
-    marginVertical: 22,
     paddingHorizontal: 20,
+  },
+  categoriesSecondRow: {
+    justifyContent: "center",
+    columnGap: 32,
+    marginTop: 16,
+  },
+  expandButton: {
+    alignSelf: "center",
+    marginTop: 14,
+  },
+  expandButtonCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: "#F3E9EC",
+    justifyContent: "center",
+    alignItems: "center",
   },
   locationNotice: {
     flexDirection: 'row',
@@ -459,10 +560,10 @@ const styles = StyleSheet.create({
   },
   storeCard: {
     backgroundColor: "#fff",
-    borderRadius: 16,
-    marginBottom: 18,
+    borderRadius: 14,
+    marginBottom: 14,
     alignItems: "center",
-    width: "48%",
+    width: "47%",
     marginHorizontal: 0,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -481,13 +582,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     overflow: 'visible',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   storeLogoFull: {
     width: '100%',
     height: '100%',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 14,
+    borderTopRightRadius: 14,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     backgroundColor: '#f6f7fb',
@@ -495,11 +596,11 @@ const styles = StyleSheet.create({
   },
   ratingBadgeFull: {
     position: 'absolute',
-    top: 10,
-    right: 10,
+    top: 8,
+    right: 8,
     backgroundColor: COLORS.GREEN3,
-    borderRadius: 10,
-    paddingHorizontal: 8,
+    borderRadius: 8,
+    paddingHorizontal: 6,
     paddingVertical: 2,
     shadowColor: '#000',
     shadowOpacity: 0.08,
@@ -510,26 +611,26 @@ const styles = StyleSheet.create({
   ratingBadgeText: {
     color: '#fff',
     fontWeight: '700',
-    fontSize: 13,
+    fontSize: 11,
   },
   storeName: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#23272f',
     textAlign: 'center',
     marginTop: 2,
-    marginBottom: 8,
-    minHeight: 38,
-    paddingHorizontal: 8,
+    marginBottom: 6,
+    minHeight: 32,
+    paddingHorizontal: 6,
   },
   storeInfoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 0,
-    marginBottom: 8,
+    marginBottom: 6,
   },
   distanceText: {
-    fontSize: 13,
+    fontSize: 12,
     color: COLORS.PRIMARY,
     fontWeight: '500',
     marginLeft: 2,

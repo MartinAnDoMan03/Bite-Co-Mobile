@@ -141,7 +141,98 @@ export default {
       confirmButton: 'Delete',
       comingSoon: 'Account deletion is coming soon. Please contact customer service for help.',
     },
-  },
+  privacyPolicyContent: {
+  title: 'Privacy Policy',
+  intro: "Bite&Co values your privacy, whether you're a user or a business partner. This policy explains what data we collect, why, and how we protect it.",
+  sections: [
+    {
+      icon: 'inventory-2',
+      title: 'Data We Collect',
+      body: 'We collect the data you provide when registering and using the app, such as your name, phone number, email, business or delivery address, product photos, and transaction information. For partners, we also store business data such as your NIB (business registration number, if any) and sales history.',
+    },
+    {
+      icon: 'settings-suggest',
+      title: 'How Data Is Used',
+      body: 'We use this data to process orders, connect users with nearby partners, display transaction history, send order notifications, and improve service quality. We do not sell your personal data to third parties for advertising purposes.',
+    },
+    {
+      icon: 'share',
+      title: 'Sharing Data with Third Parties',
+      body: 'Data is only shared with parties that genuinely need it for the service to function, such as payment gateways for processing payments. All our third-party partners are required to keep your data confidential in accordance with applicable standards.',
+    },
+    {
+      icon: 'lock',
+      title: 'Data Security',
+      body: 'We store your data on encrypted servers and use authentication systems to prevent unauthorized access. Even so, we encourage you to keep your own account password confidential.',
+    },
+    {
+      icon: 'verified-user',
+      title: 'Your Rights Over Your Data',
+      body: "You have the right to request a copy of your data, correct inaccurate information, or delete your account at any time through the app's settings or by contacting our support team.",
+    },
+    {
+      icon: 'update',
+      title: 'Changes to This Policy',
+      body: 'We may update this privacy policy from time to time. Changes will be communicated through the app, and continued use after any changes is considered acceptance of the updated policy.',
+    },
+  ],
+},
+termsContent: {
+  title: 'Terms & Conditions',
+  intro: 'By using the Bite&Co app, you are considered to have read and agreed to the following terms.',
+  sections: [
+    {
+      icon: 'info',
+      title: 'About the Service',
+      body: 'Bite&Co is a platform that connects users with local small-business catering and meal-plan partners through a subscription system (daily, weekly, monthly) in the Medan area.',
+    },
+    {
+      icon: 'account-circle',
+      title: 'User Accounts',
+      body: 'You are required to register with accurate information and keep your account confidential. You are responsible for all activity under your account, unless there is evidence of misuse by another party.',
+    },
+    {
+      icon: 'payment',
+      title: 'Orders and Payments',
+      body: "Any order confirmed by a partner is binding. Payments are made through the methods available in the app. Unilateral cancellation after an order has been processed may be subject to separate terms based on the partner's policy.",
+    },
+    {
+      icon: 'storefront',
+      title: 'Partner Responsibilities',
+      body: "Partners are fully responsible for the quality, cleanliness, and accuracy of the product information they list, including halal status. The delivery or pickup process is entirely the partner's responsibility, including timeliness and product condition upon arrival. Bite&Co acts as a platform connector, not a delivery service provider.",
+    },
+    {
+      icon: 'attach-money',
+      title: 'Commission and Fees',
+      body: "Every successful transaction is subject to a platform commission of 10% of the order value, automatically deducted before funds are disbursed to the partner.",
+    },
+    {
+      icon: 'block',
+      title: 'Prohibited Use',
+      body: 'Users and partners are prohibited from misusing the platform for fraud, providing false information, or taking any action that harms other parties within the Bite&Co ecosystem.',
+    },
+    {
+      icon: 'pause-circle-filled',
+      title: 'Account Suspension',
+      body: 'Bite&Co reserves the right to temporarily or permanently deactivate any account found to violate these terms, whether based on reports from other users or internal monitoring.',
+    },
+    {
+      icon: 'gavel',
+      title: 'Limitation of Liability',
+      body: 'Bite&Co strives to keep the service running smoothly, but is not responsible for losses arising from partner errors, technical disruptions beyond our control, or force majeure.',
+    },
+    {
+      icon: 'update',
+      title: 'Changes to These Terms',
+      body: 'These terms may change from time to time. Changes will be communicated through the app, and continued use after such changes is considered acceptance.',
+    },
+    {
+      icon: 'mail',
+      title: 'Contact',
+      body: 'Questions regarding these terms and conditions can be sent to support@bitenco.id.',
+    },
+  ],
+},},
 
   beranda: {
     welcome: 'Welcome',
@@ -998,6 +1089,336 @@ profil: {
   errors: {
     noToken: 'Authentication token not found. Please login again.',
     fetchFailed: 'Failed to load profile data.',
+  },
+},
+buyerBeranda: {
+  searchPlaceholder: 'What do you want to eat today?',
+  categories: {
+    catering: 'Catering',
+    rantangan: 'Meal Plan',
+    giziPro: 'Nutri Pro',
+    biteCo: 'Bite Co',
+    bantuan: 'Help',
+    pengaturan: 'Settings',
+  },
+  locationNotice: 'Set your location in Profile to see distance to caterers & meal plans',
+  seeAll: 'See More',
+  retry: 'Try Again',
+  distanceUnknown: 'Distance unknown',
+  distanceUnit: '{{distance}} km',
+  sections: {
+    catering: {
+      title: 'Recommended Catering',
+      empty: 'No catering available yet',
+      fetchFailed: 'Failed to load store data',
+    },
+    rantangan: {
+      title: 'Recommended Meal Plans',
+      empty: 'No meal plans available yet',
+      fetchFailed: 'Failed to load meal plan data',
+    },
+  },
+},
+profile: {
+  title: "My Profile",
+
+  personalInfo: "Personal Information",
+
+  name: "Name",
+  email: "Email",
+  phone: "Phone",
+
+  deliveryAddress: "Delivery Address",
+
+  fullAddress: "Full Address",
+  village: "Village",
+  district: "District",
+  province: "Province",
+  postalCode: "Postal Code",
+  notes: "Notes",
+
+  notSet: "Not Set",
+
+  editAddress: "Edit Address",
+
+  pinPoint: "Location Pin",
+  setPin: "Set Pin",
+  updatePin: "Update Pin",
+
+  logout: "Sign Out",
+
+  retry: "Try Again",
+
+  editDeliveryAddress: "Edit Delivery Address",
+
+  cancel: "Cancel",
+  save: "Save",
+
+  fullAddressPlaceholder: "Full address...",
+  villagePlaceholder: "Village",
+  districtPlaceholder: "District",
+  provincePlaceholder: "Province",
+  postalCodePlaceholder: "Postal Code",
+  notesPlaceholder: "Notes (optional)",
+
+  autoFillTitle: "Address Auto Filled",
+  autoFillMessage:
+    "The delivery address has been automatically filled based on the selected pin location. You can edit it if needed.",
+
+  success: "Success",
+  addressSaved: "Address saved successfully",
+
+  error: "Error",
+  saveFailed: "Failed to save address",
+
+  loading: "Loading profile...",
+  noToken: "No token found",
+  fetchFailed: "Failed to fetch profile data",
+},
+buyerRiwayat: {
+  header: { title: 'Order History', accessibility: { back: 'Back' } },
+  sectionTitle: '{{count}} Orders',
+  empty: {
+    title: 'No Orders Yet',
+    description: 'Your order history will appear here.',
+  },
+  statusFallback: 'Awaiting Payment',
+  payButton: {
+    checking: 'Checking...',
+    continuePayment: 'Continue Payment',
+  },
+  alerts: {
+    paymentSuccess: 'Payment successful. Order status updated.',
+    alreadyPaidOrNotPending: 'This order has already been paid or is not in pending status.',
+    checkStatusFailed: 'Failed to check payment status.',
+  },
+},
+buyerBiteEco: {
+  header: { title: 'Bite Eco', accessibility: { back: 'Back' } },
+  intro: {
+    title: 'Available Food Waste',
+    subtitle: 'Get food waste for further processing',
+  },
+  loading: 'Loading data...',
+  empty: {
+    title: 'No Items Available Yet',
+    subtitle: 'No sellers have posted food waste yet',
+  },
+  card: {
+    quantityLabel: 'Quantity: {{quantity}}',
+    sellerFallback: 'Seller',
+    distanceUnit: '{{distance}} km',
+    orderButton: 'Order',
+  },
+  conditions: {
+    veryGood: 'Very Good',
+    good: 'Good',
+    fair: 'Fair',
+    needsUrgentProcessing: 'Needs Urgent Processing',
+  },
+  alerts: {
+    usingMockData: { title: 'Info', message: 'Using demo data. The Bite Eco backend endpoint is not fully available yet.' },
+    orderSuccess: { title: 'Success', message: 'Bite Eco order created successfully. Awaiting seller approval.' },
+    orderFailed: { title: 'Error', message: 'Failed to create order' },
+    loginRequired: { title: 'Error', message: 'Please login first' },
+    confirmOrder: { title: 'Confirm Order', message: 'Are you sure you want to order "{{title}}"?', cancel: 'Cancel', confirm: 'Order' },
+    ok: 'OK',
+  },
+},
+buyerForgotPassword: {
+  step1: {
+    title: 'Reset Password',
+    subtitle: 'Enter your registered email. We will send an OTP code to reset your password.',
+  },
+  step2: {
+    title: 'Create New Password',
+    subtitlePrefix: 'Enter the 6-digit OTP code sent to',
+    subtitleSuffix: 'along with your new password.',
+  },
+  fields: {
+    emailPlaceholder: 'Your Email',
+    otpPlaceholder: 'OTP Code',
+    newPasswordPlaceholder: 'New Password',
+  },
+  buttons: {
+    sendOtp: 'Send OTP Code',
+    sending: 'Sending...',
+    savePassword: 'Save New Password',
+    processing: 'Processing...',
+    resendOtp: 'Resend OTP (Change Email)',
+  },
+  alerts: {
+    infoTitle: 'Information',
+    successTitle: 'Success',
+    failedTitle: 'Failed',
+    emptyEmail: 'Please enter your email.',
+    otpSent: 'An OTP code has been sent to your email.',
+    otpRequestFailedGeneric: 'An error occurred. Make sure the email is registered.',
+    emptyOtpOrPassword: 'OTP and new password must be filled in.',
+    passwordResetSuccess: 'Password changed successfully! Please login with your new password.',
+    gotIt: 'Got It',
+  },
+},
+buyerLogin: {
+  greeting: 'Hello!',
+  subtitle: 'Welcome to Bite&Co',
+  fields: {
+    email: 'Email',
+    password: 'Password',
+  },
+  forgotPassword: 'Forgot Password?',
+  login: 'Login',
+  loggingIn: 'Logging in...',
+  noAccount: "Don't have an account? ",
+  register: 'Register',
+  alerts: {
+    failedTitle: 'Login Failed',
+    gotIt: 'Got It',
+    emptyFields: 'Email and password must be filled in',
+    loginFailedGeneric: 'Login failed. Please check your email and password.',
+  },
+},
+buyerRegister: {
+  header: { title: 'Create New Account' },
+  card: {
+    title: 'Personal Data',
+    fields: {
+      name: { label: 'Full Name', placeholder: 'Enter your full name' },
+      email: { label: 'Email', placeholder: 'Enter your email' },
+      phone: { label: 'Phone Number', placeholder: '0813...' },
+      password: { label: 'Password', placeholder: 'Min. 6 characters' },
+      confirmPassword: { label: 'Confirm Password', placeholder: 'Re-enter password' },
+    },
+    submitButton: 'Register',
+    submitting: 'Registering...',
+    loginPrompt: 'Already have an account? ',
+    loginLink: 'Login here',
+  },
+  alerts: {
+    incompleteFormTitle: 'Incomplete Form',
+    nameRequired: 'Name must be filled in',
+    emailRequired: 'Email must be filled in',
+    phoneRequired: 'Phone number must be filled in',
+    passwordRequired: 'Password must be filled in',
+    passwordMismatch: 'Password and confirmation password do not match',
+    passwordTooShort: 'Password must be at least 6 characters',
+    invalidEmail: 'Invalid email format',
+    invalidPhone: 'Invalid phone number format',
+    registerFailedTitle: 'Registration Failed',
+    registerFailedGeneric: 'An error occurred during registration',
+    gotIt: 'Got It',
+    success: {
+      title: 'Registration Successful',
+      message: 'An OTP code has been sent to your email. Please verify to continue.',
+      button: 'Continue to Verification',
+    },
+  },
+},
+buyerOtpVerification: {
+  title: 'OTP Verification',
+  subtitlePrefix: 'Enter the 4-digit OTP code sent to',
+  buttons: {
+    verify: 'Verify',
+    verifying: 'Verifying...',
+    resend: 'Resend Code',
+    resending: 'Resending...',
+  },
+  resend: {
+    prompt: "Didn't receive the code? ",
+    timer: 'Resend code in {{seconds}}s',
+  },
+  alerts: {
+    infoTitle: 'Information',
+    successTitle: 'Success',
+    failedTitle: 'Failed',
+    gotIt: 'Got It',
+    emptyOtp: 'Please enter the complete 4-digit OTP code.',
+    resendSuccess: 'A new OTP code has been sent to your email.',
+    resendFailedGeneric: 'Failed to resend OTP code. Please try again.',
+    verifySuccess: 'Your account has been successfully verified!',
+    verifyFailedGeneric: 'Invalid or expired OTP code. Please try again.',
+  },
+},
+buyerChatRoom: {
+  header: { title: 'Chat' },
+  loading: 'Loading conversation...',
+  defaultBuyerName: 'Buyer',
+  defaultSellerName: 'Seller',
+  status: {
+    online: 'Online',
+    offline: 'Offline',
+    connecting: 'Connecting...',
+  },
+  empty: {
+    title: 'No Messages Yet',
+    subtitle: 'Start a conversation with the seller',
+  },
+  inputPlaceholder: 'Type a message...',
+  toast: {
+    loadMessagesFailed: 'Failed to load messages',
+    noChatroomId: 'Chat room ID is not available',
+    noUserInfo: 'User information is not available',
+    sendFailed: 'Failed to send message: ',
+    navigationUnavailable: 'Navigation is not available',
+    orderDetailUnavailable: 'Order details are not available',
+  },
+},
+buyerStatusOrder: {
+  header: { title: 'Order Status' },
+  accessibility: { back: 'Back', orderDetail: 'Order detail', chatSeller: 'Chat with seller' },
+  cancelled: 'Cancelled',
+  dateUnavailable: 'Date not available',
+  dateInvalid: 'Invalid date',
+  timeUnavailable: 'Time not available',
+  timeInvalid: 'Invalid time',
+  buyerFallback: 'Buyer',
+  sellerFallback: 'Seller',
+  retry: 'Try Again',
+  exploreMenu: 'Explore Menu',
+  startLabel: 'Start:',
+  endLabel: 'End:',
+  startsInDays: 'Starts in {{count}} days',
+  remainingDays: '{{count}} days remaining',
+  dailyDeliveryHistory: 'Daily Delivery History',
+  sentAt: 'Sent:',
+  completedAt: 'Completed:',
+  preparingToday: "Preparing today's order",
+  deliveringToday: "Today's order is being delivered",
+  trackTodayDelivery: "Track Today's Delivery",
+  trackOrder: 'Track Order',
+  giveReview: 'Give Review',
+  filters: { all: 'All', processing: 'Processing', delivery: 'Delivery', completed: 'Completed' },
+  statusLabels: {
+    waitingApproval: 'Awaiting Approval',
+    processing: 'Processing',
+    delivery: 'Delivery',
+    recurring: 'Active Delivery Cycle',
+    completed: 'Order Completed',
+    cancelled: 'Order Cancelled',
+  },
+  steps: {
+    default: { waitingApproval: 'Awaiting Approval', processing: 'Processing', delivery: 'Delivery', completed: 'Order Completed' },
+    rantanganHarian: { waitingApproval: 'Accept or Reject', processing: 'Send Order', delivery: 'Track Order', completed: 'Give Review' },
+    rantanganRecurring: { waitingApproval: 'Accept or Reject', processing: 'Prepare Order', delivery: 'Track Order', completed: 'All Completed' },
+    biteEco: { waitingApproval: 'Awaiting Approval', processing: 'Preparing', delivery: 'Track Order', completed: 'Completed' },
+  },
+  empty: {
+    title: 'No Orders Yet',
+    subtitle: 'Start ordering your favorite food!',
+  },
+  toast: {
+    dataRefreshed: 'Data refreshed successfully',
+    fetchOrdersFailed: 'Failed to load order data',
+    noCoordinates: 'Delivery coordinates not available',
+    fetchOrderDetailFailed: 'Failed to load order details',
+    fetchTrackingFailed: 'Failed to load tracking data',
+  },
+  modal: {
+    title: 'Track Delivery',
+    loadingMap: 'Loading map...',
+    deliveryAddressFallback: 'Delivery address',
+    statusInDelivery: 'Status: Out for Delivery',
+    distanceLabel: 'Distance: {{distance}} km',
   },
 },
 };

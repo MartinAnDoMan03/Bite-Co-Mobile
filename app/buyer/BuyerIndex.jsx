@@ -14,6 +14,7 @@ import {
 } from "react-native";
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
+import { useLanguage } from "../contexts/LanguageContext";
 import { useBuyerAuth } from '../hooks/useBuyerAuth.js';
 import config from '../constants/config';
 import logo from "../../assets/images/logo.png";
@@ -23,6 +24,7 @@ const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BURGUNDY = "#711330";
 
 const BuyerIndex = () => {
+  const { t } = useLanguage();
   const router = useRouter();
   const { login } = useBuyerAuth();
   const [formData, setFormData] = useState({
@@ -50,7 +52,7 @@ const BuyerIndex = () => {
 
   const handleLogin = async () => {
     if (!formData.email || !formData.password) {
-      showCustomAlert("Email dan password harus diisi");
+      showCustomAlert(t('buyerLogin.alerts.emptyFields'));
       return;
     }
 
@@ -86,7 +88,7 @@ const BuyerIndex = () => {
 
     } catch (error) {
       console.error("Login error:", error);
-      showCustomAlert(error.message || "Gagal masuk. Periksa email dan password Anda.");
+      showCustomAlert(error.message || t('buyerLogin.alerts.loginFailedGeneric'));
     } finally {
       setIsLoading(false);
     }
@@ -110,13 +112,13 @@ const BuyerIndex = () => {
 
           {/* Bottom section — form */}
           <View style={styles.bottomSection}>
-            <Text style={styles.greeting}>Halo!</Text>
-            <Text style={styles.subtitle}>Selamat datang di Bite&Co</Text>
+            <Text style={styles.greeting}>{t('buyerLogin.greeting')}</Text>
+            <Text style={styles.subtitle}>{t('buyerLogin.subtitle')}</Text>
 
             {/* Email input */}
             <View style={styles.inputWrap}>
               <TextInput
-                placeholder="Email"
+                placeholder={t('buyerLogin.fields.email')}
                 placeholderTextColor="#aaa"
                 value={formData.email}
                 onChangeText={(value) => handleInputChange("email", value)}
@@ -129,7 +131,7 @@ const BuyerIndex = () => {
             {/* Password input */}
             <View style={styles.inputWrap}>
               <TextInput
-                placeholder="Password"
+                placeholder={t('buyerLogin.fields.password')}
                 placeholderTextColor="#aaa"
                 value={formData.password}
                 onChangeText={(value) => handleInputChange("password", value)}
@@ -150,7 +152,7 @@ const BuyerIndex = () => {
 
             {/* Lupa password */}
             <TouchableOpacity style={styles.forgotWrap} onPress={() => router.push("/buyer/BuyerForgotPassword")}>
-              <Text style={styles.forgotText}>Lupa Password?</Text>
+              <Text style={styles.forgotText}>{t('buyerLogin.forgotPassword')}</Text>
             </TouchableOpacity>
 
             {/* Tombol Masuk */}
@@ -161,22 +163,22 @@ const BuyerIndex = () => {
               activeOpacity={0.85}
             >
               <Text style={styles.btnPrimaryText}>
-                {isLoading ? "Masuk..." : "Masuk"}
+                {isLoading ? t('buyerLogin.loggingIn') : t('buyerLogin.login')}
               </Text>
             </TouchableOpacity>
 
             {/* Belum punya akun? Daftar */}
             <View style={styles.registerWrap}>
-              <Text style={styles.registerText}>Belum punya akun? </Text>
+              <Text style={styles.registerText}>{t('buyerLogin.noAccount')}</Text>
               <TouchableOpacity onPress={() => router.push("/buyer/BuyerRegister")}>
-                <Text style={styles.registerLink}>Daftar</Text>
+                <Text style={styles.registerLink}>{t('buyerLogin.register')}</Text>
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ---------- Modal alert custom (Bahasa Indonesia, tema burgundy) ---------- */}
+      {/* ---------- Modal alert custom ---------- */}
       <Modal
         visible={showAlertModal}
         transparent
@@ -189,7 +191,7 @@ const BuyerIndex = () => {
               <Ionicons name="alert-circle" size={28} color={BURGUNDY} />
             </View>
 
-            <Text style={styles.alertTitle}>Gagal Masuk</Text>
+            <Text style={styles.alertTitle}>{t('buyerLogin.alerts.failedTitle')}</Text>
             <Text style={styles.alertText}>{alertMessage}</Text>
 
             <TouchableOpacity
@@ -197,7 +199,7 @@ const BuyerIndex = () => {
               onPress={() => setShowAlertModal(false)}
               activeOpacity={0.85}
             >
-              <Text style={styles.alertBtnText}>Mengerti</Text>
+              <Text style={styles.alertBtnText}>{t('buyerLogin.alerts.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>

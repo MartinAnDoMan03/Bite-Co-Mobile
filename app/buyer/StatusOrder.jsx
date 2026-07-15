@@ -22,17 +22,18 @@ import axios from 'axios';
 import { OrderCardSkeleton } from '../../components/SkeletonLoader';
 import { useToast } from '../../components/ToastProvider';
 import TrackingMap from '../../components/TrackingMap';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const { width, height } = Dimensions.get('window');
 
 // Helper function to safely format dates
-const formatDate = (dateValue, options = {}) => {
-  if (!dateValue) return 'Tanggal tidak tersedia';
+const formatDate = (dateValue, t, options = {}) => {
+   if (!dateValue) return t('buyerStatusOrder.dateUnavailable');
 
   try {
     const date = new Date(dateValue);
     if (isNaN(date.getTime())) {
-      return 'Tanggal tidak valid';
+      return t('buyerStatusOrder.dateInvalid');
     }
 
     const defaultOptions = {
@@ -44,18 +45,18 @@ const formatDate = (dateValue, options = {}) => {
     return date.toLocaleDateString('id-ID', { ...defaultOptions, ...options });
   } catch (error) {
     console.warn('Date formatting error:', error, 'for value:', dateValue);
-    return 'Tanggal tidak valid';
+    return t('buyerStatusOrder.dateInvalid');
   }
 };
 
 // Helper function to safely format time
-const formatTime = (dateValue, options = {}) => {
-  if (!dateValue) return 'Waktu tidak tersedia';
+const formatTime = (dateValue, t, options = {}) => {
+   if (!dateValue) return t('buyerStatusOrder.timeUnavailable');
 
   try {
     const date = new Date(dateValue);
     if (isNaN(date.getTime())) {
-      return 'Waktu tidak valid';
+      return t('buyerStatusOrder.timeInvalid');
     }
 
     const defaultOptions = {
@@ -66,18 +67,18 @@ const formatTime = (dateValue, options = {}) => {
     return date.toLocaleTimeString('id-ID', { ...defaultOptions, ...options });
   } catch (error) {
     console.warn('Time formatting error:', error, 'for value:', dateValue);
-    return 'Waktu tidak valid';
+    return t('buyerStatusOrder.timeInvalid');
   }
 };
 
-const STATUS_LABELS = {
-  waiting_approval: "Menunggu Persetujuan",
-  processing: "Dalam Proses",
-  delivery: "Pengiriman",
-  recurring: "Siklus Pengiriman Aktif",
-  completed: "Pesanan Selesai",
-  cancelled: "Pesanan Dibatalkan",
-};
+const getStatusLabels = (t) => ({
+   waiting_approval: t('buyerStatusOrder.statusLabels.waitingApproval'),
+   processing: t('buyerStatusOrder.statusLabels.processing'),
+   delivery: t('buyerStatusOrder.statusLabels.delivery'),
+   recurring: t('buyerStatusOrder.statusLabels.recurring'),
+   completed: t('buyerStatusOrder.statusLabels.completed'),
+  cancelled: t('buyerStatusOrder.statusLabels.cancelled'),
+ });
 
 // Badge status pill config (warna & icon) — selaras dengan palet di halaman Pesanan penjual
 const STATUS_BADGE = {
@@ -90,12 +91,12 @@ const STATUS_BADGE = {
 };
 
 // Filter tabs di bawah header — selaras dengan halaman Pesanan penjual
-const FILTERS = [
-  { key: "semua", label: "Semua" },
-  { key: "diproses", label: "Diproses" },
-  { key: "pengiriman", label: "Pengiriman" },
-  { key: "selesai", label: "Selesai" },
-];
+const getFilters = (t) => [
+   { key: "semua", label: t('buyerStatusOrder.filters.all') },
+   { key: "diproses", label: t('buyerStatusOrder.filters.processing') },
+   { key: "pengiriman", label: t('buyerStatusOrder.filters.delivery') },
+   { key: "selesai", label: t('buyerStatusOrder.filters.completed') },
+ ];
 
 const matchesFilter = (statusProgress, filterKey) => {
   if (filterKey === "semua") return true;
@@ -106,128 +107,50 @@ const matchesFilter = (statusProgress, filterKey) => {
 };
 
 // Status badge pill — dipakai di atas kartu, selaras dengan StatusBadge di halaman penjual
-const StatusBadge = ({ statusProgress }) => {
-  const cfg = STATUS_BADGE[statusProgress] || STATUS_BADGE.waiting_approval;
+ const StatusBadge = ({ statusProgress }) => {
+   const { t } = useLanguage();
+   const cfg = STATUS_BADGE[statusProgress] || STATUS_BADGE.waiting_approval;
+   const labels = getStatusLabels(t);
   return (
     <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
       <MaterialIcons name={cfg.icon} size={14} color={cfg.color} />
       <Text style={[styles.badgeText, { color: cfg.color }]}>
-        {STATUS_LABELS[statusProgress] || "-"}
+        {labels[statusProgress] || "-"}
       </Text>
     </View>
   );
 };
 
 // Default status steps for regular orders
-const STATUS_STEPS = [
-  {
-    key: "waiting_approval",
-    label: "Menunggu Persetujuan",
-    icon: "hourglass-empty",
-    color: COLORS.BLUE2,
-  },
-  {
-    key: "processing",
-    label: "Dalam Proses",
-    icon: "autorenew",
-    color: COLORS.ORANGE || "#FFA726",
-  },
-  {
-    key: "delivery",
-    label: "Pengiriman",
-    icon: "local-shipping",
-    color: COLORS.GREEN4,
-  },
-  {
-    key: "completed",
-    label: "Pesanan Selesai",
-    icon: "check-circle",
-    color: COLORS.GREEN3,
-  },
-];
+const getStatusSteps_Default = (t) => [
+   { key: "waiting_approval", label: t('buyerStatusOrder.steps.default.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+   { key: "processing", label: t('buyerStatusOrder.steps.default.processing'), icon: "autorenew", color: COLORS.ORANGE || "#FFA726" },
+   { key: "delivery", label: t('buyerStatusOrder.steps.default.delivery'), icon: "local-shipping", color: COLORS.GREEN4 },
+   { key: "completed", label: t('buyerStatusOrder.steps.default.completed'), icon: "check-circle", color: COLORS.GREEN3 },
+ ];
 
 // Rantangan Harian status steps
-const RANTANGAN_HARIAN_STEPS = [
-  {
-    key: "waiting_approval",
-    label: "Terima atau Tolak",
-    icon: "hourglass-empty",
-    color: COLORS.BLUE2,
-  },
-  {
-    key: "processing",
-    label: "Kirim Pesanan",
-    icon: "local-shipping",
-    color: COLORS.ORANGE || "#FFA726",
-  },
-  {
-    key: "delivery",
-    label: "Lacak Pesanan",
-    icon: "location-on",
-    color: COLORS.GREEN4,
-  },
-  {
-    key: "completed",
-    label: "Berikan Ulasan",
-    icon: "star",
-    color: COLORS.GREEN3,
-  },
-];
+const getRantanganHarianSteps = (t) => [
+   { key: "waiting_approval", label: t('buyerStatusOrder.steps.rantanganHarian.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+   { key: "processing", label: t('buyerStatusOrder.steps.rantanganHarian.processing'), icon: "local-shipping", color: COLORS.ORANGE || "#FFA726" },
+   { key: "delivery", label: t('buyerStatusOrder.steps.rantanganHarian.delivery'), icon: "location-on", color: COLORS.GREEN4 },
+   { key: "completed", label: t('buyerStatusOrder.steps.rantanganHarian.completed'), icon: "star", color: COLORS.GREEN3 },
+ ];
 
 // Rantangan Mingguan/Bulanan status steps (cycles between processing and delivery)
-const RANTANGAN_RECURRING_STEPS = [
-  {
-    key: "waiting_approval",
-    label: "Terima atau Tolak",
-    icon: "hourglass-empty",
-    color: COLORS.BLUE2,
-  },
-  {
-    key: "processing",
-    label: "Siapkan Pesanan",
-    icon: "restaurant",
-    color: COLORS.ORANGE || "#FFA726",
-  },
-  {
-    key: "delivery",
-    label: "Lacak Pesanan",
-    icon: "location-on",
-    color: COLORS.GREEN4,
-  },
-  {
-    key: "completed",
-    label: "Semua Selesai",
-    icon: "check-circle",
-    color: COLORS.GREEN3,
-  },
-];
+const getRantanganRecurringSteps = (t) => [
+   { key: "waiting_approval", label: t('buyerStatusOrder.steps.rantanganRecurring.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+   { key: "processing", label: t('buyerStatusOrder.steps.rantanganRecurring.processing'), icon: "restaurant", color: COLORS.ORANGE || "#FFA726" },
+   { key: "delivery", label: t('buyerStatusOrder.steps.rantanganRecurring.delivery'), icon: "location-on", color: COLORS.GREEN4 },
+   { key: "completed", label: t('buyerStatusOrder.steps.rantanganRecurring.completed'), icon: "check-circle", color: COLORS.GREEN3 },
+ ];
 
 // Bite Eco status steps
-const BITE_ECO_STEPS = [
-  {
-    key: "waiting_approval",
-    label: "Menunggu Persetujuan",
-    icon: "hourglass-empty",
-    color: COLORS.BLUE2,
-  },
-  {
-    key: "processing",
-    label: "Disiapkan",
-    icon: "eco",
-    color: COLORS.GREEN4,
-  },
-  {
-    key: "delivery",
-    label: "Lacak Pesanan",
-    icon: "location-on",
-    color: COLORS.GREEN4,
-  },
-  {
-    key: "completed",
-    label: "Selesai",
-    icon: "check-circle",
-    color: COLORS.GREEN3,
-  },
+  const getBiteEcoSteps = (t) => [
+  { key: "waiting_approval", label: t('buyerStatusOrder.steps.biteEco.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+  { key: "processing", label: t('buyerStatusOrder.steps.biteEco.processing'), icon: "eco", color: COLORS.GREEN4 },
+  { key: "delivery", label: t('buyerStatusOrder.steps.biteEco.delivery'), icon: "location-on", color: COLORS.GREEN4 },
+  { key: "completed", label: t('buyerStatusOrder.steps.biteEco.completed'), icon: "check-circle", color: COLORS.GREEN3 },
 ];
 
 // Helper function to calculate days remaining for Rantangan orders
@@ -266,22 +189,21 @@ const canStartToday = (startDate) => {
 };
 
 // Helper function to get appropriate status steps based on order type
-const getStatusSteps = (orderType, packageType) => {
+const getStatusSteps = (t, orderType, packageType) => {
   if (orderType === 'Bite Eco') {
-    return BITE_ECO_STEPS;
+    return getBiteEcoSteps(t);
   }
   if (orderType === 'Rantangan' || (orderType && orderType.includes('Rantangan'))) {
     if (packageType === 'Harian') {
-      return RANTANGAN_HARIAN_STEPS;
+      return getRantanganHarianSteps(t);
     } else if (packageType === 'Mingguan' || packageType === 'Bulanan') {
-      return RANTANGAN_RECURRING_STEPS;
+      return getRantanganRecurringSteps(t);
     }
   }
-  return STATUS_STEPS;
+  return getStatusSteps_Default(t);
 };
 
 function getStepIndex(statusProgress, orderType, packageType, dailyDeliveryLogs = []) {
-  const steps = getStatusSteps(orderType, packageType);
 
   if ((orderType === 'Rantangan' || (orderType && orderType.includes('Rantangan'))) &&
       (packageType === 'Mingguan' || packageType === 'Bulanan')) {
@@ -314,6 +236,8 @@ function getStepIndex(statusProgress, orderType, packageType, dailyDeliveryLogs 
 }
 
 const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endDate, dailyDeliveryLogs = [] }) => {
+const { t, language } = useLanguage();
+const dateLocale = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' }[language] || 'id-ID';
   if (statusProgress === "cancelled") {
     return (
       <View style={{ alignItems: "center", marginTop: 14, marginBottom: 4 }}>
@@ -323,21 +247,14 @@ const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endD
           color="#C62828"
           style={{ backgroundColor: "#fff", borderRadius: 14 }}
         />
-        <Text
-          style={{
-            fontSize: 13,
-            color: "#C62828",
-            fontWeight: "700",
-            marginTop: 4,
-          }}
-        >
-          Dibatalkan
-        </Text>
+        <Text style={{ fontSize: 13, color: "#C62828", fontWeight: "700", marginTop: 4 }}>
++         {t('buyerStatusOrder.cancelled')}
++       </Text>
       </View>
     );
   }
 
-  const steps = getStatusSteps(orderType, packageType);
+  const steps = getStatusSteps(t, orderType, packageType);
   const activeStep = getStepIndex(statusProgress, orderType, packageType);
 
   const daysRemaining = (startDate && endDate) ? calculateDaysRemaining(startDate, endDate, dailyDeliveryLogs) : 0;
@@ -404,21 +321,13 @@ const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endD
             <View style={styles.rantanganDateItem}>
               <MaterialIcons name="calendar-today" size={13} color={COLORS.PRIMARY} />
               <Text style={styles.rantanganDateText}>
-                Mulai: {new Date(startDate).toLocaleDateString('id-ID', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric'
-                })}
+                {t('buyerStatusOrder.startLabel')} {new Date(startDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' })}
               </Text>
             </View>
             <View style={styles.rantanganDateItem}>
               <MaterialIcons name="event" size={13} color="#666" />
               <Text style={styles.rantanganDateText}>
-                Selesai: {new Date(endDate).toLocaleDateString('id-ID', {
-                  day: 'numeric',
-                  month: 'short',
-                  year: 'numeric'
-                })}
+                 {t('buyerStatusOrder.endLabel')} {new Date(endDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' })}
               </Text>
             </View>
           </View>
@@ -438,8 +347,8 @@ const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endD
                 !orderCanStart && { color: "#B26A00" }
               ]}>
                 {!orderCanStart
-                  ? `Akan dimulai ${Math.ceil((new Date(startDate) - new Date()) / (1000 * 60 * 60 * 24))} hari lagi`
-                  : `Sisa ${daysRemaining} hari lagi`
+                  ? t('buyerStatusOrder.startsInDays', { count: Math.ceil((new Date(startDate) - new Date()) / (1000 * 60 * 60 * 24)) })
+                  : t('buyerStatusOrder.remainingDays', { count: daysRemaining })
                 }
               </Text>
             </View>
@@ -451,7 +360,7 @@ const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endD
               <View style={styles.deliveryLogsHeader}>
                 <MaterialIcons name="history" size={13} color={COLORS.PRIMARY} />
                 <Text style={styles.deliveryLogsHeaderText}>
-                  Riwayat Pengiriman Harian
+                  {t('buyerStatusOrder.dailyDeliveryHistory')}
                 </Text>
               </View>
               {dailyDeliveryLogs.map((log, index) => (
@@ -459,27 +368,17 @@ const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endD
                   <View style={styles.deliveryLogDate}>
                     <MaterialIcons name="calendar-today" size={12} color={COLORS.GREEN3} />
                     <Text style={styles.deliveryLogDateText}>
-                      {new Date(log.deliveryDate).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short',
-                        year: 'numeric'
-                      })}
+                      {new Date(log.deliveryDate).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' })}
                     </Text>
                   </View>
                   <View style={styles.deliveryLogStatus}>
                     <MaterialIcons name="check-circle" size={12} color={COLORS.GREEN3} />
                     <Text style={styles.deliveryLogStatusText}>
-                      Dikirim: {new Date(log.deliveryTime).toLocaleTimeString('id-ID', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
+                      {t('buyerStatusOrder.sentAt')} {new Date(log.deliveryTime).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
                     </Text>
                     {log.completedTime && (
                       <Text style={styles.deliveryLogStatusText}>
-                        Selesai: {new Date(log.completedTime).toLocaleTimeString('id-ID', {
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
+                        {t('buyerStatusOrder.completedAt')} {new Date(log.completedTime).toLocaleTimeString(dateLocale, { hour: '2-digit', minute: '2-digit' })}
                       </Text>
                     )}
                   </View>
@@ -494,8 +393,8 @@ const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endD
               <MaterialIcons name="local-shipping" size={14} color="#B26A00" />
               <Text style={styles.currentDeliveryText}>
                 {statusProgress === 'processing'
-                  ? 'Sedang menyiapkan pesanan hari ini'
-                  : 'Pesanan hari ini sedang dikirim'
+                    ? t('buyerStatusOrder.preparingToday')
+                    : t('buyerStatusOrder.deliveringToday')
                 }
               </Text>
             </View>
@@ -507,7 +406,7 @@ const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endD
 };
 
 // Helper function to render buyer tracking buttons (BUYERS ONLY GET TRACKING BUTTONS)
-const renderProgressButtons = (statusProgress, orderType, packageType, onPressTrack, onPressReview, ulasan) => {
+const renderProgressButtons = (t, statusProgress, orderType, packageType, onPressTrack, onPressReview, ulasan) => {
   const isRantangan = orderType === 'Rantangan' || (orderType && orderType.includes('Rantangan'));
   const isRecurring = packageType === 'Mingguan' || packageType === 'Bulanan';
 
@@ -524,7 +423,7 @@ const renderProgressButtons = (statusProgress, orderType, packageType, onPressTr
         >
           <MaterialIcons name="location-on" size={16} color="#fff" />
           <Text style={styles.progressBtnText}>
-            {isRantangan && isRecurring ? 'Lacak Pengiriman Hari Ini' : 'Lacak Pesanan'}
+            {isRantangan && isRecurring ? t('buyerStatusOrder.trackTodayDelivery') : t('buyerStatusOrder.trackOrder')}
           </Text>
         </TouchableOpacity>
       );
@@ -540,7 +439,7 @@ const renderProgressButtons = (statusProgress, orderType, packageType, onPressTr
           }}
         >
           <MaterialIcons name="star" size={16} color="#fff" />
-          <Text style={styles.progressBtnText}>Berikan Ulasan</Text>
+          <Text style={styles.progressBtnText}>{t('buyerStatusOrder.giveReview')}</Text>
         </TouchableOpacity>
       ) : null;
 
@@ -571,19 +470,21 @@ const CardStatus = ({
   packageType,
   dailyDeliveryLogs,
 }) => {
+  const { t, language } = useLanguage();
+  const dateLocale = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' }[language] || 'id-ID';
   const handleChatPress = () => {
     const chatParams = {
       chatroomId: `${buyerId}_${sellerId}`,
       buyerId,
       sellerId,
-      buyerName: "Buyer",
-      sellerName: outletName || "Penjual",
+      buyerName: t('buyerStatusOrder.buyerFallback'),
+      sellerName: outletName || t('buyerStatusOrder.sellerFallback'),
       orderId: orderId
     };
     onPressChat(chatParams);
   };
 
-  const progressButton = renderProgressButtons(statusProgress, orderType, packageType, onPressTrack, onPressReview, ulasan);
+  const progressButton = renderProgressButtons(t, statusProgress, orderType, packageType, onPressTrack, onPressReview, ulasan);
 
   return (
     <View style={styles.cardShadow}>
@@ -600,8 +501,8 @@ const CardStatus = ({
             <Text style={styles.name} numberOfLines={1}>{outletName}</Text>
             <Text style={styles.subtitle} numberOfLines={1}>
               {date && !isNaN(new Date(date))
-                ? new Date(date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
-                : 'Tanggal tidak tersedia'}
+                 ? new Date(date).toLocaleDateString(dateLocale, { day: 'numeric', month: 'short', year: 'numeric' })
+                 : t('buyerStatusOrder.dateUnavailable')}
               {orderType ? ` · ${orderType}${packageType ? ` ${packageType}` : ''}` : ''}
             </Text>
           </View>
@@ -626,10 +527,10 @@ const CardStatus = ({
 
         <View style={styles.actionRow}>
           {progressButton}
-          <TouchableOpacity style={styles.iconBtn} onPress={onPressDetail} accessibilityLabel="Detail pesanan">
+          <TouchableOpacity style={styles.iconBtn} onPress={onPressDetail} accessibilityLabel={t('buyerStatusOrder.accessibility.orderDetail')}>
             <FontAwesome5 name="info-circle" size={16} color={COLORS.PRIMARY} />
           </TouchableOpacity>
-          <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress} accessibilityLabel="Chat penjual">
+           <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress} accessibilityLabel={t('buyerStatusOrder.accessibility.chatSeller')}>
             <Ionicons name="chatbubble-outline" size={16} color={COLORS.PRIMARY} />
           </TouchableOpacity>
         </View>
@@ -639,6 +540,8 @@ const CardStatus = ({
 };
 
 const StatusOrder = () => {
+  const { t, language } = useLanguage();
+  const dateLocale = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' }[language] || 'id-ID';
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -721,13 +624,13 @@ const StatusOrder = () => {
       setSellerMap(sellerMapTemp);
 
       if (refreshing) {
-        showSuccess('Data berhasil diperbarui');
+        showSuccess(t('buyerStatusOrder.toast.dataRefreshed'));
       }
     } catch (e) {
       setOrders([]);
-      setError(e.message || 'Gagal memuat data pesanan');
+      setError(e.message || t('buyerStatusOrder.toast.fetchOrdersFailed'));
       console.error('Error fetching orders:', e);
-      showError(e.message || 'Gagal memuat data pesanan');
+      showError(e.message || t('buyerStatusOrder.toast.fetchOrdersFailed'));
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -779,16 +682,16 @@ const StatusOrder = () => {
           setMapLoading(false);
           setTrackingModalVisible(true);
         } else {
-          showError('Koordinat pengiriman tidak tersedia');
+          showError(t('buyerStatusOrder.toast.noCoordinates'));
           setMapLoading(false);
         }
       } else {
-        showError('Gagal memuat detail pesanan');
+        showError(t('buyerStatusOrder.toast.fetchOrderDetailFailed'));
         setMapLoading(false);
       }
     } catch (error) {
       console.error('Error fetching tracking data:', error);
-      showError('Gagal memuat data tracking');
+      showError(t('buyerStatusOrder.toast.fetchTrackingFailed'));
       setMapLoading(false);
     }
   };
@@ -836,16 +739,16 @@ const StatusOrder = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
       {/* Header selaras dengan halaman Pesanan penjual */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('buyerStatusOrder.accessibility.back')}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Status Order</Text>
+         <Text style={styles.headerTitle}>{t('buyerStatusOrder.header.title')}</Text>
         <View style={{ width: 26 }} />
       </View>
 
       {/* Filter tabs selaras dengan halaman Pesanan penjual */}
       <View style={styles.filterBar}>
-        {FILTERS.map((f) => {
+         {getFilters(t).map((f) => {
           const active = activeFilter === f.key;
           return (
             <TouchableOpacity
@@ -875,7 +778,7 @@ const StatusOrder = () => {
             style={styles.retryButton}
             onPress={() => fetchOrdersAndSellers()}
           >
-            <Text style={styles.retryButtonText}>Coba Lagi</Text>
+             <Text style={styles.retryButtonText}>{t('buyerStatusOrder.retry')}</Text>
           </TouchableOpacity>
         </View>
       ) : (
@@ -895,15 +798,15 @@ const StatusOrder = () => {
           {visibleOrders.length === 0 ? (
             <View style={styles.emptyContainer}>
               <MaterialIcons name="assignment" size={56} color="#ccc" />
-              <Text style={styles.emptyText}>Belum ada pesanan</Text>
-              <Text style={styles.emptySubtext}>
-                Mulai pesan makanan favorit Anda!
-              </Text>
+              <Text style={styles.emptyText}>{t('buyerStatusOrder.empty.title')}</Text>
+             <Text style={styles.emptySubtext}>
+               {t('buyerStatusOrder.empty.subtitle')}
+             </Text>
               <TouchableOpacity
                 style={styles.exploreButton}
                 onPress={() => router.push('/buyer/(tabs)')}
               >
-                <Text style={styles.exploreButtonText}>Jelajahi Menu</Text>
+                 <Text style={styles.exploreButtonText}>{t('buyerStatusOrder.exploreMenu')}</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -922,7 +825,7 @@ const StatusOrder = () => {
               >
                 <CardStatus
                   date={order.createdAt || order.orderDate}
-                  total={`Rp ${order.totalAmount?.toLocaleString('id-ID')}`}
+                   total={`Rp ${order.totalAmount?.toLocaleString(dateLocale)}`}
                   outletName={sellerMap[order.sellerId]?.outletName || "-"}
                   storeIcon={sellerMap[order.sellerId]?.storeIcon}
                   statusProgress={order.statusProgress}
@@ -981,14 +884,14 @@ const StatusOrder = () => {
             >
               <MaterialIcons name="close" size={24} color="#333" />
             </TouchableOpacity>
-            <Text style={styles.modalTitle}>Lacak Pengiriman</Text>
+            <Text style={styles.modalTitle}>{t('buyerStatusOrder.modal.title')}</Text>
             <View style={{ width: 24 }} />
           </View>
 
           {mapLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-              <Text style={styles.loadingText}>Memuat peta...</Text>
+               <Text style={styles.loadingText}>{t('buyerStatusOrder.modal.loadingMap')}</Text>
             </View>
           ) : selectedOrder ? (
             <View style={{ flex: 1 }}>
@@ -998,26 +901,26 @@ const StatusOrder = () => {
                 <View style={styles.infoRow}>
                   <MaterialIcons name="store" size={20} color={COLORS.PRIMARY} />
                   <Text style={styles.infoText}>
-                    {sellerMap[selectedOrder.sellerId]?.outletName || "Penjual"}
+                    {sellerMap[selectedOrder.sellerId]?.outletName || t('buyerStatusOrder.sellerFallback')}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
                   <MaterialIcons name="location-on" size={20} color={COLORS.GREEN4} />
                   <Text style={styles.infoText}>
-                    {selectedOrder.deliveryAddress || "Alamat pengiriman"}
+                    {selectedOrder.deliveryAddress || t('buyerStatusOrder.modal.deliveryAddressFallback')}
                   </Text>
                 </View>
                 <View style={styles.infoRow}>
                   <MaterialIcons name="local-shipping" size={20} color="#B26A00" />
                   <Text style={styles.infoText}>
-                    Status: Dalam Pengiriman
+                    {t('buyerStatusOrder.modal.statusInDelivery')}
                   </Text>
                 </View>
                 {selectedOrder.distance && (
                   <View style={styles.infoRow}>
                     <MaterialIcons name="straighten" size={20} color="#666" />
                     <Text style={styles.infoText}>
-                      Jarak: {selectedOrder.distance} km
+                      {t('buyerStatusOrder.modal.distanceLabel', { distance: selectedOrder.distance })}
                     </Text>
                   </View>
                 )}

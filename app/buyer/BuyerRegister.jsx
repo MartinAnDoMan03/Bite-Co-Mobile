@@ -15,6 +15,7 @@ import {
 import React, { useState, useEffect } from "react";
 import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
+import { useLanguage } from "../contexts/LanguageContext";
 import config from '../constants/config';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -23,6 +24,7 @@ const scale = (size) => (SCREEN_WIDTH / 375) * size;
 const CARD_MARGIN_H = Math.max(14, SCREEN_WIDTH * 0.045);
 
 const BuyerRegister = () => {
+  const { t } = useLanguage();
   const router = useRouter();
   const [formData, setFormData] = useState({
     name: "",
@@ -77,39 +79,39 @@ const BuyerRegister = () => {
 
   const validateForm = () => {
     if (!formData.name.trim()) {
-      showCustomAlert("Form Tidak Lengkap", "Nama harus diisi");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.nameRequired'));
       return false;
     }
     if (!formData.email.trim()) {
-      showCustomAlert("Form Tidak Lengkap", "Email harus diisi");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.emailRequired'));
       return false;
     }
     if (!formData.phone.trim()) {
-      showCustomAlert("Form Tidak Lengkap", "Nomor telepon harus diisi");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.phoneRequired'));
       return false;
     }
     if (!formData.password) {
-      showCustomAlert("Form Tidak Lengkap", "Password harus diisi");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.passwordRequired'));
       return false;
     }
     if (formData.password !== formData.confirmPassword) {
-      showCustomAlert("Form Tidak Lengkap", "Password dan konfirmasi password tidak sama");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.passwordMismatch'));
       return false;
     }
     if (formData.password.length < 6) {
-      showCustomAlert("Form Tidak Lengkap", "Password minimal 6 karakter");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.passwordTooShort'));
       return false;
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      showCustomAlert("Form Tidak Lengkap", "Format email tidak valid");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.invalidEmail'));
       return false;
     }
 
     const phoneRegex = /^(\+62|62|0)[0-9]{9,13}$/;
     if (!phoneRegex.test(formData.phone)) {
-      showCustomAlert("Form Tidak Lengkap", "Format nomor telepon tidak valid");
+      showCustomAlert(t('buyerRegister.alerts.incompleteFormTitle'), t('buyerRegister.alerts.invalidPhone'));
       return false;
     }
 
@@ -150,7 +152,7 @@ const BuyerRegister = () => {
 
     } catch (error) {
       console.error("Registration error:", error);
-      showCustomAlert("Gagal Mendaftar", error.message || "Terjadi kesalahan saat registrasi");
+      showCustomAlert(t('buyerRegister.alerts.registerFailedTitle'), error.message || t('buyerRegister.alerts.registerFailedGeneric'));
     } finally {
       setIsLoading(false);
     }
@@ -187,27 +189,27 @@ const BuyerRegister = () => {
             <View style={styles.stepBadge}>
               <Ionicons name="person-add" size={22} color="#fff" />
             </View>
-            <Text style={styles.stepTitle}>Buat Akun Baru</Text>
+            <Text style={styles.stepTitle}>{t('buyerRegister.header.title')}</Text>
           </View>
 
           {/* White card — form */}
           <View style={styles.whiteCard}>
-            <Text style={styles.cardTitle}>Data Diri</Text>
+            <Text style={styles.cardTitle}>{t('buyerRegister.card.title')}</Text>
 
-            <Text style={styles.fieldLabel}>Nama Lengkap</Text>
+            <Text style={styles.fieldLabel}>{t('buyerRegister.card.fields.name.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="Masukkan nama lengkap"
+              placeholder={t('buyerRegister.card.fields.name.placeholder')}
               placeholderTextColor="#aaa"
               value={formData.name}
               onChangeText={(value) => handleInputChange("name", value)}
               autoCapitalize="words"
             />
 
-            <Text style={styles.fieldLabel}>Email</Text>
+            <Text style={styles.fieldLabel}>{t('buyerRegister.card.fields.email.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="Masukkan email"
+              placeholder={t('buyerRegister.card.fields.email.placeholder')}
               placeholderTextColor="#aaa"
               value={formData.email}
               onChangeText={(value) => handleInputChange("email", value)}
@@ -215,21 +217,21 @@ const BuyerRegister = () => {
               autoCapitalize="none"
             />
 
-            <Text style={styles.fieldLabel}>Nomor Telepon</Text>
+            <Text style={styles.fieldLabel}>{t('buyerRegister.card.fields.phone.label')}</Text>
             <TextInput
               style={styles.fieldInput}
-              placeholder="0813..."
+              placeholder={t('buyerRegister.card.fields.phone.placeholder')}
               placeholderTextColor="#aaa"
               value={formData.phone}
               onChangeText={(value) => handleInputChange("phone", value)}
               keyboardType="phone-pad"
             />
 
-            <Text style={styles.fieldLabel}>Password</Text>
+            <Text style={styles.fieldLabel}>{t('buyerRegister.card.fields.password.label')}</Text>
             <View style={styles.passwordFieldWrap}>
               <TextInput
                 style={[styles.fieldInput, { paddingRight: scale(44) }]}
-                placeholder="Min. 6 karakter"
+                placeholder={t('buyerRegister.card.fields.password.placeholder')}
                 placeholderTextColor="#aaa"
                 value={formData.password}
                 onChangeText={(value) => handleInputChange("password", value)}
@@ -247,11 +249,11 @@ const BuyerRegister = () => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.fieldLabel}>Konfirmasi Password</Text>
+            <Text style={styles.fieldLabel}>{t('buyerRegister.card.fields.confirmPassword.label')}</Text>
             <View style={styles.passwordFieldWrap}>
               <TextInput
                 style={[styles.fieldInput, { paddingRight: scale(44) }]}
-                placeholder="Ulangi password"
+                placeholder={t('buyerRegister.card.fields.confirmPassword.placeholder')}
                 placeholderTextColor="#aaa"
                 value={formData.confirmPassword}
                 onChangeText={(value) => handleInputChange("confirmPassword", value)}
@@ -276,14 +278,14 @@ const BuyerRegister = () => {
               activeOpacity={0.85}
             >
               <Text style={styles.btnPrimaryText}>
-                {isLoading ? "Mendaftar..." : "Daftar"}
+                {isLoading ? t('buyerRegister.card.submitting') : t('buyerRegister.card.submitButton')}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.loginPrompt}>
-              <Text style={styles.loginPromptText}>Sudah punya akun? </Text>
+              <Text style={styles.loginPromptText}>{t('buyerRegister.card.loginPrompt')}</Text>
               <TouchableOpacity onPress={() => router.back()}>
-                <Text style={styles.loginLink}>Masuk di sini</Text>
+                <Text style={styles.loginLink}>{t('buyerRegister.card.loginLink')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -311,7 +313,7 @@ const BuyerRegister = () => {
               onPress={() => setShowAlertModal(false)}
               activeOpacity={0.85}
             >
-              <Text style={styles.alertBtnText}>Mengerti</Text>
+              <Text style={styles.alertBtnText}>{t('buyerRegister.alerts.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -330,9 +332,9 @@ const BuyerRegister = () => {
               <Ionicons name="checkmark-circle" size={28} color="#2e9152" />
             </View>
 
-            <Text style={styles.alertTitle}>Registrasi Berhasil</Text>
+            <Text style={styles.alertTitle}>{t('buyerRegister.alerts.success.title')}</Text>
             <Text style={styles.alertText}>
-              Kode OTP telah dikirim ke email Anda. Silakan verifikasi untuk melanjutkan.
+              {t('buyerRegister.alerts.success.message')}
             </Text>
 
             <TouchableOpacity
@@ -340,7 +342,7 @@ const BuyerRegister = () => {
               onPress={handleSuccessConfirm}
               activeOpacity={0.85}
             >
-              <Text style={styles.alertBtnText}>Lanjut Verifikasi</Text>
+              <Text style={styles.alertBtnText}>{t('buyerRegister.alerts.success.button')}</Text>
             </TouchableOpacity>
           </View>
         </View>

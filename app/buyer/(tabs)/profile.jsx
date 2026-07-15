@@ -19,7 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { MaterialIcons } from '@expo/vector-icons';
 import PinPointMapModal from '../../../components/PinPointMapModal';
-
+import { useLanguage } from "../../contexts/LanguageContext";
 // ---------------------------------------------------------------------------
 // Small reusable row: icon + label on the left, value on the right
 // ---------------------------------------------------------------------------
@@ -47,6 +47,7 @@ const AddressField = ({ label, value, placeholder }) => (
 
 const profile = () => {
   const router = useRouter();
+  const { t } = useLanguage();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -149,9 +150,9 @@ const profile = () => {
 
       // Show notification that address has been auto-filled
       Alert.alert(
-        'Alamat Otomatis Terisi',
-        'Alamat pengantaran telah diisi secara otomatis berdasarkan lokasi pin point. Anda dapat mengeditnya jika diperlukan.',
-        [{ text: 'OK' }]
+      t("profile.autoFillTitle"),
+        t("profile.autoFillMessage"),
+        [{ text: t("common.ok", "OK") }]
       );
     }
 
@@ -166,10 +167,10 @@ const profile = () => {
     try {
       await AsyncStorage.setItem('addressFields', JSON.stringify(addressFields));
       setShowEditAddressModal(false);
-      Alert.alert('Berhasil', 'Alamat berhasil disimpan');
+      Alert.alert(t("profile.success"), t("profile.addressSaved"))
     } catch (error) {
       console.error('Error saving address:', error);
-      Alert.alert('Error', 'Gagal menyimpan alamat');
+      Alert.alert(t("profile.error"), t("profile.saveFailed"))
     }
   };
   // ---- Akhir bagian logika yang tidak diubah ----
@@ -190,7 +191,7 @@ const profile = () => {
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{error}</Text>
           <TouchableOpacity style={[styles.pillButton, styles.solidButton]} onPress={fetchProfileData}>
-            <Text style={styles.solidButtonText}>Coba Lagi</Text>
+            <Text style={styles.solidButtonText}>{t("profile.retry")}</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -202,46 +203,46 @@ const profile = () => {
       {/* Header selaras dengan halaman profil penjual */}
       <View style={styles.header}>
         <View style={{ width: 26 }} />
-        <Text style={styles.headerTitle}>Profil Saya</Text>
+        <Text style={styles.headerTitle}>{("profile.title")}</Text>
         <View style={{ width: 26 }} />
       </View>
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
         {/* ---------------- Informasi Personal ---------------- */}
-        <Text style={styles.sectionTitle}>Informasi Personal</Text>
+        <Text style={styles.sectionTitle}>{t("profile.personalInfo")}</Text>
         <View style={[styles.card, styles.shadow]}>
-          <InfoRow icon="badge" label="Nama" value={userData.name} />
-          <InfoRow icon="mail-outline" label="Email" value={userData.email} />
-          <InfoRow icon="phone" label="Telepon" value={userData.phone} isLast />
+        <InfoRow icon="badge" label={t("profile.name")} value={userData.name}/>
+          <InfoRow icon="mail-outline" label={t("profile.email")} value={userData.email} />
+          <InfoRow icon="phone" label={t("profile.phone")} value={userData.phone} isLast />
         </View>
 
         {/* ---------------- Detail Alamat ---------------- */}
-        <Text style={styles.sectionTitle}>Alamat Pengantaran</Text>
+        <Text style={styles.sectionTitle}>{t("profile.deliveryAddress")}</Text>
         <View style={[styles.card, styles.shadow]}>
           <View style={styles.addressRow}>
-            <AddressField label="Alamat Lengkap" value={addressFields.address} placeholder="Belum diatur" />
-            <AddressField label="Kelurahan" value={addressFields.kelurahan} placeholder="Belum diatur" />
+            <AddressField label={t("profile.fullAddress")} value={addressFields.address} placeholder={t("profile.notSet")} />
+            <AddressField label={t("profile.village")} value={addressFields.kelurahan} placeholder={t("profile.notSet")} />
           </View>
           <View style={styles.addressRow}>
-            <AddressField label="Kecamatan" value={addressFields.kecamatan} placeholder="Belum diatur" />
-            <AddressField label="Provinsi" value={addressFields.provinsi} placeholder="Belum diatur" />
+            <AddressField label={t("profile.district")} value={addressFields.kecamatan} placeholder={t("profile.notSet")} />
+            <AddressField label={t("profile.province")} value={addressFields.provinsi} placeholder={t("profile.notSet")} />
           </View>
           <View style={styles.addressRow}>
-            <AddressField label="Kode Pos" value={addressFields.kodepos} placeholder="Belum diatur" />
-            <AddressField label="Catatan" value={addressFields.catatan} placeholder="Belum diatur" />
+            <AddressField label={t("profile.postalCode")} value={addressFields.kodepos} placeholder={t("profile.notSet")} />
+            <AddressField label={t("profile.notes")} value={addressFields.catatan} placeholder={t("profile.notSet")} />
           </View>
 
           <TouchableOpacity
             style={[styles.pillButton, styles.outlineButton, { marginTop: 6 }]}
             onPress={() => setShowEditAddressModal(true)}
           >
-            <Text style={styles.outlineButtonText}>Edit Alamat</Text>
+            <Text style={styles.outlineButtonText}>{t("profile.editAddress")}</Text>
           </TouchableOpacity>
         </View>
 
         {/* ---------------- Pin Point Lokasi ---------------- */}
         <View style={[styles.card, styles.shadow, { marginTop: 14 }]}>
-          <Text style={styles.pinLabel}>Pin Point Lokasi</Text>
+          <Text style={styles.pinLabel}>{t("profile.pinPoint")}</Text>
           <TouchableOpacity style={styles.pinBox} onPress={openPinPointMap} activeOpacity={0.8}>
             {pinPoint.lat && pinPoint.lng ? (
               <View style={styles.pinFilled}>
@@ -253,7 +254,7 @@ const profile = () => {
             ) : (
               <View style={styles.pinPlaceholder}>
                 <MaterialIcons name="map" size={22} color="#bbb" />
-                <Text style={styles.pinPlaceholderText}>Belum diatur</Text>
+                <Text style={styles.pinPlaceholderText}>{t("profile.notSet")}r</Text>
               </View>
             )}
           </TouchableOpacity>
@@ -265,7 +266,7 @@ const profile = () => {
             onPress={openPinPointMap}
           >
             <Text style={styles.outlineButtonText}>
-              {pinPoint.lat && pinPoint.lng ? 'Update Pin Point' : 'Set Pin Point'}
+              {pinPoint.lat && pinPoint.lng ? t("profile.updatePin") : t("profile.setPin")}
             </Text>
           </TouchableOpacity>
         </View>
@@ -276,7 +277,7 @@ const profile = () => {
             style={[styles.pillButton, styles.solidButton]}
             onPress={handleSignOut}
           >
-            <Text style={styles.solidButtonText}>Keluar Akun</Text>
+            <Text style={styles.solidButtonText}>{t("profile.logout")}</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
@@ -301,55 +302,55 @@ const profile = () => {
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
-            <Text style={styles.modalTitle}>Edit Alamat Pengantaran</Text>
+            <Text style={styles.modalTitle}>{t("profile.editDeliveryAddress")}</Text>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalFieldLabel}>Alamat Lengkap</Text>
+              <Text style={styles.modalFieldLabel}>{t("profile.fullAddress")}</Text>
               <TextInput
                 style={[styles.modalInput, styles.modalInputMultiline]}
-                placeholder="Alamat lengkap..."
+                placeholder={t("profile.fullAddressPlaceholder")}
                 value={addressFields.address}
                 onChangeText={(text) => setAddressFields(prev => ({ ...prev, address: text }))}
                 multiline
               />
 
-              <Text style={styles.modalFieldLabel}>Kelurahan</Text>
+              <Text style={styles.modalFieldLabel}>{t("profile.village")}</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Kelurahan"
+                placeholder={t("profile.villagePlaceholder")}
                 value={addressFields.kelurahan}
                 onChangeText={(text) => setAddressFields(prev => ({ ...prev, kelurahan: text }))}
               />
 
-              <Text style={styles.modalFieldLabel}>Kecamatan</Text>
+              <Text style={styles.modalFieldLabel}>{t("profile.district")}</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Kecamatan"
+                placeholder={t("profile.districtPlaceholder")}
                 value={addressFields.kecamatan}
                 onChangeText={(text) => setAddressFields(prev => ({ ...prev, kecamatan: text }))}
               />
 
-              <Text style={styles.modalFieldLabel}>Provinsi</Text>
+              <Text style={styles.modalFieldLabel}>{t("profile.province")}</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Provinsi"
+                placeholder={t("profile.provincePlaceholder")}
                 value={addressFields.provinsi}
                 onChangeText={(text) => setAddressFields(prev => ({ ...prev, provinsi: text }))}
               />
 
-              <Text style={styles.modalFieldLabel}>Kode Pos</Text>
+              <Text style={styles.modalFieldLabel}>{t("profile.postalCode")}</Text>
               <TextInput
                 style={styles.modalInput}
-                placeholder="Kode Pos"
+                placeholder={t("profile.postalCodePlaceholder")}
                 value={addressFields.kodepos}
                 onChangeText={(text) => setAddressFields(prev => ({ ...prev, kodepos: text }))}
                 keyboardType="numeric"
               />
 
-              <Text style={styles.modalFieldLabel}>Catatan (opsional)</Text>
+              <Text style={styles.modalFieldLabel}>{t("profile.notes")}</Text>
               <TextInput
                 style={[styles.modalInput, styles.modalInputMultiline]}
-                placeholder="Catatan (opsional)"
+                placeholder={t("profile.notesPlaceholder")}
                 value={addressFields.catatan}
                 onChangeText={(text) => setAddressFields(prev => ({ ...prev, catatan: text }))}
                 multiline
@@ -361,14 +362,14 @@ const profile = () => {
                 style={[styles.pillButton, styles.outlineButton, { flex: 1 }]}
                 onPress={() => setShowEditAddressModal(false)}
               >
-                <Text style={styles.outlineButtonText}>Batal</Text>
+                <Text style={styles.outlineButtonText}>{t("profile.cancel")}</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
                 style={[styles.pillButton, styles.solidButton, { flex: 1 }]}
                 onPress={handleSaveAddress}
               >
-                <Text style={styles.solidButtonText}>Simpan</Text>
+                <Text style={styles.solidButtonText}>{t("profile.save")}</Text>
               </TouchableOpacity>
             </View>
           </View>

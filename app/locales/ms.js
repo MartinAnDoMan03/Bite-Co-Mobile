@@ -141,7 +141,98 @@ export default {
       confirmButton: 'Padam',
       comingSoon: 'Ciri padam akaun akan tersedia tidak lama lagi. Sila hubungi khidmat pelanggan untuk bantuan.',
     },
-  },
+  privacyPolicyContent: {
+  title: 'Dasar Privasi',
+  intro: 'Bite&Co menghargai privasi anda, sama ada sebagai pengguna atau rakan kongsi perniagaan. Dasar ini menerangkan data apa yang kami kumpulkan, untuk tujuan apa, dan bagaimana kami melindunginya.',
+  sections: [
+    {
+      icon: 'inventory-2',
+      title: 'Data yang Kami Kumpul',
+      body: 'Kami mengumpul data yang anda berikan semasa mendaftar dan menggunakan aplikasi, seperti nama, nombor telefon, e-mel, alamat perniagaan atau penghantaran, gambar produk, serta maklumat transaksi. Untuk rakan kongsi, kami juga menyimpan data perniagaan seperti NIB (jika ada) dan sejarah jualan.',
+    },
+    {
+      icon: 'settings-suggest',
+      title: 'Bagaimana Data Digunakan',
+      body: 'Data ini kami gunakan untuk memproses pesanan, menghubungkan pengguna dengan rakan kongsi terdekat, memaparkan sejarah transaksi, menghantar notifikasi pesanan, serta meningkatkan kualiti perkhidmatan. Kami tidak menjual data peribadi anda kepada pihak ketiga untuk tujuan pengiklanan.',
+    },
+    {
+      icon: 'share',
+      title: 'Perkongsian Data dengan Pihak Ketiga',
+      body: 'Data hanya dikongsi dengan pihak yang benar-benar perlu untuk kelancaran perkhidmatan, contohnya get pembayaran (payment gateway) untuk proses pembayaran. Semua rakan kongsi pihak ketiga kami wajib menjaga kerahsiaan data mengikut standard yang berkuat kuasa.',
+    },
+    {
+      icon: 'lock',
+      title: 'Keselamatan Data',
+      body: 'Kami menyimpan data anda di pelayan yang disulitkan dan menggunakan sistem pengesahan untuk mencegah akses tanpa kebenaran. Walaupun begitu, kami menggalakkan anda menjaga kerahsiaan kata laluan akaun anda sendiri.',
+    },
+    {
+      icon: 'verified-user',
+      title: 'Hak Anda ke Atas Data',
+      body: 'Anda berhak meminta salinan data, mengemas kini maklumat yang salah, atau memadam akaun pada bila-bila masa melalui tetapan aplikasi atau dengan menghubungi pasukan sokongan kami.',
+    },
+    {
+      icon: 'update',
+      title: 'Perubahan Dasar',
+      body: 'Kami mungkin mengemas kini dasar privasi ini dari semasa ke semasa. Perubahan akan dimaklumkan melalui aplikasi, dan penggunaan berterusan selepas perubahan dianggap sebagai persetujuan anda terhadap dasar yang telah dikemas kini.',
+    },
+  ],
+},
+termsContent: {
+  title: 'Terma & Syarat',
+  intro: 'Dengan menggunakan aplikasi Bite&Co, anda dianggap telah membaca dan bersetuju dengan terma berikut.',
+  sections: [
+    {
+      icon: 'info',
+      title: 'Tentang Perkhidmatan',
+      body: 'Bite&Co ialah platform yang menghubungkan pengguna dengan rakan kongsi PKS katering dan pek makanan melalui sistem langganan (harian, mingguan, bulanan) di kawasan Medan.',
+    },
+    {
+      icon: 'account-circle',
+      title: 'Akaun Pengguna',
+      body: 'Anda wajib mendaftar dengan data yang tepat dan menjaga kerahsiaan akaun anda sendiri. Segala aktiviti yang berlaku di akaun anda menjadi tanggungjawab anda, kecuali terdapat bukti penyalahgunaan oleh pihak lain.',
+    },
+    {
+      icon: 'payment',
+      title: 'Pesanan dan Pembayaran',
+      body: 'Setiap pesanan yang telah disahkan oleh rakan kongsi adalah mengikat. Pembayaran dibuat melalui kaedah yang tersedia dalam aplikasi. Pembatalan sepihak selepas pesanan diproses mungkin tertakluk kepada terma tersendiri mengikut dasar rakan kongsi.',
+    },
+    {
+      icon: 'storefront',
+      title: 'Tanggungjawab Rakan Kongsi',
+      body: 'Rakan kongsi bertanggungjawab sepenuhnya terhadap kualiti, kebersihan, dan ketepatan maklumat produk yang didaftarkan, termasuk status halal. Proses penghantaran atau pengambilan pesanan sepenuhnya menjadi tanggungjawab rakan kongsi, termasuk ketepatan masa dan keadaan produk semasa sampai kepada pengguna. Bite&Co bertindak sebagai penghubung platform, bukan penyedia perkhidmatan penghantaran.',
+    },
+    {
+      icon: 'attach-money',
+      title: 'Komisen dan Yuran',
+      body: 'Setiap transaksi yang berjaya dikenakan komisen platform sebanyak 10% daripada nilai pesanan, dipotong secara automatik sebelum dana dikeluarkan kepada rakan kongsi.',
+    },
+    {
+      icon: 'block',
+      title: 'Larangan Penggunaan',
+      body: 'Pengguna dan rakan kongsi dilarang menyalahgunakan platform untuk tujuan penipuan, memberikan maklumat palsu, atau tindakan yang merugikan pihak lain dalam ekosistem Bite&Co.',
+    },
+    {
+      icon: 'pause-circle-filled',
+      title: 'Penggantungan Akaun',
+      body: 'Bite&Co berhak menyahaktifkan sementara atau kekal akaun yang didapati melanggar terma ini, sama ada berdasarkan laporan pengguna lain mahupun hasil pemantauan dalaman.',
+    },
+    {
+      icon: 'gavel',
+      title: 'Had Tanggungjawab',
+      body: 'Bite&Co berusaha memastikan kelancaran perkhidmatan, namun tidak bertanggungjawab atas kerugian yang timbul akibat kesilapan rakan kongsi, gangguan teknikal di luar kawalan kami, atau force majeure.',
+    },
+    {
+      icon: 'update',
+      title: 'Perubahan Terma',
+      body: 'Terma ini boleh berubah dari semasa ke semasa. Perubahan akan dimaklumkan melalui aplikasi, dan penggunaan berterusan selepas perubahan dianggap sebagai persetujuan.',
+    },
+    {
+      icon: 'mail',
+      title: 'Hubungi Kami',
+      body: 'Sebarang pertanyaan mengenai terma dan syarat ini boleh disampaikan ke support@bitenco.id.',
+    },
+  ],
+},},
 
   beranda: {
     welcome: 'Selamat Datang',
@@ -999,6 +1090,336 @@ profil: {
   errors: {
     noToken: 'Token pengesahan tidak ditemui. Sila log masuk semula.',
     fetchFailed: 'Gagal memuatkan data profil.',
+  },
+},
+buyerBeranda: {
+  searchPlaceholder: 'Apa yang anda ingin makan hari ini?',
+  categories: {
+    catering: 'Katering',
+    rantangan: 'Pek Makanan',
+    giziPro: 'Gizi Pro',
+    biteCo: 'Bite Co',
+    bantuan: 'Bantuan',
+    pengaturan: 'Tetapan',
+  },
+  locationNotice: 'Tetapkan lokasi anda di Profil untuk melihat jarak ke katering & pek makanan',
+  seeAll: 'Lihat Lagi',
+  retry: 'Cuba Lagi',
+  distanceUnknown: 'Jarak tidak diketahui',
+  distanceUnit: '{{distance}} km',
+  sections: {
+    catering: {
+      title: 'Cadangan Katering',
+      empty: 'Belum ada katering tersedia',
+      fetchFailed: 'Gagal memuatkan data kedai',
+    },
+    rantangan: {
+      title: 'Cadangan Pek Makanan',
+      empty: 'Belum ada pek makanan tersedia',
+      fetchFailed: 'Gagal memuatkan data pek makanan',
+    },
+  },
+},
+profile: {
+  title: "Profil Saya",
+
+  personalInfo: "Maklumat Peribadi",
+
+  name: "Nama",
+  email: "E-mel",
+  phone: "Telefon",
+
+  deliveryAddress: "Alamat Penghantaran",
+
+  fullAddress: "Alamat Penuh",
+  village: "Kelurahan",
+  district: "Daerah",
+  province: "Wilayah",
+  postalCode: "Poskod",
+  notes: "Catatan",
+
+  notSet: "Belum Ditetapkan",
+
+  editAddress: "Edit Alamat",
+
+  pinPoint: "Pin Lokasi",
+  setPin: "Tetapkan Pin",
+  updatePin: "Kemas Kini Pin",
+
+  logout: "Log Keluar",
+
+  retry: "Cuba Lagi",
+
+  editDeliveryAddress: "Edit Alamat Penghantaran",
+
+  cancel: "Batal",
+  save: "Simpan",
+
+  fullAddressPlaceholder: "Alamat penuh...",
+  villagePlaceholder: "Kelurahan",
+  districtPlaceholder: "Daerah",
+  provincePlaceholder: "Wilayah",
+  postalCodePlaceholder: "Poskod",
+  notesPlaceholder: "Catatan (pilihan)",
+
+  autoFillTitle: "Alamat Diisi Secara Automatik",
+  autoFillMessage:
+    "Alamat penghantaran telah diisi secara automatik berdasarkan lokasi pin. Anda boleh mengubahnya jika perlu.",
+
+  success: "Berjaya",
+  addressSaved: "Alamat berjaya disimpan",
+
+  error: "Ralat",
+  saveFailed: "Gagal menyimpan alamat",
+
+  loading: "Memuatkan profil...",
+  noToken: "Token tidak ditemui",
+  fetchFailed: "Gagal mendapatkan data profil",
+},
+buyerRiwayat: {
+  header: { title: 'Sejarah Pesanan', accessibility: { back: 'Kembali' } },
+  sectionTitle: '{{count}} Pesanan',
+  empty: {
+    title: 'Belum Ada Pesanan',
+    description: 'Sejarah pesanan anda akan dipaparkan di sini.',
+  },
+  statusFallback: 'Menunggu Pembayaran',
+  payButton: {
+    checking: 'Sedang Menyemak...',
+    continuePayment: 'Teruskan Pembayaran',
+  },
+  alerts: {
+    paymentSuccess: 'Pembayaran berjaya. Status pesanan telah dikemas kini.',
+    alreadyPaidOrNotPending: 'Pesanan ini sudah dibayar atau tidak dalam status pending.',
+    checkStatusFailed: 'Gagal menyemak status pembayaran.',
+  },
+},
+buyerBiteEco: {
+  header: { title: 'Bite Eco', accessibility: { back: 'Kembali' } },
+  intro: {
+    title: 'Sisa Makanan Tersedia',
+    subtitle: 'Dapatkan sisa makanan untuk pemprosesan lanjut',
+  },
+  loading: 'Sedang memuatkan data...',
+  empty: {
+    title: 'Belum Ada Item Tersedia',
+    subtitle: 'Belum ada penjual yang menyiarkan sisa makanan',
+  },
+  card: {
+    quantityLabel: 'Kuantiti: {{quantity}}',
+    sellerFallback: 'Penjual',
+    distanceUnit: '{{distance}} km',
+    orderButton: 'Pesan',
+  },
+  conditions: {
+    veryGood: 'Sangat Baik',
+    good: 'Baik',
+    fair: 'Cukup Baik',
+    needsUrgentProcessing: 'Perlu Diproses Segera',
+  },
+  alerts: {
+    usingMockData: { title: 'Info', message: 'Menggunakan data demo. Endpoint backend Bite Eco belum tersedia sepenuhnya.' },
+    orderSuccess: { title: 'Berjaya', message: 'Pesanan Bite Eco berjaya dibuat. Menunggu kelulusan penjual.' },
+    orderFailed: { title: 'Ralat', message: 'Gagal membuat pesanan' },
+    loginRequired: { title: 'Ralat', message: 'Sila log masuk dahulu' },
+    confirmOrder: { title: 'Pengesahan Pesanan', message: 'Adakah anda pasti mahu memesan "{{title}}"?', cancel: 'Batal', confirm: 'Pesan' },
+    ok: 'OK',
+  },
+},
+buyerForgotPassword: {
+  step1: {
+    title: 'Set Semula Kata Laluan',
+    subtitle: 'Masukkan e-mel yang berdaftar. Kami akan menghantar kod OTP untuk menetapkan semula kata laluan anda.',
+  },
+  step2: {
+    title: 'Cipta Kata Laluan Baharu',
+    subtitlePrefix: 'Masukkan kod OTP 6-digit yang dihantar ke',
+    subtitleSuffix: 'berserta kata laluan baharu anda.',
+  },
+  fields: {
+    emailPlaceholder: 'E-mel Anda',
+    otpPlaceholder: 'Kod OTP',
+    newPasswordPlaceholder: 'Kata Laluan Baharu',
+  },
+  buttons: {
+    sendOtp: 'Hantar Kod OTP',
+    sending: 'Sedang menghantar...',
+    savePassword: 'Simpan Kata Laluan Baharu',
+    processing: 'Sedang diproses...',
+    resendOtp: 'Hantar semula OTP (Tukar E-mel)',
+  },
+  alerts: {
+    infoTitle: 'Maklumat',
+    successTitle: 'Berjaya',
+    failedTitle: 'Gagal',
+    emptyEmail: 'Sila masukkan e-mel anda.',
+    otpSent: 'Kod OTP telah dihantar ke e-mel anda.',
+    otpRequestFailedGeneric: 'Ralat berlaku. Pastikan e-mel telah berdaftar.',
+    emptyOtpOrPassword: 'OTP dan Kata Laluan Baharu mesti diisi.',
+    passwordResetSuccess: 'Kata laluan berjaya ditukar! Sila log masuk dengan kata laluan baharu.',
+    gotIt: 'Faham',
+  },
+},
+buyerLogin: {
+  greeting: 'Halo!',
+  subtitle: 'Selamat datang ke Bite&Co',
+  fields: {
+    email: 'E-mel',
+    password: 'Kata Laluan',
+  },
+  forgotPassword: 'Lupa Kata Laluan?',
+  login: 'Log Masuk',
+  loggingIn: 'Sedang log masuk...',
+  noAccount: 'Belum mempunyai akaun? ',
+  register: 'Daftar',
+  alerts: {
+    failedTitle: 'Log Masuk Gagal',
+    gotIt: 'Faham',
+    emptyFields: 'E-mel dan kata laluan mesti diisi',
+    loginFailedGeneric: 'Log masuk gagal. Sila semak e-mel dan kata laluan anda.',
+  },
+},
+buyerRegister: {
+  header: { title: 'Cipta Akaun Baharu' },
+  card: {
+    title: 'Data Peribadi',
+    fields: {
+      name: { label: 'Nama Penuh', placeholder: 'Masukkan nama penuh' },
+      email: { label: 'E-mel', placeholder: 'Masukkan e-mel' },
+      phone: { label: 'Nombor Telefon', placeholder: '0813...' },
+      password: { label: 'Kata Laluan', placeholder: 'Min. 6 aksara' },
+      confirmPassword: { label: 'Sahkan Kata Laluan', placeholder: 'Ulangi kata laluan' },
+    },
+    submitButton: 'Daftar',
+    submitting: 'Sedang mendaftar...',
+    loginPrompt: 'Sudah mempunyai akaun? ',
+    loginLink: 'Log masuk di sini',
+  },
+  alerts: {
+    incompleteFormTitle: 'Borang Tidak Lengkap',
+    nameRequired: 'Nama mesti diisi',
+    emailRequired: 'E-mel mesti diisi',
+    phoneRequired: 'Nombor telefon mesti diisi',
+    passwordRequired: 'Kata laluan mesti diisi',
+    passwordMismatch: 'Kata laluan dan pengesahan kata laluan tidak sepadan',
+    passwordTooShort: 'Kata laluan mestilah sekurang-kurangnya 6 aksara',
+    invalidEmail: 'Format e-mel tidak sah',
+    invalidPhone: 'Format nombor telefon tidak sah',
+    registerFailedTitle: 'Pendaftaran Gagal',
+    registerFailedGeneric: 'Ralat berlaku semasa pendaftaran',
+    gotIt: 'Faham',
+    success: {
+      title: 'Pendaftaran Berjaya',
+      message: 'Kod OTP telah dihantar ke e-mel anda. Sila sahkan untuk meneruskan.',
+      button: 'Teruskan Pengesahan',
+    },
+  },
+},
+buyerOtpVerification: {
+  title: 'Pengesahan OTP',
+  subtitlePrefix: 'Masukkan kod OTP 4 digit yang dihantar ke',
+  buttons: {
+    verify: 'Sahkan',
+    verifying: 'Mengesahkan...',
+    resend: 'Hantar Semula Kod',
+    resending: 'Menghantar Semula...',
+  },
+  resend: {
+    prompt: 'Belum terima kod? ',
+    timer: 'Hantar semula kod dalam {{seconds}}s',
+  },
+  alerts: {
+    infoTitle: 'Maklumat',
+    successTitle: 'Berjaya',
+    failedTitle: 'Gagal',
+    gotIt: 'Faham',
+    emptyOtp: 'Sila masukkan kod OTP 4 digit dengan lengkap.',
+    resendSuccess: 'Kod OTP baharu telah dihantar ke e-mel anda.',
+    resendFailedGeneric: 'Gagal menghantar semula kod OTP. Sila cuba lagi.',
+    verifySuccess: 'Akaun anda berjaya disahkan!',
+    verifyFailedGeneric: 'Kod OTP tidak sah atau telah tamat tempoh. Sila cuba lagi.',
+  },
+},
+buyerChatRoom: {
+  header: { title: 'Sembang' },
+  loading: 'Memuatkan perbualan...',
+  defaultBuyerName: 'Pembeli',
+  defaultSellerName: 'Penjual',
+  status: {
+    online: 'Dalam Talian',
+    offline: 'Luar Talian',
+    connecting: 'Menyambung...',
+  },
+  empty: {
+    title: 'Belum Ada Mesej',
+    subtitle: 'Mulakan perbualan dengan penjual',
+  },
+  inputPlaceholder: 'Taip mesej...',
+  toast: {
+    loadMessagesFailed: 'Gagal memuatkan mesej',
+    noChatroomId: 'ID bilik sembang tidak tersedia',
+    noUserInfo: 'Maklumat pengguna tidak tersedia',
+    sendFailed: 'Gagal menghantar mesej: ',
+    navigationUnavailable: 'Navigasi tidak tersedia',
+    orderDetailUnavailable: 'Butiran pesanan tidak tersedia',
+  },
+},
+buyerStatusOrder: {
+  header: { title: 'Status Pesanan' },
+  accessibility: { back: 'Kembali', orderDetail: 'Butiran pesanan', chatSeller: 'Sembang dengan penjual' },
+  cancelled: 'Dibatalkan',
+  dateUnavailable: 'Tarikh tidak tersedia',
+  dateInvalid: 'Tarikh tidak sah',
+  timeUnavailable: 'Masa tidak tersedia',
+  timeInvalid: 'Masa tidak sah',
+  buyerFallback: 'Pembeli',
+  sellerFallback: 'Penjual',
+  retry: 'Cuba Lagi',
+  exploreMenu: 'Terokai Menu',
+  startLabel: 'Mula:',
+  endLabel: 'Tamat:',
+  startsInDays: 'Akan bermula {{count}} hari lagi',
+  remainingDays: 'Baki {{count}} hari lagi',
+  dailyDeliveryHistory: 'Sejarah Penghantaran Harian',
+  sentAt: 'Dihantar:',
+  completedAt: 'Selesai:',
+  preparingToday: 'Sedang menyediakan pesanan hari ini',
+  deliveringToday: 'Pesanan hari ini sedang dihantar',
+  trackTodayDelivery: 'Jejak Penghantaran Hari Ini',
+  trackOrder: 'Jejak Pesanan',
+  giveReview: 'Beri Ulasan',
+  filters: { all: 'Semua', processing: 'Diproses', delivery: 'Penghantaran', completed: 'Selesai' },
+  statusLabels: {
+    waitingApproval: 'Menunggu Kelulusan',
+    processing: 'Dalam Proses',
+    delivery: 'Penghantaran',
+    recurring: 'Kitaran Penghantaran Aktif',
+    completed: 'Pesanan Selesai',
+    cancelled: 'Pesanan Dibatalkan',
+  },
+  steps: {
+    default: { waitingApproval: 'Menunggu Kelulusan', processing: 'Dalam Proses', delivery: 'Penghantaran', completed: 'Pesanan Selesai' },
+    rantanganHarian: { waitingApproval: 'Terima atau Tolak', processing: 'Hantar Pesanan', delivery: 'Jejak Pesanan', completed: 'Beri Ulasan' },
+    rantanganRecurring: { waitingApproval: 'Terima atau Tolak', processing: 'Sediakan Pesanan', delivery: 'Jejak Pesanan', completed: 'Semua Selesai' },
+    biteEco: { waitingApproval: 'Menunggu Kelulusan', processing: 'Sedang Disediakan', delivery: 'Jejak Pesanan', completed: 'Selesai' },
+  },
+  empty: {
+    title: 'Belum Ada Pesanan',
+    subtitle: 'Mula pesan makanan kegemaran anda!',
+  },
+  toast: {
+    dataRefreshed: 'Data berjaya dikemas kini',
+    fetchOrdersFailed: 'Gagal memuatkan data pesanan',
+    noCoordinates: 'Koordinat penghantaran tidak tersedia',
+    fetchOrderDetailFailed: 'Gagal memuatkan butiran pesanan',
+    fetchTrackingFailed: 'Gagal memuatkan data penjejakan',
+  },
+  modal: {
+    title: 'Jejak Penghantaran',
+    loadingMap: 'Memuatkan peta...',
+    deliveryAddressFallback: 'Alamat penghantaran',
+    statusInDelivery: 'Status: Dalam Penghantaran',
+    distanceLabel: 'Jarak: {{distance}} km',
   },
 },
 };

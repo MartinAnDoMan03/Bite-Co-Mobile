@@ -5,24 +5,58 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Alert,
+  useWindowDimensions,
   KeyboardAvoidingView,
   Platform,
+  ScrollView,
+  Modal,
 } from "react-native";
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter, useLocalSearchParams } from "expo-router";
-import AntDesign from "@expo/vector-icons/AntDesign";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useLanguage } from "../contexts/LanguageContext";
+import { Ionicons } from "@expo/vector-icons";
 import config from '../constants/config';
 
+const BURGUNDY = "#711330";
+
+// Helper scaling responsif: dasar dari lebar 375 (iPhone standar), dengan batas atas/bawah
+// biar teks & spacing nggak kegedean di tablet atau kekecilan di layar kecil.
+const BASE_WIDTH = 375;
+const scale = (size, width) => {
+  const ratio = width / BASE_WIDTH;
+  const clampedRatio = Math.max(0.85, Math.min(ratio, 1.3));
+  return Math.round(size * clampedRatio);
+};
+
 const BuyerOTPVerification = () => {
+  const { t } = useLanguage();
   const router = useRouter();
+  const insets = useSafeAreaInsets();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
   const { email, userId } = useLocalSearchParams();
+
   const [otp, setOtp] = useState(["", "", "", ""]);
+  const [focusedIndex, setFocusedIndex] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isResending, setIsResending] = useState(false);
   const [timer, setTimer] = useState(60);
   const [canResend, setCanResend] = useState(false);
-  
+
   const inputRefs = useRef([]);
+
+  // Modal Alert State
+  const [showAlertModal, setShowAlertModal] = useState(false);
+  const [alertMessage, setAlertMessage] = useState("");
+  const [alertTitle, setAlertTitle] = useState(t('buyerOtpVerification.alerts.infoTitle'));
+  const [alertType, setAlertType] = useState("info");
+
+  const showCustomAlert = (type, title, message) => {
+    setAlertType(type);
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setShowAlertModal(true);
+  };
 
   useEffect(() => {
     if (timer > 0 && !canResend) {
@@ -44,96 +78,77 @@ const BuyerOTPVerification = () => {
     newOtp[index] = value;
     setOtp(newOtp);
 
-    // Move to next input if value is entered
     if (value !== "" && index < 3) {
       inputRefs.current[index + 1].focus();
     }
   };
 
   const handleKeyPress = (e, index) => {
-    // Move to previous input on backspace if current input is empty
     if (e.nativeEvent.key === "Backspace" && index > 0 && otp[index] === "") {
       inputRefs.current[index - 1].focus();
     }
   };
 
   const handleResendOTP = async () => {
-    setIsLoading(true);
+    setIsResending(true);
     try {
       const response = await fetch(`${config.API_URL}/buyer/resend-otp`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          userId,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, userId }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Failed to resend OTP");
+        throw new Error(result.message || t('buyerOtpVerification.alerts.resendFailedGeneric'));
       }
 
-      // Reset timer and disable resend button
       setTimer(60);
       setCanResend(false);
-      Alert.alert("Success", "OTP baru telah dikirim ke email Anda");
+      setOtp(["", "", "", ""]);
+      inputRefs.current[0]?.focus();
+      showCustomAlert("success", t('buyerOtpVerification.alerts.successTitle'), t('buyerOtpVerification.alerts.resendSuccess'));
 
     } catch (error) {
       console.error("Resend OTP error:", error);
-      Alert.alert("Error", error.message || "Gagal mengirim ulang OTP");
+      showCustomAlert("failed", t('buyerOtpVerification.alerts.failedTitle'), error.message || t('buyerOtpVerification.alerts.resendFailedGeneric'));
     } finally {
-      setIsLoading(false);
+      setIsResending(false);
     }
   };
 
   const handleVerifyOTP = async () => {
     const otpString = otp.join("");
     if (otpString.length !== 4) {
-      Alert.alert("Error", "Masukkan kode OTP lengkap");
+      showCustomAlert("failed", t('buyerOtpVerification.alerts.failedTitle'), t('buyerOtpVerification.alerts.emptyOtp'));
       return;
     }
 
     setIsLoading(true);
-
     try {
       const response = await fetch(`${config.API_URL}/buyer/verify-otp`, {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email,
-          userId,
-          otp: otpString,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, userId, otp: otpString }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "OTP verification failed");
+        throw new Error(result.message || t('buyerOtpVerification.alerts.verifyFailedGeneric'));
       }
 
-      Alert.alert(
-        "Success", 
-        "Email berhasil diverifikasi! Silakan login.",
-        [
-          {
-            text: "OK",
-            onPress: () => {
-              router.push("/buyer/BuyerIndex");
-            }
-          }
-        ]
-      );
+      showCustomAlert("success", t('buyerOtpVerification.alerts.successTitle'), t('buyerOtpVerification.alerts.verifySuccess'));
+
+      setTimeout(() => {
+        setShowAlertModal(false);
+        router.push("/buyer/BuyerIndex");
+      }, 1500);
 
     } catch (error) {
       console.error("OTP verification error:", error);
-      Alert.alert("Error", error.message || "Gagal memverifikasi OTP");
+      showCustomAlert("failed", t('buyerOtpVerification.alerts.failedTitle'), error.message || t('buyerOtpVerification.alerts.verifyFailedGeneric'));
     } finally {
       setIsLoading(false);
     }
@@ -144,65 +159,105 @@ const BuyerOTPVerification = () => {
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
-        <View style={styles.header}>
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={() => router.back()}
-          >
-            <AntDesign name="left" size={20} color="white" />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>Verifikasi OTP</Text>
-        </View>
+        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
 
-        <View style={styles.content}>
-          <Text style={styles.title}>Masukkan Kode OTP</Text>
-          <Text style={styles.subtitle}>
-            Kode OTP telah dikirim ke email {email}
-          </Text>
+          {/* Header Section: judul & deskripsi, senada dengan BuyerForgotPassword */}
+          <View style={[styles.topSection, { paddingTop: insets.top + 150, paddingHorizontal: SCREEN_WIDTH * 0.09 }]}>
+            <TouchableOpacity
+              style={[styles.backButton, { top: insets.top + 16 }]}
+              onPress={() => router.back()}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="arrow-back" size={20} color="#fff" />
+            </TouchableOpacity>
 
-          <View style={styles.otpContainer}>
-            {[0, 1, 2, 3].map((index) => (
-              <TextInput
-                key={index}
-                ref={(ref) => (inputRefs.current[index] = ref)}
-                style={styles.otpInput}
-                maxLength={1}
-                keyboardType="number-pad"
-                value={otp[index]}
-                onChangeText={(value) => handleOtpChange(value, index)}
-                onKeyPress={(e) => handleKeyPress(e, index)}
-              />
-            ))}
+            <Text style={[styles.greeting, { fontSize: scale(26, SCREEN_WIDTH) }]}>
+              {t('buyerOtpVerification.title')}
+            </Text>
+            <Text style={[styles.subtitle, { fontSize: scale(13, SCREEN_WIDTH) }]}>
+              {t('buyerOtpVerification.subtitlePrefix')} <Text style={{ fontWeight: 'bold' }}>{email}</Text>
+            </Text>
           </View>
 
-          <TouchableOpacity
-            style={[styles.verifyButton, isLoading && styles.disabledButton]}
-            onPress={handleVerifyOTP}
-            disabled={isLoading}
-          >
-            <Text style={styles.verifyButtonText}>
-              {isLoading ? "Memverifikasi..." : "Verifikasi"}
-            </Text>
-          </TouchableOpacity>
+          {/* Form Section */}
+          <View style={[styles.bottomSection, { paddingHorizontal: SCREEN_WIDTH * 0.07, paddingTop: Math.max(SCREEN_HEIGHT * 0.0, 48) }]}>
 
-          <View style={styles.resendContainer}>
-            <Text style={styles.resendText}>
-              {canResend ? "Tidak menerima kode? " : `Tunggu ${timer} detik `}
-            </Text>
-            {canResend && (
-              <TouchableOpacity
-                onPress={handleResendOTP}
-                disabled={isLoading || !canResend}
-              >
-                <Text style={[styles.resendLink, (!canResend || isLoading) && styles.disabledText]}>
-                  Kirim ulang
-                </Text>
-              </TouchableOpacity>
-            )}
+            <View style={styles.otpContainer}>
+              {[0, 1, 2, 3].map((index) => (
+                <TextInput
+                  key={index}
+                  ref={(ref) => (inputRefs.current[index] = ref)}
+                  style={[
+                    styles.otpInput,
+                    {
+                      width: scale(58, SCREEN_WIDTH),
+                      height: scale(58, SCREEN_WIDTH),
+                      fontSize: scale(22, SCREEN_WIDTH),
+                    },
+                    focusedIndex === index && styles.otpInputFocused,
+                    otp[index] !== "" && styles.otpInputFilled,
+                  ]}
+                  maxLength={1}
+                  keyboardType="number-pad"
+                  value={otp[index]}
+                  onChangeText={(value) => handleOtpChange(value, index)}
+                  onKeyPress={(e) => handleKeyPress(e, index)}
+                  onFocus={() => setFocusedIndex(index)}
+                  onBlur={() => setFocusedIndex(null)}
+                />
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={[styles.btnPrimary, { opacity: isLoading ? 0.7 : 1 }]}
+              onPress={handleVerifyOTP}
+              disabled={isLoading}
+            >
+              <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
+                {isLoading ? t('buyerOtpVerification.buttons.verifying') : t('buyerOtpVerification.buttons.verify')}
+              </Text>
+            </TouchableOpacity>
+
+            <View style={styles.resendContainer}>
+              <Text style={[styles.resendHint, { fontSize: scale(13, SCREEN_WIDTH) }]}>
+                {canResend
+                  ? t('buyerOtpVerification.resend.prompt')
+                  : t('buyerOtpVerification.resend.timer', { seconds: timer })}
+              </Text>
+              {canResend && (
+                <TouchableOpacity
+                  onPress={handleResendOTP}
+                  disabled={isResending}
+                  hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                >
+                  <Text style={[styles.resendText, { fontSize: scale(13, SCREEN_WIDTH) }, isResending && styles.disabledText]}>
+                    {isResending ? t('buyerOtpVerification.buttons.resending') : t('buyerOtpVerification.buttons.resend')}
+                  </Text>
+                </TouchableOpacity>
+              )}
+            </View>
+
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal Alert — konsisten dengan BuyerForgotPassword */}
+      <Modal visible={showAlertModal} transparent animationType="fade" onRequestClose={() => setShowAlertModal(false)}>
+        <View style={styles.alertOverlay}>
+          <View style={styles.alertCard}>
+            <View style={styles.alertIconWrap}>
+              <Ionicons name={alertType === "success" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
+            </View>
+            <Text style={[styles.alertTitle, { fontSize: scale(16, SCREEN_WIDTH) }]}>{alertTitle}</Text>
+            <Text style={[styles.alertText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{alertMessage}</Text>
+            <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAlertModal(false)}>
+              <Text style={[styles.alertBtnText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{t('buyerOtpVerification.alerts.gotIt')}</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -210,91 +265,90 @@ const BuyerOTPVerification = () => {
 export default BuyerOTPVerification;
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: "#711330",
-  },
-  header: {
-    flexDirection: "row",
+  container: { flex: 1, backgroundColor: BURGUNDY },
+  topSection: {
+    backgroundColor: BURGUNDY,
     alignItems: "center",
-    padding: 20,
-    paddingTop: 10,
+    paddingBottom: 190,
   },
   backButton: {
+    position: "absolute",
+    left: 20,
     width: 40,
     height: 40,
     borderRadius: 20,
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 15,
   },
-  headerTitle: {
-    color: "white",
-    fontSize: 18,
-    fontWeight: "600",
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: 30,
-    paddingTop: 20,
-  },
-  title: {
-    color: "white",
-    fontSize: 32,
-    fontWeight: "bold",
-    marginBottom: 8,
+  greeting: {
+    fontWeight: "800",
+    color: "#fff",
+    marginBottom: 10,
+    textAlign: "center",
   },
   subtitle: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-    marginBottom: 40,
+    color: "rgba(255,255,255,0.85)",
+    textAlign: "center",
+    lineHeight: 20,
+    maxWidth: 340,
+  },
+  bottomSection: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    alignItems: "center",
   },
   otpContainer: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 40,
+    width: "100%",
+    marginBottom: 30,
   },
   otpInput: {
-    width: 60,
-    height: 60,
-    backgroundColor: "#f7f7f7",
-    borderRadius: 10,
-    fontSize: 24,
+    backgroundColor: "#fff",
+    borderWidth: 1.2,
+    borderColor: "#ddd",
+    borderRadius: 14,
     fontWeight: "bold",
     textAlign: "center",
+    color: "#1a1a1a",
   },
-  verifyButton: {
-    backgroundColor: "#FFB800",
+  otpInputFocused: {
+    borderColor: BURGUNDY,
+    borderWidth: 1.5,
+  },
+  otpInputFilled: {
+    backgroundColor: "#fdf1f4",
+    borderColor: BURGUNDY,
+  },
+  btnPrimary: {
+    width: "100%",
+    backgroundColor: BURGUNDY,
     paddingVertical: 15,
-    borderRadius: 10,
+    borderRadius: 14,
     alignItems: "center",
-    marginBottom: 20,
+    marginTop: 10,
   },
-  disabledButton: {
-    opacity: 0.7,
-  },
-  verifyButtonText: {
-    color: "#711330",
-    fontSize: 18,
-    fontWeight: "bold",
-  },
+  btnPrimaryText: { color: "#fff", fontWeight: "700" },
   resendContainer: {
     flexDirection: "row",
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
+    flexWrap: "wrap",
   },
-  resendText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: 16,
-  },
-  resendLink: {
-    color: "#FFB800",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  disabledText: {
-    opacity: 0.5,
-  },
+  resendHint: { color: "#777" },
+  resendText: { color: BURGUNDY, fontWeight: '600', textDecorationLine: 'underline' },
+  disabledText: { opacity: 0.5 },
+
+  // Alert styles — sama persis dengan BuyerForgotPassword
+  alertOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", paddingHorizontal: 28 },
+  alertCard: { width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 20, padding: 24, alignItems: "center" },
+  alertIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#fdf1f4", alignItems: "center", justifyContent: "center", marginBottom: 14 },
+  alertTitle: { color: BURGUNDY, fontWeight: "700", marginBottom: 8, textAlign: "center" },
+  alertText: { color: "#555", textAlign: "center", marginBottom: 22 },
+  alertBtn: { width: "100%", paddingVertical: 13, borderRadius: 12, backgroundColor: BURGUNDY, alignItems: "center" },
+  alertBtnText: { color: "#fff", fontWeight: "700" },
 });

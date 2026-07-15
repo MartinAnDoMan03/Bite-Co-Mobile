@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { useFocusEffect } from '@react-navigation/native';
+import { useLanguage } from '../contexts/LanguageContext';
 import COLORS from '../constants/color';
 import config from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,6 +24,16 @@ const ALERT_TYPE_STYLES = {
   success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
   error: { icon: 'error', color: '#C62828', bg: '#FFEBEE' },
   warning: { icon: 'warning', color: '#B26A00', bg: '#FFF3E0' },
+};
+
+// Nilai mentah `condition` dari data (backend/mock) selalu Bahasa Indonesia — dipakai sebagai
+// business key untuk logika warna, jadi TIDAK diterjemahkan di sumbernya. Fungsi ini hanya
+// memetakan nilai mentah tersebut ke translation key untuk keperluan tampilan.
+const CONDITION_KEY_MAP = {
+  'Sangat Baik': 'veryGood',
+  'Baik': 'good',
+  'Cukup Baik': 'fair',
+  'Perlu Pengolahan Segera': 'needsUrgentProcessing',
 };
 
 const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose }) => {
@@ -67,6 +78,7 @@ const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose 
 };
 
 const BiteEcoBuyer = () => {
+  const { t } = useLanguage();
   const [wasteItems, setWasteItems] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -74,7 +86,7 @@ const BiteEcoBuyer = () => {
   const [customAlert, setCustomAlert] = useState({ visible: false, title: '', message: '', buttons: [], type: 'info' });
   const router = useRouter();
 
-  const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
+  const showAlert = (title, message, buttons = [{ text: t('buyerBiteEco.alerts.ok') }], type = 'info') => {
     setCustomAlert({ visible: true, title, message, buttons, type });
   };
   const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
@@ -119,6 +131,8 @@ const BiteEcoBuyer = () => {
       }
 
       // Fallback to mock data if API is not available
+      // Nilai `condition` di bawah ini SENGAJA tetap Bahasa Indonesia mentah — dipetakan
+      // ke label terjemahan lewat CONDITION_KEY_MAP saat ditampilkan (lihat WasteItemCard).
       const mockWasteItems = [
         {
           id: '1',
@@ -159,12 +173,17 @@ const BiteEcoBuyer = () => {
 
     } catch (error) {
       console.error('Error fetching waste items:', error);
-      showAlert('Info', 'Menggunakan data demo. Backend Bite Eco endpoint belum sepenuhnya tersedia.', [{ text: 'OK' }], 'info');
+      showAlert(
+        t('buyerBiteEco.alerts.usingMockData.title'),
+        t('buyerBiteEco.alerts.usingMockData.message'),
+        [{ text: t('buyerBiteEco.alerts.ok') }],
+        'info'
+      );
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [refreshing]);
+  }, [refreshing, t]);
 
   useFocusEffect(
     useCallback(() => {
@@ -217,30 +236,30 @@ const BiteEcoBuyer = () => {
       }
 
       showAlert(
-        'Berhasil',
-        'Pesanan Bite Eco berhasil dibuat. Menunggu persetujuan seller.',
-        [{ text: 'OK', onPress: () => router.push('/buyer/(tabs)/order') }],
+        t('buyerBiteEco.alerts.orderSuccess.title'),
+        t('buyerBiteEco.alerts.orderSuccess.message'),
+        [{ text: t('buyerBiteEco.alerts.ok'), onPress: () => router.push('/buyer/(tabs)/order') }],
         'success'
       );
     } catch (error) {
       console.error('Error creating order:', error);
-      showAlert('Error', 'Gagal membuat pesanan', [{ text: 'OK' }], 'error');
+      showAlert(t('buyerBiteEco.alerts.orderFailed.title'), t('buyerBiteEco.alerts.orderFailed.message'), [{ text: t('buyerBiteEco.alerts.ok') }], 'error');
     }
   };
 
   const handleOrderItem = async (item) => {
     const token = await AsyncStorage.getItem('buyerToken');
     if (!token) {
-      showAlert('Error', 'Silakan login terlebih dahulu', [{ text: 'OK' }], 'error');
+      showAlert(t('buyerBiteEco.alerts.loginRequired.title'), t('buyerBiteEco.alerts.loginRequired.message'), [{ text: t('buyerBiteEco.alerts.ok') }], 'error');
       return;
     }
 
     showAlert(
-      'Konfirmasi Pesanan',
-      `Apakah Anda yakin ingin memesan "${item.title}"?`,
+      t('buyerBiteEco.alerts.confirmOrder.title'),
+      t('buyerBiteEco.alerts.confirmOrder.message', { title: item.title }),
       [
-        { text: 'Batal', style: 'cancel' },
-        { text: 'Pesan', onPress: () => submitOrder(item) },
+        { text: t('buyerBiteEco.alerts.confirmOrder.cancel'), style: 'cancel' },
+        { text: t('buyerBiteEco.alerts.confirmOrder.confirm'), onPress: () => submitOrder(item) },
       ],
       'warning'
     );
@@ -261,6 +280,9 @@ const BiteEcoBuyer = () => {
       item.condition === 'Baik' ? '#8BC34A' :
       item.condition === 'Cukup Baik' ? '#FFC107' : '#FF9800';
 
+    const conditionKey = CONDITION_KEY_MAP[item.condition];
+    const conditionLabel = conditionKey ? t(`buyerBiteEco.conditions.${conditionKey}`) : item.condition;
+
     return (
       <View style={[styles.wasteCard, styles.shadow]}>
         <View style={styles.cardHeader}>
@@ -272,12 +294,12 @@ const BiteEcoBuyer = () => {
             <Text style={styles.wasteTitle} numberOfLines={2}>{item.title}</Text>
             <View style={styles.wasteMetaRow}>
               <MaterialIcons name="inventory-2" size={12} color="#999" />
-              <Text style={styles.wasteMetaText}>Kuantitas: {item.quantity}</Text>
+              <Text style={styles.wasteMetaText}>{t('buyerBiteEco.card.quantityLabel', { quantity: item.quantity })}</Text>
             </View>
             <View style={styles.wasteMetaRow}>
               <MaterialIcons name="verified" size={12} color={conditionColor} />
               <Text style={[styles.wasteMetaText, { color: conditionColor, fontWeight: '600' }]}>
-                {item.condition}
+                {conditionLabel}
               </Text>
             </View>
             <Text style={styles.wasteDescription} numberOfLines={2}>{item.description}</Text>
@@ -288,12 +310,12 @@ const BiteEcoBuyer = () => {
           <View style={styles.sellerDetails}>
             <MaterialIcons name="store" size={14} color={COLORS.PRIMARY} />
             <Text style={styles.sellerName} numberOfLines={1}>
-              {item.seller?.outletName || item.seller?.name || 'Seller'}
+              {item.seller?.outletName || item.seller?.name || t('buyerBiteEco.card.sellerFallback')}
             </Text>
             {distance !== null && (
               <View style={styles.distancePill}>
                 <MaterialIcons name="location-on" size={12} color="#666" />
-                <Text style={styles.distanceText}>{distance.toFixed(1)} km</Text>
+                <Text style={styles.distanceText}>{t('buyerBiteEco.card.distanceUnit', { distance: distance.toFixed(1) })}</Text>
               </View>
             )}
           </View>
@@ -305,7 +327,7 @@ const BiteEcoBuyer = () => {
           activeOpacity={0.85}
         >
           <MaterialIcons name="shopping-cart" size={15} color="#fff" />
-          <Text style={styles.orderButtonText}>Pesan</Text>
+          <Text style={styles.orderButtonText}>{t('buyerBiteEco.card.orderButton')}</Text>
         </TouchableOpacity>
       </View>
     );
@@ -315,10 +337,10 @@ const BiteEcoBuyer = () => {
     <SafeAreaView style={styles.container}>
       {/* Header selaras dengan halaman lain */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('buyerBiteEco.header.accessibility.back')}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Bite Eco</Text>
+        <Text style={styles.headerTitle}>{t('buyerBiteEco.header.title')}</Text>
         <View style={{ width: 26 }} />
       </View>
 
@@ -330,9 +352,9 @@ const BiteEcoBuyer = () => {
               <MaterialIcons name="recycling" size={24} color={COLORS.GREEN4} />
             </View>
             <View style={styles.headerText}>
-              <Text style={styles.introTitle}>Limbah Makanan Tersedia</Text>
+              <Text style={styles.introTitle}>{t('buyerBiteEco.intro.title')}</Text>
               <Text style={styles.introSubtitle}>
-                Dapatkan limbah makanan untuk pengolahan lebih lanjut
+                {t('buyerBiteEco.intro.subtitle')}
               </Text>
             </View>
           </View>
@@ -342,7 +364,7 @@ const BiteEcoBuyer = () => {
         {loading ? (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-            <Text style={styles.loadingText}>Memuat data...</Text>
+            <Text style={styles.loadingText}>{t('buyerBiteEco.loading')}</Text>
           </View>
         ) : (
           <ScrollView
@@ -365,9 +387,9 @@ const BiteEcoBuyer = () => {
                 <View style={styles.emptyIconCircle}>
                   <MaterialIcons name="recycling" size={40} color="#bbb" />
                 </View>
-                <Text style={styles.emptyTitle}>Belum Ada Item Tersedia</Text>
+                <Text style={styles.emptyTitle}>{t('buyerBiteEco.empty.title')}</Text>
                 <Text style={styles.emptySubtitle}>
-                  Belum ada seller yang memposting limbah makanan
+                  {t('buyerBiteEco.empty.subtitle')}
                 </Text>
               </View>
             ) : (

@@ -36,6 +36,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import config from '../constants/config';
 import COLORS from '../constants/color';
+import { useLanguage } from '../contexts/LanguageContext';
 
 const db = getFirestore(firebaseApp);
 
@@ -71,6 +72,7 @@ const MessageBubble = ({ message, isOwn, showAvatar, sellerIcon, sellerName }) =
 );
 
 const ChatRoom = (props) => {
+  const { t } = useLanguage();
   // Try to get params from both route.params and useLocalSearchParams
   let params = {};
   if (props.route && props.route.params) {
@@ -117,8 +119,8 @@ const ChatRoom = (props) => {
 
   // Toast function for showing messages - memoized to prevent recreations
   const showToast = useCallback((message, type = 'info') => {
-    Alert.alert(type === 'error' ? 'Error' : 'Info', message);
-  }, []);
+   Alert.alert(type === 'error' ? t('common.error') : t('common.info'), message);
+  }, [t]);
 
   // Load buyer info
   const loadBuyerInfo = useCallback(async () => {
@@ -235,7 +237,7 @@ const ChatRoom = (props) => {
         
         setLoading(false);
         setConnectionStatus('error');
-        showToast('Gagal memuat pesan', 'error');
+        showToast(t('buyerChatRoom.toast.loadMessagesFailed'), 'error');
       }
     );
     
@@ -264,11 +266,11 @@ const ChatRoom = (props) => {
   const sendMessage = useCallback(async () => {
     if (!input.trim()) return;
     if (!actualChatroomId) {
-      showToast('ID ruang chat tidak tersedia', 'error');
+      showToast(t('buyerChatRoom.toast.noChatroomId'), 'error');
       return;
     }
     if (!buyerId) {
-      showToast('Informasi pengguna tidak tersedia', 'error');
+      showToast(t('buyerChatRoom.toast.noUserInfo'), 'error');
       return;
     }
     if (sending) return;
@@ -285,8 +287,8 @@ const ChatRoom = (props) => {
         await setDoc(chatroomDoc, {
           buyerId,
           sellerId,
-          buyerName: buyerName || 'Pembeli',
-          sellerName: sellerName || 'Penjual',
+          buyerName: buyerName || t('buyerChatRoom.defaultBuyerName'),
+          sellerName: sellerName || t('buyerChatRoom.defaultSellerName'),
           orderId: orderId || null,
           chatroomType: orderId ? 'order_specific' : 'general', // Mark if this is order-specific
           createdAt: serverTimestamp(),
@@ -298,7 +300,7 @@ const ChatRoom = (props) => {
       await addDoc(collection(db, "chatrooms", actualChatroomId, "messages"), {
         text: input.trim(),
         senderId: buyerId,
-        senderName: buyerName || 'Pembeli',
+        senderName: buyerName || t('buyerChatRoom.defaultBuyerName'),
         timestamp: serverTimestamp(),
         readByBuyer: true, // Buyer sending, so mark as read by buyer
         readBySeller: false, // Mark as unread for seller
@@ -316,7 +318,7 @@ const ChatRoom = (props) => {
       console.log('[ChatRoom] Message sent successfully to order-specific chatroom');
     } catch (error) {
       console.error('Send message error:', error);
-      showToast('Gagal mengirim pesan: ' + error.message, 'error');
+      showToast(t('buyerChatRoom.toast.sendFailed') + error.message, 'error');
     } finally {
       setSending(false);
     }
@@ -335,10 +337,10 @@ const ChatRoom = (props) => {
       } else if (navigation) {
         navigation.navigate('DetailOrder', { orderId });
       } else {
-        showToast('Navigasi tidak tersedia', 'error');
+        showToast(t('buyerChatRoom.toast.navigationUnavailable'), 'error');
       }
     } else {
-      showToast('Detail pesanan tidak tersedia', 'warning');
+      showToast(t('buyerChatRoom.toast.orderDetailUnavailable'), 'warning');
     }
   }, [orderId, router, navigation, showToast]);
 
@@ -359,11 +361,11 @@ const ChatRoom = (props) => {
   }, [connectionStatus]);
 
   const statusInfo = {
-    connected: { label: 'Online', color: '#2FB768' },
-    error: { label: 'Offline', color: '#E24C4C' },
-    connecting: { label: 'Menghubungkan...', color: '#B0B0B0' },
-    disconnected: { label: 'Menghubungkan...', color: '#B0B0B0' },
-  }[connectionStatus] || { label: 'Menghubungkan...', color: '#B0B0B0' };
+    connected: { label: t('buyerChatRoom.status.online'), color: '#2FB768' },
+    error: { label: t('buyerChatRoom.status.offline'), color: '#E24C4C' },
+    connecting: { label: t('buyerChatRoom.status.connecting'), color: '#B0B0B0' },
+    disconnected: { label: t('buyerChatRoom.status.connecting'), color: '#B0B0B0' },
+    }[connectionStatus] || { label: t('buyerChatRoom.status.connecting'), color: '#B0B0B0' };
 
   // Show loading screen
  if (loading) {
@@ -373,11 +375,11 @@ const ChatRoom = (props) => {
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
             <MaterialIcons name="arrow-back-ios-new" size={16} color={COLORS.PRIMARY} />
           </TouchableOpacity>
-          <Text style={styles.chatHeaderName}>Chat</Text>
+           <Text style={styles.chatHeaderName}>{t('buyerChatRoom.header.title')}</Text>
         </View>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.PRIMARY} />
-          <Text style={styles.loadingText}>Memuat percakapan...</Text>
+          <Text style={styles.loadingText}>{t('buyerChatRoom.loading')}</Text>
         </View>
       </SafeAreaView>
     );
@@ -405,7 +407,7 @@ const ChatRoom = (props) => {
               {connectionStatus === 'connected' && <View style={styles.onlineDot} />}
             </View>
             <View>
-              <Text style={styles.chatHeaderName} numberOfLines={1}>{sellerName || 'Penjual'}</Text>
+            <Text style={styles.chatHeaderName} numberOfLines={1}>{sellerName || t('buyerChatRoom.defaultSellerName')}</Text>
               <View style={styles.statusRow}>
                 <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
                 <Text style={[styles.chatHeaderStatus, { color: statusInfo.color }]}>
@@ -456,8 +458,8 @@ const ChatRoom = (props) => {
                 <View style={styles.emptyIconWrap}>
                   <MaterialIcons name="chat-bubble-outline" size={32} color={COLORS.PRIMARY} />
                 </View>
-                <Text style={styles.emptyText}>Belum ada pesan</Text>
-                <Text style={styles.emptySubtext}>Mulai percakapan dengan penjual</Text>
+               <Text style={styles.emptyText}>{t('buyerChatRoom.empty.title')}</Text>
+               <Text style={styles.emptySubtext}>{t('buyerChatRoom.empty.subtitle')}</Text>
               </View>
             }
           />
@@ -468,7 +470,7 @@ const ChatRoom = (props) => {
               style={[styles.textInput, sending && styles.textInputDisabled]}
               value={input}
               onChangeText={setInput}
-              placeholder="Ketik pesan..."
+               placeholder={t('buyerChatRoom.inputPlaceholder')}
               placeholderTextColor="#A0A0A0"
               onSubmitEditing={sendMessage}
               returnKeyType="send"
