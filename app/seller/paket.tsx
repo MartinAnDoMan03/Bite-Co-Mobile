@@ -309,7 +309,7 @@ const TabRantangan = ({ showAlert, t }) => {
           style: "destructive",
           onPress: async () => {
             try {
-              const response = await fetch(`${config.API_URL}/seller/rantangan/${item.id}`, {
+              const response = await fetch(`${config.API_URL}/seller/rantangan?id=${item.id}`, {
                 method: "DELETE",
                 headers: {
                   "Content-Type": "application/json",
