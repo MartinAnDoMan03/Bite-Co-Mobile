@@ -10,7 +10,7 @@
     "newArchEnabled": true,
     "extra": {
       "eas": {
-        "projectId": "b884e7a2-afd5-4ba4-b773-3df744b8644f"
+        "projectId": "c4b327dc-5328-4e4f-9e47-c51bc58007c5"
       },
       "router": {
         "origin": false
@@ -68,6 +68,6 @@
         }
       ]
     ],
-    "owner": "biteandco"
+    "owner": "murtin"
   }
 }

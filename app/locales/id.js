@@ -514,7 +514,7 @@ export default {
     },
     cardTitle: 'Detail Usaha',
     fields: {
-      outletName: { label: 'Nama Outlet', placeholder: 'Masukan nama lengkap Anda...' },
+      outletName: { label: 'Nama Outlet', placeholder: 'Masukan Nama Outlet Anda...' },
       outletPhone: { label: 'Nomor Telpon Outlet', placeholder: '0813...' },
       outletEmail: { label: 'Email Outlet', placeholder: 'Masukan email outlet Anda...' },
       password: { label: 'Password', placeholder: 'Min. 8 Karakter...' },

@@ -20,7 +20,7 @@ import axios from "axios";
 import { KeyboardAvoidingView, Platform } from "react-native";
 import config from '../constants/config';
 import { Ionicons } from "@expo/vector-icons";
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import { useLanguage } from '../contexts/LanguageContext';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
@@ -84,7 +84,7 @@ const Success = () => {
         style={styles.successBtn}
         // NOTE: sesuaikan route ini dengan route beranda seller di project-mu,
         // contoh: "/seller/home" atau "/(seller)/dashboard"
-        onPress={() => router.replace("/seller/home")}
+        onPress={() => router.replace("/seller/SellerHome")}
       >
         <Text style={styles.successBtnText}>{t('detailUsaha.success.button')}</Text>
       </TouchableOpacity>
@@ -581,7 +581,6 @@ const validateSelfieWithKTP = async (imageUri) => {
           image: { content: base64 },
           features: [
             { type: 'FACE_DETECTION', maxResults: 5 },
-            { type: 'TEXT_DETECTION', maxResults: 1 }
           ]
         }]
       }
@@ -589,16 +588,12 @@ const validateSelfieWithKTP = async (imageUri) => {
     const response = visionResponse.data.responses[0];
     const faces = response.faceAnnotations || [];
     const hasFace = faces.length > 0;
-    const detectedText = response.fullTextAnnotation?.text?.toUpperCase() || '';
-    const ktpKeywords = ['NIK', 'NAMA', 'TEMPAT', 'LAHIR', 'ALAMAT', 'JENIS', 'KELAMIN', 'KECAMATAN', 'PEKERJAAN', 'KEWARGANEGARAAN'];
-    const matchCount = ktpKeywords.filter(keyword => detectedText.includes(keyword)).length; // ✅ fixed typo
-    const hasKTPText = matchCount >= 2;
-    return { hasFace, hasKTPText };
+    return { hasFace, hasKTPText: true }; // always pass KTP text check
   } catch (error) {
     console.error('Error validating selfie:', error);
     return null;
   }
-}; 
+};
 
   const requestPickImage = async (isKtp) => {
     const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();

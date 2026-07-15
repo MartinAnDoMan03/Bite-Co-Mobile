@@ -179,7 +179,6 @@ const ExpandableMenu = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
       const orders = ordersResponse.data.orders || [];
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
@@ -227,6 +226,8 @@ const ExpandableMenu = () => {
       console.error("Error fetching stats:", err);
     }
   };
+
+
 
   const fetchNotificationCount = async () => {
     // Always set notification count to 0 - empty notification screen

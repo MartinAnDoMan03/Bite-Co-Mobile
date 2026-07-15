@@ -149,8 +149,8 @@ const BuyerIndex = () => {
             </View>
 
             {/* Lupa password */}
-            <TouchableOpacity style={styles.forgotWrap}>
-              <Text style={styles.forgotText}>Lupa password?</Text>
+            <TouchableOpacity style={styles.forgotWrap} onPress={() => router.push("/buyer/BuyerForgotPassword")}>
+              <Text style={styles.forgotText}>Lupa Password?</Text>
             </TouchableOpacity>
 
             {/* Tombol Masuk */}
@@ -301,6 +301,9 @@ const styles = StyleSheet.create({
   forgotWrap: {
     alignSelf: "flex-start",
     marginBottom: SCREEN_HEIGHT * 0.05,
+    zIndex: 10, 
+    paddingVertical: 10, 
+    paddingRight: 10, 
   },
   forgotText: {
     color: BURGUNDY,

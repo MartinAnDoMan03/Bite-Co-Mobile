@@ -97,6 +97,19 @@ const Riwayat = () => {
     }
   };
 
+  const initiatePayment = async (order) => {
+  const token = await AsyncStorage.getItem('buyerToken');
+  const res = await axios.post(
+    `${config.API_URL}/buyer/orders/${order.id}/payment`,
+    {},
+    { headers: { Authorization: `Bearer ${token}` } }
+  );
+  if (res.data?.snapUrl) {
+    setPaymentSnapUrl(res.data.snapUrl);
+    setShowPaymentModal(true);
+  }
+};
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7fb' }}>
       <View style={styles.container}>
@@ -142,8 +155,12 @@ const Riwayat = () => {
                     <Text style={styles.cardValue}>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</Text>
                   </View>
                   {/* Show button if status is pending and snapUrl exists */}
-                  {order.status === 'pending' && order.snapUrl && (
+                  {((order.status === 'pending' && order.snapUrl) || (order.statusProgress === 'approved_awaiting_payment' && 
+                  !order.snapUrl)) && (
                     <TouchableOpacity
+                    onPress={() =>
+                      order.snapUrl ? checkMidtransStatusAndPay(order) : initiatePayment(order)
+                    }
                       style={{
                         marginTop: 12,
                         backgroundColor: '#FF9800',
@@ -153,7 +170,6 @@ const Riwayat = () => {
                         opacity: paymentCheckLoading ? 0.6 : 1,
                       }}
                       disabled={paymentCheckLoading}
-                      onPress={() => checkMidtransStatusAndPay(order)}
                     >
                       <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
                         {paymentCheckLoading ? 'Memeriksa...' : 'Lanjutkan Pembayaran'}

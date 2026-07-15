@@ -128,8 +128,8 @@ const profile = () => {
       setStoreIcon(response.data.storeIcon || null); // Load store icon
       setStoreBanner(response.data.storeBanner || null); // Load store banner
       setPinPoint({
-        lat: response.data.pinLat || null,
-        lng: response.data.pinLng || null,
+        lat: response.data.pinLat ? parseFloat(response.data.pinLat) : null,
+        lng: response.data.pinLng ? parseFloat(response.data.pinLng) : null,
       }); // Load pin point
       setLoading(false);
       setIsEditing(false); // Ensure editing mode is off after fetch

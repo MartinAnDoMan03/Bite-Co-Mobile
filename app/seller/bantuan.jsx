@@ -109,7 +109,7 @@ const BantuanPage = () => {
   };
 
   const handleWhatsAppContact = () => {
-    const phoneNumber = '+6281234567890'; // Replace with actual support number
+    const phoneNumber = '+6285262130124'; // Nomor WhatsApp Ketua Bite&Co (Sementara)
     const message = t('bantuan.whatsappMessage');
     const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
 
