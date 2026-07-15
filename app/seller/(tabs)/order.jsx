@@ -398,7 +398,7 @@ const SellerOrder = () => {
   }, [fetchOrdersAndBuyers]);
 
   const handleOpenChatRoom = (params) => {
-    router.push({ pathname: "/seller/chat", params });
+    router.push({ pathname: "/seller/ChatRoom", params });
   };
 
   const updateOrderStatus = async (orderId, newStatus) => {
