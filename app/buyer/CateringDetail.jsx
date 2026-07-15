@@ -1,7 +1,6 @@
 import { SafeAreaView } from "react-native-safe-area-context";
-import HeaderTitleBack from '../../components/HeaderTitleBack';
 import banner2 from "../../assets/images/banner2.png";
-import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, TextInput, Keyboard } from "react-native";
+import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, TextInput, Keyboard } from "react-native";
 import starSolid from "../../assets/images/starSolid.png";
 import COLORS from '../constants/color';
 import menuImage from "../../assets/images/menuImage.png";
@@ -14,41 +13,41 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import SkeletonLoader, { MenuItemSkeleton } from '../../components/SkeletonLoader';
 
+const BANNER_HEIGHT = 150;
+const OVERLAP = 30;
+const FALLBACK_CARD_HEIGHT = 100;
+
 const ListMenu = ({ menu, inCart, onAdd, onRemove, onImageLoad, onImageError }) => {
   return (
-    <View style={{ backgroundColor: "white", padding: 20, borderRadius: 20, marginHorizontal: 30, flexDirection: "row", alignItems: "center", justifyContent: "space-between", borderWidth: 1, borderColor: "#E5E5E5", shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 3.84, elevation: 5 }}>
-      <View style={{ gap: 10 }}>
-        <Text style={{ fontSize: 14, fontWeight: "bold"}}>{menu?.name || "-"}</Text>
-        <Text style={{ fontSize: 10 }}>{menu?.description || "-"}</Text>
-        <Text style={{ fontSize: 10 }}>Rp {menu?.price ? menu.price.toLocaleString() : "-"}</Text>
-      </View>
-      <View style={{ flexDirection: "column", alignItems: "center", gap: 5 }}>
-        <Image
-          source={menu?.image ? { uri: menu.image } : menuImage}
-          style={{ width: 100, height: 100, borderRadius: 10 }}
-          resizeMode="cover"
-          onLoad={onImageLoad}
-          onError={onImageError}
-        />
-        {inCart ? (
-          <TouchableOpacity 
-            style={{ borderWidth: 1, borderColor: "#E5E5E5", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginTop: -20, backgroundColor: "#ffeaea"}}
-            onPress={onRemove}
-          >
-            <Text style={{ color: 'red' }}>Hapus</Text>
-          </TouchableOpacity>
-        ) : (
-          <TouchableOpacity 
-            style={{ borderWidth: 1, borderColor: "#E5E5E5", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20, marginTop: -20, backgroundColor: "white"}}
-            onPress={onAdd}
-          >
-            <Text>Tambah</Text>
-          </TouchableOpacity>
-        )}
+    <View style={styles.menuCard}>
+      <Image
+        source={menu?.image ? { uri: menu.image } : menuImage}
+        style={styles.menuImage}
+        resizeMode="cover"
+        onLoad={onImageLoad}
+        onError={onImageError}
+      />
+      <View style={{ flex: 1 }}>
+        <Text style={styles.menuName} numberOfLines={1}>{menu?.name || "-"}</Text>
+        <Text style={styles.menuDesc} numberOfLines={2}>{menu?.description || "-"}</Text>
+        <View style={styles.menuBottomRow}>
+          <Text style={styles.menuPrice}>Rp {menu?.price ? menu.price.toLocaleString() : "-"}</Text>
+          {inCart ? (
+            <TouchableOpacity style={styles.removeBtn} onPress={onRemove}>
+              <MaterialIcons name="close" size={13} color="#D64545" />
+              <Text style={styles.removeBtnText}>Hapus</Text>
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={styles.addBtn} onPress={onAdd}>
+              <MaterialIcons name="add" size={14} color="white" />
+              <Text style={styles.addBtnText}>Tambah</Text>
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
     </View>
-  )
-}
+  );
+};
 
 const CateringDetail = () => {
   const { sellerid } = useLocalSearchParams();
@@ -66,6 +65,7 @@ const CateringDetail = () => {
   const [loadingTimeout, setLoadingTimeout] = useState(null);
   const [pax, setPax] = useState('1');
   const [buyerLocation, setBuyerLocation] = useState(null);
+  const [cardHeight, setCardHeight] = useState(FALLBACK_CARD_HEIGHT);
   const router = useRouter();
 
   // Clear cart if seller changes
@@ -331,264 +331,484 @@ const CateringDetail = () => {
     }
   }, [allContentLoaded, loadingTimeout]);
 
-  return (
-    <>
-      {/* Banner Image with Skeleton Loader */}
-      {!bannerImageLoaded && (
-        <View style={styles.bannerSkeletonContainer}>
-          <SkeletonLoader 
-            width="100%" 
-            height="100%" 
-            borderRadius={0}
-            style={styles.bannerSkeleton}
-          />
-        </View>
-      )}
-      <Image
-        source={bannerUrl ? { uri: bannerUrl } : banner2}
-        style={[styles.backgroundImage, { opacity: bannerImageLoaded ? 1 : 0 }]}
-        resizeMode="cover"
-        onLoad={handleBannerImageLoad}
-        onError={handleBannerImageError}
-      />
-      <SafeAreaView style={styles.container}>
-        <HeaderTitleBack />
-        <View
-          style={{
-            backgroundColor: "white",
-            marginHorizontal: 30,
-            marginVertical: 20,
-            paddingHorizontal: 15,
-            paddingVertical: 20,
-            borderRadius: 20,
-            borderWidth: 1,
-            borderColor: "#E5E5E5",
-            shadowColor: "#000",
-            shadowOffset: {
-              width: 0,
-              height: 2,
-            },
-            shadowOpacity: 0.05,
-            shadowRadius: 3.84,
-            elevation: 5,
-            flexDirection: "row",
-            alignItems: "center",
-            justifyContent: "space-between",
-          }}
-        >
-          {!allContentLoaded ? (
-            <>
-              <View style={{ flex: 1 }}>
-                <SkeletonLoader width="80%" height={16} style={{ marginBottom: 15 }} />
-                <SkeletonLoader width="60%" height={12} />
-              </View>
-              <View style={{ alignItems: 'center' }}>
-                <SkeletonLoader width={60} height={40} borderRadius={10} />
-              </View>
-            </>
-          ) : (
-            <>
-              <View>
-                <Text style={{ fontSize: 14 }}>{store ? `${store.name} - ${store.kelurahan}` : "-"}</Text>
-                <Text style={{ fontSize: 10, paddingTop: 15 }}>
-                  {store ? store.type : "Rantangan, Catering"}
-                </Text>
-              </View>
-              <View style={{ borderWidth: 1, borderColor: "#E5E5E5", borderRadius: 10 }}>
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    backgroundColor: COLORS.GREEN3,
-                    borderTopLeftRadius: 10,
-                    borderTopRightRadius: 10,
-                    paddingHorizontal: 10,
-                    paddingVertical: 2,
-                    justifyContent: "center",
-                    gap: 2,
-                  }}
-                >
-                  <Text style={{color: "white", fontSize: 10}}>{store ? store.rating : "4.7"}</Text>
-                  <Image
-                    source={starSolid}
-                    style={{ width: 15, height: 15 }}
-                    resizeMode="contain"
-                  />
-                </View>
+  const headerHeight = BANNER_HEIGHT - OVERLAP + cardHeight;
 
-                <View
-                  style={{
-                    flexDirection: "row",
-                    alignItems: "center",
-                    borderBottomLeftRadius: 10,
-                    borderBottomRightRadius: 10,
-                    paddingHorizontal: 10,
-                    paddingVertical: 2,
-                    justifyContent: "center",
-                    gap: 2,
-                  }}
-                >
-                  <MaterialIcons name="location-on" size={12} color={COLORS.PRIMARY} />
-                  <Text style={{color: "black", fontSize: 10}}>
-                    {store && store.distance !== null ? `${store.distance} km` : "Jarak tidak diketahui"}
-                  </Text>
-                </View>
-              </View>
-            </>
-          )}
-        </View>
-        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ gap: 10, paddingBottom: 20 }}>
-          {!allContentLoaded || loading ? (
-            <View style={{ paddingHorizontal: 30, gap: 10 }}>
-              <MenuItemSkeleton />
-              <MenuItemSkeleton />
-              <MenuItemSkeleton />
-              <MenuItemSkeleton />
-              <MenuItemSkeleton />
+  return (
+    <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
+      {/* Fixed header: banner, does NOT scroll */}
+      <View style={styles.bannerLayer}>
+        {!bannerImageLoaded && (
+          <View style={StyleSheet.absoluteFill}>
+            <SkeletonLoader width="100%" height="100%" borderRadius={0} />
+          </View>
+        )}
+        <Image
+          source={bannerUrl ? { uri: bannerUrl } : banner2}
+          style={[styles.bannerImage, { opacity: bannerImageLoaded ? 1 : 0 }]}
+          resizeMode="cover"
+          onLoad={handleBannerImageLoad}
+          onError={handleBannerImageError}
+        />
+        <View style={styles.bannerScrim} pointerEvents="none" />
+      </View>
+
+      {/* Fixed store card, does NOT scroll */}
+      <View
+        style={[styles.storeCard, { top: BANNER_HEIGHT - OVERLAP }, !allContentLoaded && styles.storeCardLoading]}
+        onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
+      >
+        {!allContentLoaded ? (
+          <>
+            <View style={{ flex: 1 }}>
+              <SkeletonLoader width="70%" height={16} style={{ marginBottom: 10 }} />
+              <SkeletonLoader width="50%" height={12} />
             </View>
-          ) : error ? (
-            <Text style={{ marginHorizontal: 30, color: 'red' }}>{error}</Text>
-          ) : categories.length === 0 ? (
-            <Text style={{ marginHorizontal: 30 }}>Tidak ada menu</Text>
-          ) : (
-            categories.map((cat, idx) => (
-              <View key={cat.name || idx} style={{ gap: 10 }}>
-                <Text style={{ fontSize: 14, fontWeight: "bold", marginHorizontal: 30, marginBottom: 10 }}>{cat.name}</Text>
-                {cat.items && cat.items.length > 0 ? (
-                  cat.items.map((menu, mIdx) => (
-                    <ListMenu
-                      key={menu.id || mIdx}
-                      menu={menu}
-                      inCart={isInCart(menu.id)}
-                      onAdd={() => addToCart(menu)}
-                      onRemove={() => removeFromCart(menu)}
-                      onImageLoad={handleMenuImageLoad}
-                      onImageError={handleMenuImageLoad}
-                    />
-                  ))
-                ) : (
-                  <Text style={{ marginHorizontal: 30, fontSize: 12, color: COLORS.GRAY }}>Tidak ada menu di kategori ini</Text>
+            <SkeletonLoader width={54} height={40} borderRadius={12} />
+          </>
+        ) : (
+          <>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.storeName} numberOfLines={1}>{store ? store.name : "-"}</Text>
+              {!!store?.kelurahan && (
+                <View style={styles.locationRow}>
+                  <MaterialIcons name="place" size={13} color="rgba(255,255,255,0.85)" />
+                  <Text style={styles.storeSub} numberOfLines={1}>{store.kelurahan}</Text>
+                </View>
+              )}
+              <View style={styles.tagRow}>
+                <View style={styles.tag}>
+                  <Text style={styles.tagText}>{store?.type || "Catering"}</Text>
+                </View>
+                {store?.distance !== null && store?.distance !== undefined && (
+                  <View style={styles.tag}>
+                    <MaterialIcons name="near-me" size={11} color="white" style={{ marginRight: 3 }} />
+                    <Text style={styles.tagText}>{store.distance} km</Text>
+                  </View>
                 )}
               </View>
-            ))
-          )}
-        </ScrollView>
-
-        {/* Floating Cart Button */}
-        {allContentLoaded && cart.items.length > 0 && cart.sellerId === sellerid && (
-          <TouchableOpacity
-            style={{
-              position: "absolute",
-              bottom: 30,
-              left: 0,
-              right: 0,
-              marginHorizontal: 30,
-              backgroundColor: COLORS.GREEN3,
-              borderRadius: 30,
-              padding: 15,
-              alignItems: "center",
-              shadowColor: "#000",
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.1,
-              shadowRadius: 3.84,
-              elevation: 5,
-            }}
-            onPress={() => setCartVisible(true)}
-          >
-            <Text style={{ color: "white", fontWeight: "bold" }}>
-              {cartButtonText}
-            </Text>
-          </TouchableOpacity>
+            </View>
+            <View style={styles.ratingPill}>
+              <Image source={starSolid} style={{ width: 20, height: 20 }} />
+              <Text style={styles.ratingText}>{store ? store.rating : "4.7"}</Text>
+            </View>
+          </>
         )}
-        {/* Cart Modal */}
-        <Modal visible={cartVisible} animationType="slide" transparent>
-          <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
-            <TouchableOpacity
-              activeOpacity={1}
-              style={{ flex: 1 }}
-              onPress={() => {
-                Keyboard.dismiss();
-                setCartVisible(false);
-              }}
-            />
-            <View style={{ backgroundColor: 'white', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, minHeight: 220, maxHeight: 350 }}>
-              <Text style={{ fontSize: 18, fontWeight: 'bold', marginBottom: 10 }}>Keranjang</Text>
-              <View style={{ maxHeight: 120, marginBottom: 10 }}>
-                <ScrollView>
-                  {cart.items.map((item) => (
-                    <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 }}>
-                      <Text style={{ flex: 1 }}>{item.name}</Text>
-                    </View>
-                  ))}
-                </ScrollView>
-              </View>
-              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-                <Text style={{ fontWeight: 'bold', marginRight: 10 }}>Jumlah Pax</Text>
-                <TextInput
-                  style={{ borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 8, padding: 8, width: 80, textAlign: 'center' }}
-                  value={pax}
-                  onChangeText={setPax}
-                  keyboardType="numeric"
-                  placeholder="1"
-                  onBlur={Keyboard.dismiss}
-                />
-              </View>
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 }}>
-                <Text style={{ fontWeight: 'bold' }}>Total</Text>
-                <Text style={{ fontWeight: 'bold' }}>Rp {getTotal().toLocaleString()}</Text>
-              </View>
-              <View style={{ gap: 10 }}>
-                <TouchableOpacity
-                  style={{ backgroundColor: COLORS.GREEN3, borderRadius: 20, padding: 15, alignItems: 'center' }}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    handleLanjutPembayaran();
-                  }}
-                >
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Lanjut Pembayaran</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={{ backgroundColor: "grey", borderRadius: 20, padding: 15, alignItems: 'center' }}
-                  onPress={() => {
-                    Keyboard.dismiss();
-                    setCartVisible(false);
-                  }}
-                >
-                  <Text style={{ color: 'white', fontWeight: 'bold' }}>Tutup</Text>
-                </TouchableOpacity>
-              </View>
+      </View>
+
+      {/* Scrollable content, sits below the fixed header */}
+      <ScrollView
+        showsVerticalScrollIndicator={false}
+        contentContainerStyle={{ paddingTop: headerHeight + 15, paddingBottom: 20, gap: 10 }}
+      >
+        {!allContentLoaded || loading ? (
+          <View style={{ paddingHorizontal: 20, gap: 12 }}>
+            <MenuItemSkeleton />
+            <MenuItemSkeleton />
+            <MenuItemSkeleton />
+            <MenuItemSkeleton />
+            <MenuItemSkeleton />
+          </View>
+        ) : error ? (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="error-outline" size={36} color={COLORS.TEXTSECONDARY} />
+            <Text style={styles.errorText}>{error}</Text>
+          </View>
+        ) : categories.length === 0 ? (
+          <View style={styles.errorContainer}>
+            <MaterialIcons name="restaurant-menu" size={36} color={COLORS.TEXTSECONDARY} />
+            <Text style={styles.errorText}>Tidak ada menu</Text>
+          </View>
+        ) : (
+          categories.map((cat, idx) => (
+            <View key={cat.name || idx} style={{ gap: 12, marginBottom: 6 }}>
+              <Text style={styles.categoryTitle}>{cat.name}</Text>
+              {cat.items && cat.items.length > 0 ? (
+                cat.items.map((menu, mIdx) => (
+                  <ListMenu
+                    key={menu.id || mIdx}
+                    menu={menu}
+                    inCart={isInCart(menu.id)}
+                    onAdd={() => addToCart(menu)}
+                    onRemove={() => removeFromCart(menu)}
+                    onImageLoad={handleMenuImageLoad}
+                    onImageError={handleMenuImageLoad}
+                  />
+                ))
+              ) : (
+                <Text style={styles.emptyCategoryText}>Tidak ada menu di kategori ini</Text>
+              )}
+            </View>
+          ))
+        )}
+      </ScrollView>
+
+      {/* Floating Cart Button */}
+      {allContentLoaded && cart.items.length > 0 && cart.sellerId === sellerid && (
+        <TouchableOpacity
+          style={styles.floatingCartButton}
+          onPress={() => setCartVisible(true)}
+        >
+          <MaterialIcons name="shopping-bag" size={18} color="white" />
+          <Text style={styles.floatingCartText}>{cartButtonText}</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Cart Modal */}
+      <Modal visible={cartVisible} animationType="slide" transparent>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity
+            activeOpacity={1}
+            style={{ flex: 1 }}
+            onPress={() => {
+              Keyboard.dismiss();
+              setCartVisible(false);
+            }}
+          />
+          <View style={styles.cartSheet}>
+            <View style={styles.cartHandle} />
+            <Text style={styles.cartTitle}>Keranjang</Text>
+            <View style={{ maxHeight: 120, marginBottom: 14 }}>
+              <ScrollView>
+                {cart.items.map((item) => (
+                  <View key={item.id} style={styles.cartItemRow}>
+                    <Text style={{ flex: 1, fontSize: 13 }}>{item.name}</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={styles.paxRow}>
+              <Text style={styles.paxLabel}>Jumlah Pax</Text>
+              <TextInput
+                style={styles.paxInput}
+                value={pax}
+                onChangeText={setPax}
+                keyboardType="numeric"
+                placeholder="1"
+                onBlur={Keyboard.dismiss}
+              />
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>Rp {getTotal().toLocaleString()}</Text>
+            </View>
+            <View style={{ gap: 10, marginTop: 6 }}>
+              <TouchableOpacity
+                style={styles.primaryCartBtn}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  handleLanjutPembayaran();
+                }}
+              >
+                <Text style={styles.primaryCartBtnText}>Lanjut Pembayaran</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.secondaryCartBtn}
+                onPress={() => {
+                  Keyboard.dismiss();
+                  setCartVisible(false);
+                }}
+              >
+                <Text style={styles.secondaryCartBtnText}>Tutup</Text>
+              </TouchableOpacity>
             </View>
           </View>
-        </Modal>
-      </SafeAreaView>
-    </>
+        </View>
+      </Modal>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  backgroundImage: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: 200,
-  },
-  bannerSkeletonContainer: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-    width: "100%",
-    height: 200,
-    zIndex: 1,
-  },
-  bannerSkeleton: {
-    position: "absolute",
-    top: 0,
-    left: 0,
-  },
   container: {
     flex: 1,
-    position: "relative", // This ensures SafeAreaView stays on top
+    backgroundColor: "white",
+  },
+  bannerLayer: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    height: BANNER_HEIGHT,
+    overflow: "hidden",
+    zIndex: 0,
+    elevation: 0,
+  },
+  bannerImage: {
+    width: "100%",
+    height: "100%",
+  },
+  bannerScrim: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: "rgba(0,0,0,0.15)",
+  },
+  storeCard: {
+    position: "absolute",
+    left: 20,
+    right: 20,
+    backgroundColor: COLORS.PRIMARY,
+    padding: 18,
+    borderRadius: 22,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    zIndex: 5,
+    elevation: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+  },
+  storeCardLoading: {
+    backgroundColor: "white",
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+    alignItems: "center",
+  },
+  storeName: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "white",
+  },
+  locationRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 4,
+  },
+  storeSub: {
+    fontSize: 11,
+    color: "rgba(255,255,255,0.85)",
+  },
+  tagRow: {
+    flexDirection: "row",
+    gap: 6,
+    marginTop: 10,
+  },
+  tag: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(255,255,255,0.18)",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 8,
+  },
+  tagText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "white",
+  },
+  ratingPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 5,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+  },
+  ratingText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "white",
+  },
+  categoryTitle: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1A1A1A",
+    marginHorizontal: 20,
+  },
+  emptyCategoryText: {
+    marginHorizontal: 20,
+    fontSize: 12,
+    color: COLORS.TEXTSECONDARY,
+  },
+  menuCard: {
+    backgroundColor: "white",
+    padding: 14,
+    marginHorizontal: 20,
+    borderRadius: 18,
+    flexDirection: "row",
+    gap: 12,
+    borderWidth: 1,
+    borderColor: "#F0F0F0",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  menuImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 14,
+  },
+  menuName: {
+    fontSize: 14,
+    fontWeight: "700",
+    color: "#1A1A1A",
+  },
+  menuDesc: {
+    fontSize: 11,
+    color: COLORS.TEXTSECONDARY,
+    marginTop: 3,
+    lineHeight: 15,
+  },
+  menuBottomRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginTop: 8,
+  },
+  menuPrice: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: COLORS.PRIMARY,
+  },
+  addBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: COLORS.PRIMARY,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  addBtnText: {
+    color: "white",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  removeBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    backgroundColor: "#FFEAEA",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  removeBtnText: {
+    color: "#D64545",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  errorContainer: {
+    alignItems: "center",
+    justifyContent: "center",
+    paddingVertical: 60,
+    gap: 10,
+  },
+  errorText: {
+    fontSize: 13,
+    color: COLORS.TEXTSECONDARY,
+  },
+  floatingCartButton: {
+    position: "absolute",
+    bottom: 30,
+    left: 20,
+    right: 20,
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 18,
+    paddingVertical: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingCartText: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  cartSheet: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    minHeight: 260,
+    maxHeight: 380,
+  },
+  cartHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E5E5",
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  cartTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 14,
+    color: "#1A1A1A",
+  },
+  cartItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  paxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: "space-between",
+    marginBottom: 14,
+  },
+  paxLabel: {
+    fontWeight: '600',
+    fontSize: 13,
+    color: "#1A1A1A",
+  },
+  paxInput: {
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    borderRadius: 10,
+    padding: 8,
+    width: 80,
+    textAlign: 'center',
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+  },
+  totalLabel: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: "#1A1A1A",
+  },
+  totalValue: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: COLORS.PRIMARY,
+  },
+  primaryCartBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 16,
+    padding: 15,
+    alignItems: 'center',
+  },
+  primaryCartBtnText: {
+    color: 'white',
+    fontWeight: '700',
+  },
+  secondaryCartBtn: {
+    backgroundColor: "#F0F0F0",
+    borderRadius: 16,
+    padding: 15,
+    alignItems: 'center',
+  },
+  secondaryCartBtnText: {
+    color: '#555',
+    fontWeight: '700',
   },
 });
 

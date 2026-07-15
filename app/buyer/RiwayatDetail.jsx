@@ -1,15 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Image, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useLocalSearchParams } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../constants/config';
-import HeaderTitleBack from '../../components/HeaderTitleBack';
+import COLORS from '../constants/color';
 import { MaterialIcons } from '@expo/vector-icons';
 
 const RiwayatDetail = () => {
   const { orderId } = useLocalSearchParams();
+  const router = useRouter();
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [seller, setSeller] = useState(null); // Add seller state
@@ -75,25 +76,42 @@ const RiwayatDetail = () => {
     }
   };
 
+  // Header selaras dengan halaman lain
+  const Header = () => (
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Detail Pesanan</Text>
+      <View style={{ width: 26 }} />
+    </View>
+  );
+
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f6f7fb' }}>
-        <Text style={{ color: '#aaa', fontSize: 16 }}>Loading...</Text>
+      <SafeAreaView style={styles.container}>
+        <Header />
+        <View style={styles.centerBox}>
+          <Text style={{ color: '#aaa', fontSize: 16 }}>Loading...</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   if (!order) {
     return (
-      <SafeAreaView style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f6f7fb' }}>
-        <Text style={{ color: '#aaa', fontSize: 16 }}>Order detail tidak ditemukan.</Text>
+      <SafeAreaView style={styles.container}>
+        <Header />
+        <View style={styles.centerBox}>
+          <Text style={{ color: '#aaa', fontSize: 16 }}>Order detail tidak ditemukan.</Text>
+        </View>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7fb' }}>
-      <HeaderTitleBack title="Detail Pesanan" />
+    <SafeAreaView style={styles.container}>
+      <Header />
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         {/* Order Summary Card */}
         <View style={[styles.card, { paddingBottom: 10 }]}> 
@@ -170,6 +188,28 @@ const RiwayatDetail = () => {
 };
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#F5F6FA',
+  },
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
+  centerBox: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   scrollContainer: {
     padding: 18,
     paddingBottom: 32,

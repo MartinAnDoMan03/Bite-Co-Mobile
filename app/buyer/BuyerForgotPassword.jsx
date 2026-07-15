@@ -5,7 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Dimensions,
+  useWindowDimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -13,15 +13,26 @@ import {
 } from "react-native";
 import React, { useState } from "react";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import config from '../constants/config'; 
 import { Ionicons } from "@expo/vector-icons";
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BURGUNDY = "#711330";
+
+// Helper scaling responsif: dasar dari lebar 375 (iPhone standar), dengan batas atas/bawah
+// biar teks & spacing nggak kegedean di tablet atau kekecilan di layar kecil.
+const BASE_WIDTH = 375;
+const scale = (size, width) => {
+  const ratio = width / BASE_WIDTH;
+  const clampedRatio = Math.max(0.85, Math.min(ratio, 1.3));
+  return Math.round(size * clampedRatio);
+};
 
 const BuyerForgotPassword = () => {
   const router = useRouter();
-  
+  const insets = useSafeAreaInsets();
+  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+
   // State untuk mengontrol tampilan (1 = Input Email, 2 = Input OTP & Password Baru)
   const [step, setStep] = useState(1); 
   
@@ -138,35 +149,41 @@ const BuyerForgotPassword = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
           
-          {/* Header Section */}
-          <View style={styles.topSection}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={28} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Lupa Password</Text>
+          {/* Header Section: judul & deskripsi ada di sini, bukan di bagian putih */}
+          <View style={[styles.topSection, { paddingTop: insets.top + 150, paddingHorizontal: SCREEN_WIDTH * 0.09 }]}>
+            <Text style={[styles.greeting, { fontSize: scale(26, SCREEN_WIDTH) }]}>
+              {step === 1 ? "Reset Password" : "Buat Password Baru"}
+            </Text>
+            <Text style={[styles.subtitle, { fontSize: scale(13, SCREEN_WIDTH) }]}>
+              {step === 1 ? (
+                "Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mereset password Anda."
+              ) : (
+                <>
+                  Masukkan 6-digit kode OTP yang dikirim ke <Text style={{ fontWeight: 'bold' }}>{email}</Text> beserta password baru Anda.
+                </>
+              )}
+            </Text>
           </View>
 
-          {/* Form Section */}
-          <View style={styles.bottomSection}>
+          {/* Form Section — hanya berisi input & tombol */}
+          <View style={[styles.bottomSection, { paddingHorizontal: SCREEN_WIDTH * 0.07, paddingTop: Math.max(SCREEN_HEIGHT * 0.0, 48) }]}>
             
             {step === 1 ? (
-              // TAMPILAN LANGKAH 1 (INPUT EMAIL)
               <>
-                <Text style={styles.greeting}>Reset Password</Text>
-                <Text style={styles.subtitle}>
-                  Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mereset password Anda.
-                </Text>
-
                 <View style={styles.inputWrap}>
                   <TextInput
                     placeholder="Email Anda"
                     placeholderTextColor="#aaa"
                     value={email}
                     onChangeText={setEmail}
-                    style={styles.input}
+                    style={[styles.input, { fontSize: scale(14, SCREEN_WIDTH) }]}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
@@ -177,26 +194,20 @@ const BuyerForgotPassword = () => {
                   onPress={handleRequestOTP}
                   disabled={isLoading}
                 >
-                  <Text style={styles.btnPrimaryText}>
+                  <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
                     {isLoading ? "Mengirim..." : "Kirim Kode OTP"}
                   </Text>
                 </TouchableOpacity>
               </>
             ) : (
-              // TAMPILAN LANGKAH 2 (INPUT OTP & NEW PASSWORD)
               <>
-                <Text style={styles.greeting}>Buat Password Baru</Text>
-                <Text style={styles.subtitle}>
-                  Masukkan 6-digit kode OTP yang dikirim ke <Text style={{fontWeight: 'bold'}}>{email}</Text> beserta password baru Anda.
-                </Text>
-
                 <View style={styles.inputWrap}>
                   <TextInput
                     placeholder="Kode OTP"
                     placeholderTextColor="#aaa"
                     value={otp}
                     onChangeText={setOtp}
-                    style={styles.input}
+                    style={[styles.input, { fontSize: scale(14, SCREEN_WIDTH), letterSpacing: 2 }]}
                     keyboardType="number-pad"
                     maxLength={6}
                   />
@@ -209,11 +220,12 @@ const BuyerForgotPassword = () => {
                     value={newPassword}
                     onChangeText={setNewPassword}
                     secureTextEntry={!showPassword}
-                    style={[styles.input, { paddingRight: 48 }]}
+                    style={[styles.input, { fontSize: scale(14, SCREEN_WIDTH), paddingRight: 48 }]}
                   />
                   <TouchableOpacity
                     style={styles.eyeBtn}
                     onPress={() => setShowPassword(!showPassword)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#888" />
                   </TouchableOpacity>
@@ -224,13 +236,13 @@ const BuyerForgotPassword = () => {
                   onPress={handleResetPassword}
                   disabled={isLoading}
                 >
-                  <Text style={styles.btnPrimaryText}>
+                  <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
                     {isLoading ? "Memproses..." : "Simpan Password Baru"}
                   </Text>
                 </TouchableOpacity>
                 
-                <TouchableOpacity style={{marginTop: 15}} onPress={() => setStep(1)}>
-                  <Text style={styles.resendText}>Kirim ulang OTP (Ganti Email)</Text>
+                <TouchableOpacity style={{ marginTop: 15 }} onPress={() => setStep(1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                  <Text style={[styles.resendText, { fontSize: scale(13, SCREEN_WIDTH) }]}>Kirim ulang OTP (Ganti Email)</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -246,10 +258,10 @@ const BuyerForgotPassword = () => {
             <View style={styles.alertIconWrap}>
               <Ionicons name={alertTitle === "Berhasil" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
             </View>
-            <Text style={styles.alertTitle}>{alertTitle}</Text>
-            <Text style={styles.alertText}>{alertMessage}</Text>
+            <Text style={[styles.alertTitle, { fontSize: scale(16, SCREEN_WIDTH) }]}>{alertTitle}</Text>
+            <Text style={[styles.alertText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{alertMessage}</Text>
             <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAlertModal(false)}>
-              <Text style={styles.alertBtnText}>Mengerti</Text>
+              <Text style={[styles.alertBtnText, { fontSize: scale(13, SCREEN_WIDTH) }]}>Mengerti</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -263,67 +275,57 @@ export default BuyerForgotPassword;
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BURGUNDY },
   topSection: {
-    height: SCREEN_HEIGHT * 0.25,
     backgroundColor: BURGUNDY,
     alignItems: "center",
-    justifyContent: "center",
-    position: 'relative'
-  },
-  backBtn: { position: 'absolute', top: 40, left: 20, zIndex: 10 },
-  headerTitle: { color: 'white', fontSize: 24, fontWeight: 'bold' },
-  bottomSection: {
-    flex: 1,
-    paddingHorizontal: SCREEN_WIDTH * 0.07,
-    paddingTop: SCREEN_HEIGHT * 0.05,
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    marginTop: -20,
-    alignItems: "center",
+    paddingBottom: 190,
   },
   greeting: {
-    fontSize: SCREEN_WIDTH * 0.08,
     fontWeight: "800",
-    color: BURGUNDY,
-    marginBottom: 8,
+    color: "#fff",
+    marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: SCREEN_WIDTH * 0.035,
-    color: "#666",
-    marginBottom: SCREEN_HEIGHT * 0.04,
+    color: "rgba(255,255,255,0.85)",
     textAlign: "center",
     lineHeight: 20,
+    maxWidth: 340,
   },
-  inputWrap: { width: "100%", marginBottom: SCREEN_HEIGHT * 0.02, position: 'relative' },
+  bottomSection: {
+    flex: 1,
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    alignItems: "center",
+  },
+  inputWrap: { width: "100%", marginBottom: 16, position: 'relative' },
   input: {
     backgroundColor: "#fff",
     borderWidth: 1.2,
     borderColor: "#ddd",
     borderRadius: 14,
-    paddingVertical: SCREEN_HEIGHT * 0.018,
-    paddingHorizontal: SCREEN_WIDTH * 0.05,
-    fontSize: SCREEN_WIDTH * 0.038,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     color: "#1a1a1a",
   },
   eyeBtn: { position: "absolute", right: 16, top: 0, bottom: 0, justifyContent: "center" },
   btnPrimary: {
     width: "100%",
     backgroundColor: BURGUNDY,
-    paddingVertical: SCREEN_HEIGHT * 0.02,
+    paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 10,
   },
-  btnPrimaryText: { color: "#fff", fontSize: SCREEN_WIDTH * 0.04, fontWeight: "700" },
-  resendText: { color: BURGUNDY, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
+  btnPrimaryText: { color: "#fff", fontWeight: "700" },
+  resendText: { color: BURGUNDY, fontWeight: '600', textDecorationLine: 'underline' },
   
   // Alert styles
   alertOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", paddingHorizontal: 28 },
-  alertCard: { width: "100%", backgroundColor: "#fff", borderRadius: 20, padding: 24, alignItems: "center" },
+  alertCard: { width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 20, padding: 24, alignItems: "center" },
   alertIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#fdf1f4", alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  alertTitle: { color: BURGUNDY, fontSize: SCREEN_WIDTH * 0.045, fontWeight: "700", marginBottom: 8, textAlign: "center" },
-  alertText: { color: "#555", fontSize: SCREEN_WIDTH * 0.036, textAlign: "center", marginBottom: 22 },
+  alertTitle: { color: BURGUNDY, fontWeight: "700", marginBottom: 8, textAlign: "center" },
+  alertText: { color: "#555", textAlign: "center", marginBottom: 22 },
   alertBtn: { width: "100%", paddingVertical: 13, borderRadius: 12, backgroundColor: BURGUNDY, alignItems: "center" },
-  alertBtnText: { color: "#fff", fontSize: SCREEN_WIDTH * 0.037, fontWeight: "700" },
+  alertBtnText: { color: "#fff", fontWeight: "700" },
 });

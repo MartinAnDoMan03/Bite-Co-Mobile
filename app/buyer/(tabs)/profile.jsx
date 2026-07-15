@@ -1,14 +1,49 @@
-import { StyleSheet, Text, View, TouchableOpacity, ActivityIndicator, ScrollView, Image, SafeAreaView, Alert, Modal, TextInput } from 'react-native';
-import React, { useCallback, useEffect, useState } from 'react';
+import {
+  StyleSheet,
+  Text,
+  View,
+  TouchableOpacity,
+  ActivityIndicator,
+  ScrollView,
+  Alert,
+  Modal,
+  TextInput,
+} from 'react-native';
+import React, { useCallback, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../../constants/color';
 import axios from 'axios';
 import config from '../../constants/config';
 import { useRouter } from 'expo-router';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
-import PinPointMapModal from '../../../components/PinPointMapModal';
 import { MaterialIcons } from '@expo/vector-icons';
-import { ProfileSkeleton } from '../../../components/SkeletonLoader';
+import PinPointMapModal from '../../../components/PinPointMapModal';
+
+// ---------------------------------------------------------------------------
+// Small reusable row: icon + label on the left, value on the right
+// ---------------------------------------------------------------------------
+const InfoRow = ({ icon, label, value, isLast }) => (
+  <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
+    <View style={styles.infoRowLeft}>
+      <MaterialIcons name={icon} size={16} color="#999" />
+      <Text style={styles.infoRowLabel}>{label}</Text>
+    </View>
+    <Text style={styles.infoRowValue} numberOfLines={1}>{value || "-"}</Text>
+  </View>
+);
+
+// ---------------------------------------------------------------------------
+// Address grid field (read-only): label kecil abu-abu di atas, value di bawah
+// ---------------------------------------------------------------------------
+const AddressField = ({ label, value, placeholder }) => (
+  <View style={styles.addressField}>
+    <Text style={styles.addressLabel}>{label}</Text>
+    <Text style={styles.addressValue} numberOfLines={2}>
+      {value || placeholder}
+    </Text>
+  </View>
+);
 
 const profile = () => {
   const router = useRouter();
@@ -27,6 +62,7 @@ const profile = () => {
   const [showPinPointModal, setShowPinPointModal] = useState(false);
   const [showEditAddressModal, setShowEditAddressModal] = useState(false);
 
+  // ---- Logika di bawah ini tidak diubah ----
   const fetchProfileData = useCallback(async () => {
     try {
       const token = await AsyncStorage.getItem('buyerToken');
@@ -43,10 +79,10 @@ const profile = () => {
       });
 
       setUserData(response.data);
-      
+
       // Load address data from AsyncStorage
       await loadAddressData();
-      
+
       setLoading(false);
     } catch (err) {
       setError('Failed to fetch profile data');
@@ -59,11 +95,11 @@ const profile = () => {
     try {
       const savedAddress = await AsyncStorage.getItem('addressFields');
       const savedPinPoint = await AsyncStorage.getItem('pinPoint');
-      
+
       if (savedAddress) {
         setAddressFields(JSON.parse(savedAddress));
       }
-      
+
       if (savedPinPoint) {
         setPinPoint(JSON.parse(savedPinPoint));
       }
@@ -89,14 +125,14 @@ const profile = () => {
   };
 
   const handlePinPointSelect = (point) => {
-    const newPinPoint = { 
-      lat: point.latitude, 
-      lng: point.longitude, 
-      address: point.address 
+    const newPinPoint = {
+      lat: point.latitude,
+      lng: point.longitude,
+      address: point.address
     };
     setPinPoint(newPinPoint);
     AsyncStorage.setItem('pinPoint', JSON.stringify(newPinPoint));
-    
+
     // Auto-fill address fields if address components are available
     if (point.addressComponents) {
       const newAddressFields = {
@@ -107,10 +143,10 @@ const profile = () => {
         kodepos: point.addressComponents.kodepos || '',
         catatan: addressFields.catatan, // Keep existing notes
       };
-      
+
       setAddressFields(newAddressFields);
       AsyncStorage.setItem('addressFields', JSON.stringify(newAddressFields));
-      
+
       // Show notification that address has been auto-filled
       Alert.alert(
         'Alamat Otomatis Terisi',
@@ -118,7 +154,7 @@ const profile = () => {
         [{ text: 'OK' }]
       );
     }
-    
+
     setShowPinPointModal(false);
   };
 
@@ -136,24 +172,25 @@ const profile = () => {
       Alert.alert('Error', 'Gagal menyimpan alamat');
     }
   };
+  // ---- Akhir bagian logika yang tidak diubah ----
 
   if (loading) {
     return (
-      <SafeAreaView style={{ flex: 1 }}>
-        <ProfileSkeleton />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
+        </View>
       </SafeAreaView>
     );
   }
 
   if (error) {
     return (
-      <SafeAreaView style={{ flex: 1 }}>
-        <View style={styles.errorContainer}>
-          <MaterialIcons name="error-outline" size={64} color="#ccc" />
+      <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+        <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={fetchProfileData}>
-            <MaterialIcons name="refresh" size={20} color="#fff" style={{ marginRight: 8 }} />
-            <Text style={styles.retryButtonText}>Coba Lagi</Text>
+          <TouchableOpacity style={[styles.pillButton, styles.solidButton]} onPress={fetchProfileData}>
+            <Text style={styles.solidButtonText}>Coba Lagi</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -161,150 +198,87 @@ const profile = () => {
   }
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7fb' }}>
-      <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-        <View style={styles.profileHeader}>
-          <View style={styles.profileImageContainer}>
-            <Image
-              source={require('../../../assets/images/profile.png')}
-              style={styles.profileImage}
-            />
-            <View style={styles.profileImageOverlay}>
-              <MaterialIcons name="person" size={40} color="#fff" />
-            </View>
-          </View>
-          <Text style={styles.headerText}>Profile Saya</Text>
-          <Text style={styles.headerSubText}>Kelola informasi akun Anda</Text>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+      {/* Header selaras dengan halaman profil penjual */}
+      <View style={styles.header}>
+        <View style={{ width: 26 }} />
+        <Text style={styles.headerTitle}>Profil Saya</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
+        {/* ---------------- Informasi Personal ---------------- */}
+        <Text style={styles.sectionTitle}>Informasi Personal</Text>
+        <View style={[styles.card, styles.shadow]}>
+          <InfoRow icon="badge" label="Nama" value={userData.name} />
+          <InfoRow icon="mail-outline" label="Email" value={userData.email} />
+          <InfoRow icon="phone" label="Telepon" value={userData.phone} isLast />
         </View>
 
-        <View style={styles.profileInfo}>
-          <Text style={styles.sectionTitle}>
-            <MaterialIcons name="person-outline" size={20} color={COLORS.PRIMARY} />
-            {" "}Informasi Personal
-          </Text>
-          <View style={styles.infoRow}>
-            <View style={styles.infoLeft}>
-              <MaterialIcons name="badge" size={20} color="#666" />
-              <Text style={styles.label}>Nama</Text>
-            </View>
-            <Text style={styles.value}>{userData.name}</Text>
+        {/* ---------------- Detail Alamat ---------------- */}
+        <Text style={styles.sectionTitle}>Alamat Pengantaran</Text>
+        <View style={[styles.card, styles.shadow]}>
+          <View style={styles.addressRow}>
+            <AddressField label="Alamat Lengkap" value={addressFields.address} placeholder="Belum diatur" />
+            <AddressField label="Kelurahan" value={addressFields.kelurahan} placeholder="Belum diatur" />
           </View>
-          <View style={styles.infoRow}>
-            <View style={styles.infoLeft}>
-              <MaterialIcons name="email" size={20} color="#666" />
-              <Text style={styles.label}>Email</Text>
-            </View>
-            <Text style={styles.value} numberOfLines={1}>{userData.email}</Text>
+          <View style={styles.addressRow}>
+            <AddressField label="Kecamatan" value={addressFields.kecamatan} placeholder="Belum diatur" />
+            <AddressField label="Provinsi" value={addressFields.provinsi} placeholder="Belum diatur" />
           </View>
-          <View style={styles.infoRow}>
-            <View style={styles.infoLeft}>
-              <MaterialIcons name="phone" size={20} color="#666" />
-              <Text style={styles.label}>Telepon</Text>
-            </View>
-            <Text style={styles.value}>{userData.phone}</Text>
+          <View style={styles.addressRow}>
+            <AddressField label="Kode Pos" value={addressFields.kodepos} placeholder="Belum diatur" />
+            <AddressField label="Catatan" value={addressFields.catatan} placeholder="Belum diatur" />
           </View>
+
+          <TouchableOpacity
+            style={[styles.pillButton, styles.outlineButton, { marginTop: 6 }]}
+            onPress={() => setShowEditAddressModal(true)}
+          >
+            <Text style={styles.outlineButtonText}>Edit Alamat</Text>
+          </TouchableOpacity>
         </View>
 
-        {/* Address Detail Section */}
-        <View style={styles.addressSection}>
-          <Text style={styles.sectionTitle}>
-            <MaterialIcons name="location-on" size={20} color={COLORS.PRIMARY} />
-            {" "}Alamat Pengantaran
-          </Text>
-          
-          <View style={styles.addressInfo}>
-            <View style={styles.addressRow}>
-              <MaterialIcons name="home" size={18} color="#666" />
-              <View style={styles.addressContent}>
-                <Text style={styles.addressLabel}>Alamat Lengkap</Text>
-                <Text style={styles.addressValue}>
-                  {addressFields.address || 'Belum diatur'}
-                </Text>
-              </View>
-            </View>
-            
-            {addressFields.kelurahan && (
-              <View style={styles.addressDetailRow}>
-                <Text style={styles.addressSubLabel}>Kelurahan:</Text>
-                <Text style={styles.addressSubValue}>{addressFields.kelurahan}</Text>
-              </View>
-            )}
-            
-            {addressFields.kecamatan && (
-              <View style={styles.addressDetailRow}>
-                <Text style={styles.addressSubLabel}>Kecamatan:</Text>
-                <Text style={styles.addressSubValue}>{addressFields.kecamatan}</Text>
-              </View>
-            )}
-            
-            {addressFields.provinsi && (
-              <View style={styles.addressDetailRow}>
-                <Text style={styles.addressSubLabel}>Provinsi:</Text>
-                <Text style={styles.addressSubValue}>{addressFields.provinsi}</Text>
-              </View>
-            )}
-            
-            {addressFields.kodepos && (
-              <View style={styles.addressDetailRow}>
-                <Text style={styles.addressSubLabel}>Kode Pos:</Text>
-                <Text style={styles.addressSubValue}>{addressFields.kodepos}</Text>
-              </View>
-            )}
-            
-            {addressFields.catatan && (
-              <View style={styles.addressDetailRow}>
-                <Text style={styles.addressSubLabel}>Catatan:</Text>
-                <Text style={styles.addressSubValue}>{addressFields.catatan}</Text>
-              </View>
-            )}
-          </View>
-
-          <View style={styles.pinPointSection}>
-            <View style={styles.addressRow}>
-              <MaterialIcons name="place" size={18} color="#666" />
-              <View style={styles.addressContent}>
-                <Text style={styles.addressLabel}>Pin Point Location</Text>
-                <Text style={styles.addressValue}>
-                  {pinPoint.address || 'Belum diatur'}
-                </Text>
-              </View>
-            </View>
-            
-            {pinPoint.lat && pinPoint.lng && (
-              <View style={styles.coordinateRow}>
-                <MaterialIcons name="my-location" size={16} color="#888" />
-                <Text style={styles.coordinateText}>
+        {/* ---------------- Pin Point Lokasi ---------------- */}
+        <View style={[styles.card, styles.shadow, { marginTop: 14 }]}>
+          <Text style={styles.pinLabel}>Pin Point Lokasi</Text>
+          <TouchableOpacity style={styles.pinBox} onPress={openPinPointMap} activeOpacity={0.8}>
+            {pinPoint.lat && pinPoint.lng ? (
+              <View style={styles.pinFilled}>
+                <MaterialIcons name="place" size={24} color={COLORS.PRIMARY} />
+                <Text style={styles.pinCoordinateText}>
                   {pinPoint.lat.toFixed(6)}, {pinPoint.lng.toFixed(6)}
                 </Text>
               </View>
+            ) : (
+              <View style={styles.pinPlaceholder}>
+                <MaterialIcons name="map" size={22} color="#bbb" />
+                <Text style={styles.pinPlaceholderText}>Belum diatur</Text>
+              </View>
             )}
-            
-            <View style={styles.buttonContainer}>
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.primaryButton]} 
-                onPress={openPinPointMap}
-              >
-                <MaterialIcons name="location-searching" size={20} color="#fff" />
-                <Text style={styles.actionButtonText}>
-                  {pinPoint.lat && pinPoint.lng ? 'Update Pin Point' : 'Set Pin Point'}
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.actionButton, styles.secondaryButton]} 
-                onPress={() => setShowEditAddressModal(true)}
-              >
-                <MaterialIcons name="edit-location" size={20} color="#fff" />
-                <Text style={styles.actionButtonText}>Edit Alamat</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
+          </TouchableOpacity>
+          {pinPoint.address ? (
+            <Text style={styles.pinAddressText} numberOfLines={2}>{pinPoint.address}</Text>
+          ) : null}
+          <TouchableOpacity
+            style={[styles.pillButton, styles.outlineButton, { marginTop: 12 }]}
+            onPress={openPinPointMap}
+          >
+            <Text style={styles.outlineButtonText}>
+              {pinPoint.lat && pinPoint.lng ? 'Update Pin Point' : 'Set Pin Point'}
+            </Text>
+          </TouchableOpacity>
         </View>
 
-        <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-          <MaterialIcons name="logout" size={20} color="#fff" style={{ marginRight: 8 }} />
-          <Text style={styles.signOutButtonText}>Keluar Akun</Text>
-        </TouchableOpacity>
+        {/* ---------------- Tombol Keluar ---------------- */}
+        <View style={styles.buttonContainer}>
+          <TouchableOpacity
+            style={[styles.pillButton, styles.solidButton]}
+            onPress={handleSignOut}
+          >
+            <Text style={styles.solidButtonText}>Keluar Akun</Text>
+          </TouchableOpacity>
+        </View>
       </ScrollView>
 
       {/* PinPoint Map Modal */}
@@ -312,13 +286,13 @@ const profile = () => {
         visible={showPinPointModal}
         onClose={() => setShowPinPointModal(false)}
         onSelect={handlePinPointSelect}
-        initialPin={pinPoint.lat && pinPoint.lng ? { 
-          latitude: pinPoint.lat, 
-          longitude: pinPoint.lng 
+        initialPin={pinPoint.lat && pinPoint.lng ? {
+          latitude: pinPoint.lat,
+          longitude: pinPoint.lng
         } : null}
       />
-      
-      {/* Edit Address Modal */}
+
+      {/* Edit Address Modal — direstyle selaras dengan gaya penjual */}
       <Modal
         visible={showEditAddressModal}
         transparent
@@ -328,65 +302,73 @@ const profile = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Text style={styles.modalTitle}>Edit Alamat Pengantaran</Text>
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Alamat lengkap..."
-              value={addressFields.address}
-              onChangeText={(text) => setAddressFields(prev => ({...prev, address: text}))}
-              multiline
-            />
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Kelurahan"
-              value={addressFields.kelurahan}
-              onChangeText={(text) => setAddressFields(prev => ({...prev, kelurahan: text}))}
-            />
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Kecamatan"
-              value={addressFields.kecamatan}
-              onChangeText={(text) => setAddressFields(prev => ({...prev, kecamatan: text}))}
-            />
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Provinsi"
-              value={addressFields.provinsi}
-              onChangeText={(text) => setAddressFields(prev => ({...prev, provinsi: text}))}
-            />
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Kode Pos"
-              value={addressFields.kodepos}
-              onChangeText={(text) => setAddressFields(prev => ({...prev, kodepos: text}))}
-              keyboardType="numeric"
-            />
-            
-            <TextInput
-              style={styles.modalInput}
-              placeholder="Catatan (opsional)"
-              value={addressFields.catatan}
-              onChangeText={(text) => setAddressFields(prev => ({...prev, catatan: text}))}
-              multiline
-            />
-            
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <Text style={styles.modalFieldLabel}>Alamat Lengkap</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalInputMultiline]}
+                placeholder="Alamat lengkap..."
+                value={addressFields.address}
+                onChangeText={(text) => setAddressFields(prev => ({ ...prev, address: text }))}
+                multiline
+              />
+
+              <Text style={styles.modalFieldLabel}>Kelurahan</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Kelurahan"
+                value={addressFields.kelurahan}
+                onChangeText={(text) => setAddressFields(prev => ({ ...prev, kelurahan: text }))}
+              />
+
+              <Text style={styles.modalFieldLabel}>Kecamatan</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Kecamatan"
+                value={addressFields.kecamatan}
+                onChangeText={(text) => setAddressFields(prev => ({ ...prev, kecamatan: text }))}
+              />
+
+              <Text style={styles.modalFieldLabel}>Provinsi</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Provinsi"
+                value={addressFields.provinsi}
+                onChangeText={(text) => setAddressFields(prev => ({ ...prev, provinsi: text }))}
+              />
+
+              <Text style={styles.modalFieldLabel}>Kode Pos</Text>
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Kode Pos"
+                value={addressFields.kodepos}
+                onChangeText={(text) => setAddressFields(prev => ({ ...prev, kodepos: text }))}
+                keyboardType="numeric"
+              />
+
+              <Text style={styles.modalFieldLabel}>Catatan (opsional)</Text>
+              <TextInput
+                style={[styles.modalInput, styles.modalInputMultiline]}
+                placeholder="Catatan (opsional)"
+                value={addressFields.catatan}
+                onChangeText={(text) => setAddressFields(prev => ({ ...prev, catatan: text }))}
+                multiline
+              />
+            </ScrollView>
+
             <View style={styles.modalButtonContainer}>
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.cancelButton]} 
+              <TouchableOpacity
+                style={[styles.pillButton, styles.outlineButton, { flex: 1 }]}
                 onPress={() => setShowEditAddressModal(false)}
               >
-                <Text style={styles.modalButtonText}>Batal</Text>
+                <Text style={styles.outlineButtonText}>Batal</Text>
               </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={[styles.modalButton, styles.saveButton]} 
+
+              <TouchableOpacity
+                style={[styles.pillButton, styles.solidButton, { flex: 1 }]}
                 onPress={handleSaveAddress}
               >
-                <Text style={styles.modalButtonText}>Simpan</Text>
+                <Text style={styles.solidButtonText}>Simpan</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -397,315 +379,223 @@ const profile = () => {
 };
 
 const styles = StyleSheet.create({
+  // Header selaras dengan halaman profil penjual
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    backgroundColor: "#fff",
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: '#f6f7fb',
+    paddingHorizontal: 16,
   },
-  errorContainer: {
+  loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-    backgroundColor: '#f6f7fb',
-  },
-  errorText: {
-    color: '#666',
-    fontSize: 16,
-    textAlign: 'center',
-    marginTop: 16,
-    marginBottom: 24,
-  },
-  retryButton: {
-    backgroundColor: COLORS.PRIMARY,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 8,
-  },
-  retryButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  profileHeader: {
-    alignItems: 'center',
-    marginBottom: 30,
-    paddingVertical: 20,
-  },
-  profileImageContainer: {
-    position: 'relative',
-    marginBottom: 16,
-  },
-  profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#f0f0f0',
-  },
-  profileImageOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    borderRadius: 50,
-    backgroundColor: 'rgba(0,0,0,0.3)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  headerText: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: '#23272f',
-    marginBottom: 4,
-  },
-  headerSubText: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-  },
-  profileInfo: {
-    marginBottom: 20,
+    justifyContent: "center",
+    alignItems: "center",
     padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
   },
+
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#23272f',
-    marginBottom: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    fontSize: 15,
+    fontWeight: "700",
+    color: COLORS.PRIMARY,
+    marginTop: 18,
+    marginBottom: 10,
   },
-  infoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+
+  card: {
+    backgroundColor: "#fff",
+    borderRadius: 14,
+    padding: 14,
   },
-  infoLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#666',
-    marginLeft: 12,
-  },
-  value: {
-    fontSize: 16,
-    color: '#23272f',
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'right',
-  },
-  value: {
-    fontSize: 16,
-    color: '#23272f',
-    fontWeight: '600',
-    flex: 1,
-    textAlign: 'right',
-  },
-  addressSection: {
-    marginBottom: 30,
-    padding: 20,
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    shadowColor: '#000',
+  shadow: {
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
-  addressInfo: {
-    marginBottom: 20,
-    paddingBottom: 20,
+
+  // Info row (icon + label + value)
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: "#f0f0f0",
   },
+  infoRowLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  infoRowLabel: {
+    fontSize: 13.5,
+    color: "#777",
+  },
+  infoRowValue: {
+    fontSize: 13.5,
+    fontWeight: "600",
+    color: "#23272f",
+    maxWidth: "60%",
+    textAlign: "right",
+  },
+
+  // Address grid (read-only)
   addressRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    marginBottom: 12,
+    flexDirection: "row",
+    gap: 16,
+    marginBottom: 14,
   },
-  addressContent: {
+  addressField: {
     flex: 1,
-    marginLeft: 12,
   },
   addressLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#666',
+    fontSize: 12,
+    color: "#999",
     marginBottom: 4,
   },
   addressValue: {
-    fontSize: 16,
-    color: '#23272f',
-    fontWeight: '500',
-    lineHeight: 22,
+    fontSize: 13.5,
+    fontWeight: "700",
+    color: "#23272f",
   },
-  addressDetailRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 8,
-    paddingLeft: 30,
-  },
-  addressSubLabel: {
-    fontSize: 14,
-    color: '#888',
-    fontWeight: '500',
-  },
-  addressSubValue: {
-    fontSize: 14,
-    color: '#555',
-    fontWeight: '500',
-  },
-  pinPointSection: {
-    marginTop: 10,
-  },
-  coordinateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 8,
-    marginLeft: 30,
-  },
-  coordinateText: {
+
+  // Pin point
+  pinLabel: {
     fontSize: 12,
-    color: '#888',
-    marginLeft: 6,
-    fontFamily: 'monospace',
+    color: "#999",
+    marginBottom: 8,
   },
-  buttonContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    gap: 12,
-  },
-  actionButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+  pinBox: {
+    height: 110,
     borderRadius: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    backgroundColor: "#f5f5f5",
+    justifyContent: "center",
+    alignItems: "center",
+    overflow: "hidden",
   },
-  primaryButton: {
+  pinFilled: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 6,
+  },
+  pinCoordinateText: {
+    fontSize: 12,
+    color: "#555",
+    fontFamily: "monospace",
+  },
+  pinPlaceholder: {
+    justifyContent: "center",
+    alignItems: "center",
+    gap: 4,
+  },
+  pinPlaceholderText: {
+    fontSize: 12,
+    color: "#bbb",
+  },
+  pinAddressText: {
+    marginTop: 10,
+    fontSize: 12.5,
+    color: "#666",
+  },
+
+  // Buttons
+  buttonContainer: {
+    marginTop: 22,
+    gap: 10,
+  },
+  pillButton: {
+    paddingVertical: 13,
+    borderRadius: 30,
+    alignItems: "center",
+  },
+  solidButton: {
     backgroundColor: COLORS.PRIMARY,
   },
-  secondaryButton: {
-    backgroundColor: '#6c757d',
+  solidButtonText: {
+    color: "#fff",
+    fontSize: 14.5,
+    fontWeight: "700",
   },
-  actionButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-    marginLeft: 8,
+  outlineButton: {
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: COLORS.PRIMARY,
   },
-  signOutButton: {
-    backgroundColor: '#dc3545',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    marginTop: 10,
+  outlineButtonText: {
+    color: COLORS.PRIMARY,
+    fontSize: 14.5,
+    fontWeight: "700",
+  },
+
+  errorText: {
+    color: "red",
+    fontSize: 16,
+    textAlign: "center",
     marginBottom: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
   },
-  signOutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  signOutButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
-  },
+
+  // Edit Address Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: 20,
   },
   modalContainer: {
     backgroundColor: 'white',
-    padding: 24,
+    padding: 22,
     borderRadius: 20,
-    width: '90%',
-    maxHeight: '80%',
+    width: '100%',
+    maxHeight: '85%',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
+    shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 5,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
-    color: '#23272f',
+    color: COLORS.PRIMARY,
+  },
+  modalFieldLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginBottom: 4,
+    marginTop: 10,
   },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: '#f8f9fa',
+    borderColor: '#e5e5e5',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    backgroundColor: '#fafafa',
     color: '#23272f',
+  },
+  modalInputMultiline: {
+    height: 64,
+    textAlignVertical: 'top',
   },
   modalButtonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 24,
-    gap: 12,
-  },
-  modalButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  cancelButton: {
-    backgroundColor: '#6c757d',
-  },
-  saveButton: {
-    backgroundColor: COLORS.PRIMARY,
-  },
-  modalButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '700',
+    gap: 10,
+    marginTop: 18,
   },
 });
 

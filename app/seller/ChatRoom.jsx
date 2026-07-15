@@ -13,7 +13,7 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { MaterialIcons } from "@expo/vector-icons";
-import { useRoute, useNavigation, useFocusEffect } from "@react-navigation/native";
+import { useNavigation } from "@react-navigation/native";
 import {
   getFirestore,
   collection,
@@ -30,24 +30,40 @@ import {
   getDocs,
 } from "firebase/firestore";
 import { app as firebaseApp } from "../../firebase";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import axios from "axios";
-import config from '../constants/config';
 import COLORS from '../constants/color';
 
 const db = getFirestore(firebaseApp);
 
 // Simple MessageBubble component
-const MessageBubble = ({ message, isOwn }) => (
-  <View style={[styles.messageContainer, isOwn ? styles.ownMessage : styles.otherMessage]}>
-    <View style={[styles.messageBubble, isOwn ? styles.ownBubble : styles.otherBubble]}>
-      <Text style={[styles.messageText, isOwn ? styles.ownText : styles.otherText]}>
-        {message.text}
+const MessageBubble = ({ message, isOwn, showAvatar, buyerIcon, buyerName }) => (
+  <View style={[styles.messageRow, isOwn ? styles.ownMessageRow : styles.otherMessageRow]}>
+    {!isOwn && (
+      <View style={styles.bubbleAvatarSlot}>
+        {showAvatar ? (
+          buyerIcon ? (
+            <Image source={{ uri: buyerIcon }} style={styles.bubbleAvatarImg} />
+          ) : (
+            <View style={styles.bubbleAvatar}>
+              <Text style={styles.bubbleAvatarText}>
+                {(buyerName && buyerName.trim() ? buyerName.trim().charAt(0).toUpperCase() : '?')}
+              </Text>
+            </View>
+          )
+        ) : null}
+      </View>
+    )}
+    <View style={[styles.messageContainer, isOwn ? styles.ownMessage : styles.otherMessage]}>
+      <View style={[styles.messageBubble, isOwn ? styles.ownBubble : styles.otherBubble]}>
+        <Text style={[styles.messageText, isOwn ? styles.ownText : styles.otherText]}>
+          {message.text}
+        </Text>
+      </View>
+      <Text style={[styles.messageTime, isOwn ? styles.ownMessageTime : styles.otherMessageTime]}>
+        {message.time}
       </Text>
     </View>
-    <Text style={styles.messageTime}>{message.time}</Text>
   </View>
 );
 
@@ -70,10 +86,10 @@ const ChatRoom = (props) => {
   }
 
   const { chatroomId, buyerId, sellerId, buyerName, sellerName, buyerIcon, orderId } = params;
-  
+
   // Create unique chatroom ID based on order ID if provided, otherwise use the passed chatroomId
   const actualChatroomId = orderId ? `order_${orderId}_chat` : chatroomId;
-  
+
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(true);
@@ -83,6 +99,7 @@ const ChatRoom = (props) => {
   const navigation = props.navigation || useNavigation();
   const router = useRouter();
   const connectionTimeoutRef = useRef(null);
+  const insets = useSafeAreaInsets();
 
   console.log('[ChatRoom] Using chatroom ID:', actualChatroomId, 'for order:', orderId);
 
@@ -103,7 +120,7 @@ const ChatRoom = (props) => {
   // Mark messages as read
   const markMessagesAsRead = useCallback(async () => {
     if (!actualChatroomId || !sellerId) return;
-    
+
     try {
       const messagesRef = collection(db, "chatrooms", actualChatroomId, "messages");
       const unreadQuery = query(
@@ -111,18 +128,17 @@ const ChatRoom = (props) => {
         where("senderId", "==", buyerId),
         where("readBySeller", "==", false)
       );
-      
+
       const unreadSnap = await getDocs(unreadQuery);
       const updatePromises = unreadSnap.docs.map(docSnap =>
         updateDoc(docSnap.ref, { readBySeller: true })
       );
-      
+
       await Promise.all(updatePromises);
     } catch (error) {
       console.error('Error marking messages as read:', error);
     }
   }, [actualChatroomId, sellerId]);
-
 
   // Enhanced message listener with error handling
   useEffect(() => {
@@ -133,7 +149,7 @@ const ChatRoom = (props) => {
 
     console.log('[ChatRoom] Setting up message listener for chatroom:', actualChatroomId);
     setConnectionStatus('connecting');
-    
+
     // Set a timeout to avoid stuck in connecting state
     connectionTimeoutRef.current = setTimeout(() => {
       console.log('[ChatRoom] Connection timeout, setting to connected anyway');
@@ -145,17 +161,17 @@ const ChatRoom = (props) => {
       collection(db, "chatrooms", actualChatroomId, "messages"),
       orderBy("timestamp", "asc")
     );
-    
-    const unsubscribe = onSnapshot(q, 
+
+    const unsubscribe = onSnapshot(q,
       (querySnapshot) => {
         console.log('[ChatRoom] Received messages:', querySnapshot.size);
-        
+
         // Clear the connection timeout since we got data
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
           connectionTimeoutRef.current = null;
         }
-        
+
         const msgs = [];
         querySnapshot.forEach((doc) => {
           const data = doc.data();
@@ -166,31 +182,31 @@ const ChatRoom = (props) => {
             senderName: data.senderName,
             timestamp: data.timestamp,
             isOwn: data.senderId === sellerId,
-            time: data.timestamp && data.timestamp.toDate 
+            time: data.timestamp && data.timestamp.toDate
               ? data.timestamp.toDate().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
               : new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
           });
         });
-        
+
         setMessages(msgs);
         setLoading(false);
         setConnectionStatus('connected');
-      }, 
+      },
       (error) => {
         console.error('Firestore onSnapshot error:', error);
-        
+
         // Clear the connection timeout
         if (connectionTimeoutRef.current) {
           clearTimeout(connectionTimeoutRef.current);
           connectionTimeoutRef.current = null;
         }
-        
+
         setLoading(false);
         setConnectionStatus('error');
         showToast('Gagal memuat pesan', 'error');
       }
     );
-    
+
     return () => {
       console.log('[ChatRoom] Cleaning up message listener');
       if (connectionTimeoutRef.current) {
@@ -207,7 +223,7 @@ const ChatRoom = (props) => {
       const timer = setTimeout(() => {
         markMessagesAsRead();
       }, 1000); // Debounce to avoid excessive calls
-      
+
       return () => clearTimeout(timer);
     }
   }, [messages.length, actualChatroomId, sellerId]); // Use actualChatroomId instead of chatroomId
@@ -231,7 +247,7 @@ const ChatRoom = (props) => {
       // Ensure chatroom document exists before adding a message
       const chatroomDoc = doc(db, "chatrooms", actualChatroomId);
       const chatroomSnap = await getDoc(chatroomDoc);
-      
+
       if (!chatroomSnap.exists()) {
         console.log('[ChatRoom] Creating new chatroom for order:', orderId);
         await setDoc(chatroomDoc, {
@@ -247,15 +263,15 @@ const ChatRoom = (props) => {
       }
 
       // Send message to Firestore
-    await addDoc(collection(db, "chatrooms", actualChatroomId, "messages"), {
-      text: input.trim(),
-      senderId: sellerId,
-      senderName: sellerName || 'Penjual',
-      timestamp: serverTimestamp(),
-      readByBuyer: false,
-      readBySeller: true,  
-      orderId: orderId || null,
-    });
+      await addDoc(collection(db, "chatrooms", actualChatroomId, "messages"), {
+        text: input.trim(),
+        senderId: sellerId,
+        senderName: sellerName || 'Penjual',
+        timestamp: serverTimestamp(),
+        readByBuyer: false,
+        readBySeller: true,
+        orderId: orderId || null,
+      });
 
       // Update chatroom last activity
       await updateDoc(chatroomDoc, {
@@ -300,7 +316,7 @@ const ChatRoom = (props) => {
       const timer = setTimeout(() => {
         flatListRef.current?.scrollToEnd({ animated: true });
       }, 100);
-      
+
       return () => clearTimeout(timer);
     }
   }, [messages.length]); // Only depend on message count, not the full messages array
@@ -310,113 +326,136 @@ const ChatRoom = (props) => {
     console.log('[ChatRoom] Connection status changed to:', connectionStatus);
   }, [connectionStatus]);
 
+  const statusInfo = {
+    connected: { label: 'Online', color: '#2FB768' },
+    error: { label: 'Offline', color: '#E24C4C' },
+    connecting: { label: 'Menghubungkan...', color: '#B0B0B0' },
+    disconnected: { label: 'Menghubungkan...', color: '#B0B0B0' },
+  }[connectionStatus] || { label: 'Menghubungkan...', color: '#B0B0B0' };
+
   // Show loading screen
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={20} color={COLORS.TEXT || "#23272f"} />
+            <MaterialIcons name="arrow-back-ios-new" size={16} color={COLORS.PRIMARY} />
           </TouchableOpacity>
           <Text style={styles.chatHeaderName}>Chat</Text>
         </View>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={COLORS.PRIMARY || COLORS.GREEN3} />
+          <ActivityIndicator size="large" color={COLORS.PRIMARY} />
           <Text style={styles.loadingText}>Memuat percakapan...</Text>
         </View>
       </SafeAreaView>
     );
   }
 
-    return (
+  return (
     <View style={{ flex: 1 }}>
-      <SafeAreaView style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
+      <SafeAreaView style={styles.container} edges={['top', 'bottom', 'left', 'right']}>
         {/* Enhanced Header */}
         <View style={styles.header}>
           <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <MaterialIcons name="arrow-back" size={20} color={COLORS.TEXT || "#23272f"} />
+            <MaterialIcons name="arrow-back-ios-new" size={16} color={COLORS.PRIMARY} />
           </TouchableOpacity>
           <View style={styles.chatHeaderInfo}>
-            {buyerIcon ? (
-              <Image source={{ uri: buyerIcon }} style={styles.smallAvatarImg} />
-            ) : (
-              <View style={styles.smallAvatar}>
-                <Text style={styles.smallAvatarText}>
-                  {(buyerName && buyerName.trim() ? buyerName.trim().charAt(0).toUpperCase() : '?')}
+            <View style={styles.avatarWrap}>
+              {buyerIcon ? (
+                <Image source={{ uri: buyerIcon }} style={styles.smallAvatarImg} />
+              ) : (
+                <View style={styles.smallAvatar}>
+                  <Text style={styles.smallAvatarText}>
+                    {(buyerName && buyerName.trim() ? buyerName.trim().charAt(0).toUpperCase() : '?')}
+                  </Text>
+                </View>
+              )}
+              {connectionStatus === 'connected' && <View style={styles.onlineDot} />}
+            </View>
+            <View>
+              <Text style={styles.chatHeaderName} numberOfLines={1}>{buyerName || 'Pembeli'}</Text>
+              <View style={styles.statusRow}>
+                <View style={[styles.statusDot, { backgroundColor: statusInfo.color }]} />
+                <Text style={[styles.chatHeaderStatus, { color: statusInfo.color }]}>
+                  {statusInfo.label}
                 </Text>
               </View>
-            )}
-            <View>
-              <Text style={styles.chatHeaderName}>{buyerName || 'Pembeli'}</Text>
-              <Text style={[styles.chatHeaderStatus, { 
-                color: connectionStatus === 'connected' ? COLORS.GREEN3 : 
-                       connectionStatus === 'error' ? '#ff4444' : '#999'
-              }]}>
-                {connectionStatus === 'connected' ? 'Online' : 
-                 connectionStatus === 'error' ? 'Offline' : 'Menghubungkan...'}
-              </Text>
             </View>
           </View>
           {orderId && (
             <TouchableOpacity style={styles.moreButton} onPress={goToOrderDetail}>
-              <MaterialIcons name="receipt" size={20} color={COLORS.TEXT || "#23272f"} />
+              <MaterialIcons name="receipt-long" size={20} color={COLORS.PRIMARY} />
             </TouchableOpacity>
           )}
         </View>
 
-        {/* Messages List */}
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={({ item }) => (
-            <MessageBubble message={item} isOwn={item.isOwn} />
-          )}
-          keyExtractor={(item) => item.id}
-          style={styles.messagesList}
-          contentContainerStyle={[
-            styles.messagesContent,
-            messages.length === 0 && styles.emptyMessagesContent
-          ]}
-          onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-          ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <MaterialIcons name="chat-bubble-outline" size={48} color="#ccc" />
-              <Text style={styles.emptyText}>Belum ada pesan</Text>
-              <Text style={styles.emptySubtext}>Mulai percakapan dengan pembeli</Text>
-            </View>
-          }
-        />
-
-        {/* Enhanced Input Container */}
+        {/* Everything below the header shifts together when the keyboard opens */}
         <KeyboardAvoidingView
+          style={{ flex: 1 }}
           behavior={Platform.OS === "ios" ? "padding" : "height"}
-          keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
+          keyboardVerticalOffset={0}
         >
-          <View style={styles.inputContainer}>
+          {/* Messages List */}
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            renderItem={({ item, index }) => {
+              const prev = messages[index - 1];
+              const showAvatar = !item.isOwn && (!prev || prev.isOwn || prev.senderId !== item.senderId);
+              return (
+                <MessageBubble
+                  message={item}
+                  isOwn={item.isOwn}
+                  showAvatar={showAvatar}
+                  buyerIcon={buyerIcon}
+                  buyerName={buyerName}
+                />
+              );
+            }}
+            keyExtractor={(item) => item.id}
+            style={styles.messagesList}
+            contentContainerStyle={[
+              styles.messagesContent,
+              messages.length === 0 && styles.emptyMessagesContent
+            ]}
+            onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
+            ListEmptyComponent={
+              <View style={styles.emptyContainer}>
+                <View style={styles.emptyIconWrap}>
+                  <MaterialIcons name="chat-bubble-outline" size={32} color={COLORS.PRIMARY} />
+                </View>
+                <Text style={styles.emptyText}>Belum ada pesan</Text>
+                <Text style={styles.emptySubtext}>Mulai percakapan dengan pembeli</Text>
+              </View>
+            }
+          />
+
+          {/* Enhanced Input Container */}
+          <View style={[styles.inputContainer, { paddingBottom: Math.max(insets.bottom, 12) }]}>
             <TextInput
               style={[styles.textInput, sending && styles.textInputDisabled]}
               value={input}
               onChangeText={setInput}
               placeholder="Ketik pesan..."
-              placeholderTextColor="#999"
+              placeholderTextColor="#A0A0A0"
               onSubmitEditing={sendMessage}
               returnKeyType="send"
               multiline
               maxLength={1000}
               editable={!sending}
             />
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.sendButton, 
+                styles.sendButton,
                 (!input.trim() || sending) && styles.sendButtonDisabled
-              ]} 
+              ]}
               onPress={sendMessage}
               disabled={!input.trim() || sending}
             >
               {sending ? (
                 <ActivityIndicator size="small" color="#fff" />
               ) : (
-                <MaterialIcons name="send" size={20} color="#fff" />
+                <MaterialIcons name="send" size={18} color="#fff" />
               )}
             </TouchableOpacity>
           </View>
@@ -430,24 +469,28 @@ const ChatRoom = (props) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#FAFAFA",
   },
   header: {
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: "#fff",
     paddingHorizontal: 16,
-    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: "#eee",
-    elevation: 2,
+    borderBottomColor: "#F0F0F0",
+    elevation: 3,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
   },
   backButton: {
-    padding: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
     marginRight: 12,
   },
   chatHeaderInfo: {
@@ -455,38 +498,66 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
   },
-  smallAvatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: COLORS.GREEN3,
-    justifyContent: "center",
-    alignItems: "center",
+  avatarWrap: {
     marginRight: 12,
   },
+  smallAvatar: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.PRIMARY,
+    justifyContent: "center",
+    alignItems: "center",
+  },
   smallAvatarImg: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    marginRight: 12,
-    backgroundColor: COLORS.GREEN3,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: COLORS.PRIMARY,
   },
   smallAvatarText: {
     color: "#fff",
     fontSize: 16,
-    fontWeight: "600",
+    fontWeight: "700",
+  },
+  onlineDot: {
+    position: "absolute",
+    bottom: 0,
+    right: 0,
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#2FB768",
+    borderWidth: 2,
+    borderColor: "#fff",
   },
   chatHeaderName: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#333",
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#1A1A1A",
+  },
+  statusRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    marginTop: 2,
+  },
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   chatHeaderStatus: {
-    fontSize: 12,
-    color: COLORS.GREEN3,
+    fontSize: 11,
+    fontWeight: "600",
   },
   moreButton: {
-    padding: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "rgba(0,0,0,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
   },
   loadingContainer: {
     flex: 1,
@@ -495,15 +566,16 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 16,
-    fontSize: 16,
-    color: '#666',
+    fontSize: 14,
+    color: '#888',
   },
   messagesList: {
     flex: 1,
-    backgroundColor: "#f5f5f5",
+    backgroundColor: "#FAFAFA",
   },
   messagesContent: {
     paddingVertical: 16,
+    paddingHorizontal: 4,
   },
   emptyMessagesContent: {
     flex: 1,
@@ -514,22 +586,63 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     paddingVertical: 60,
+    gap: 4,
+  },
+  emptyIconWrap: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: "rgba(0,0,0,0.04)",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 10,
   },
   emptyText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 16,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
   },
   emptySubtext: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#999',
-    marginTop: 8,
     textAlign: 'center',
   },
-  messageContainer: {
+  messageRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
     marginHorizontal: 16,
-    marginVertical: 4,
+    marginVertical: 3,
+  },
+  ownMessageRow: {
+    justifyContent: "flex-end",
+  },
+  otherMessageRow: {
+    justifyContent: "flex-start",
+  },
+  bubbleAvatarSlot: {
+    width: 26,
+    marginRight: 6,
+  },
+  bubbleAvatar: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    backgroundColor: COLORS.PRIMARY,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  bubbleAvatarImg: {
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+  },
+  bubbleAvatarText: {
+    color: "#fff",
+    fontSize: 11,
+    fontWeight: "700",
+  },
+  messageContainer: {
+    maxWidth: "78%",
   },
   ownMessage: {
     alignItems: "flex-end",
@@ -538,86 +651,83 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
   },
   messageBubble: {
-    maxWidth: "80%",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 20,
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 2,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+    borderRadius: 18,
   },
   ownBubble: {
-    backgroundColor: COLORS.GREEN3,
+    backgroundColor: COLORS.PRIMARY,
     borderBottomRightRadius: 4,
   },
   otherBubble: {
     backgroundColor: "#fff",
     borderBottomLeftRadius: 4,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
+    borderColor: '#EFEFEF',
   },
   messageText: {
-    fontSize: 16,
-    lineHeight: 20,
+    fontSize: 14,
+    lineHeight: 19,
   },
   ownText: {
     color: "#fff",
   },
   otherText: {
-    color: "#333",
+    color: "#2A2A2A",
   },
   messageTime: {
-    fontSize: 12,
-    color: "#666",
-    marginTop: 4,
-    marginHorizontal: 16,
+    fontSize: 10,
+    color: "#AAA",
+    marginTop: 3,
+  },
+  ownMessageTime: {
+    marginRight: 4,
+  },
+  otherMessageTime: {
+    marginLeft: 4,
   },
   inputContainer: {
     flexDirection: "row",
     alignItems: "flex-end",
     backgroundColor: "#fff",
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     borderTopWidth: 1,
-    borderTopColor: "#eee",
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    borderTopColor: "#F0F0F0",
   },
   textInput: {
     flex: 1,
     borderWidth: 1,
-    borderColor: "#eee",
-    borderRadius: 25,
+    borderColor: "#EEE",
+    borderRadius: 22,
     paddingHorizontal: 16,
-    paddingVertical: 12,
-    marginRight: 12,
+    paddingVertical: 10,
+    marginRight: 10,
     maxHeight: 100,
-    fontSize: 16,
-    backgroundColor: '#f9f9f9',
+    fontSize: 14,
+    backgroundColor: '#F7F7F7',
+    color: "#1A1A1A",
   },
   textInputDisabled: {
     opacity: 0.7,
   },
   sendButton: {
-    backgroundColor: COLORS.GREEN3,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    backgroundColor: COLORS.PRIMARY,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
     justifyContent: "center",
     alignItems: "center",
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    shadowColor: COLORS.PRIMARY,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 3,
   },
   sendButtonDisabled: {
-    opacity: 0.5,
+    backgroundColor: "#D5D5D5",
+    shadowOpacity: 0,
+    elevation: 0,
   },
 });
 

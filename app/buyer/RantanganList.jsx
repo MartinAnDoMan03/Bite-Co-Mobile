@@ -1,14 +1,13 @@
-import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, Alert, RefreshControl } from "react-native";
+import { Image, StyleSheet, Text, TextInput, TouchableOpacity, View, ScrollView, Alert, RefreshControl, Modal, TouchableWithoutFeedback } from "react-native";
 import React, { useState, useEffect, useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { Ionicons } from "@expo/vector-icons";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { StoreCardSkeleton } from '../../components/SkeletonLoader';
 import COLORS from '../constants/color';
 import config from '../constants/config';
 import storeIcon from "../../assets/images/store.png";
-import HeaderTitleBack from '../../components/HeaderTitleBack';
 
 const RantanganList = () => {
   const router = useRouter();
@@ -18,7 +17,8 @@ const RantanganList = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const [buyerLocation, setBuyerLocation] = useState(undefined); // undefined = not loaded yet, null = no location saved
-  const [sortType, setSortType] = useState("distance"); // "distance" or "rating"
+  const [sortType, setSortType] = useState("distance"); // "distance" | "rating" | "halal"
+  const [showFilterModal, setShowFilterModal] = useState(false);
 
   // Load buyer location from storage
   useEffect(() => {
@@ -126,6 +126,10 @@ const RantanganList = () => {
   }, [fetchSellers]);
 
   // Apply sorting to stores
+  // NOTE: "halal" belum ada logic-nya karena data seller belum punya field halal
+  // dari API. Untuk sementara dipilih tapi tidak mengubah urutan (aman, tidak
+  // menyentuh data/fetch apapun). Tinggal ditambah case-nya kalau backend sudah
+  // mengirim field halal per seller.
   const applySorting = useCallback((storeList, type) => {
     const sorted = [...storeList].sort((a, b) => {
       if (type === "distance") {
@@ -148,6 +152,7 @@ const RantanganList = () => {
     setSortType(newSortType);
     const currentStores = searchQuery.trim() === "" ? stores : filteredStores;
     applySorting(currentStores, newSortType);
+    setShowFilterModal(false);
   }, [stores, filteredStores, searchQuery, applySorting]);
 
   // Handle search
@@ -225,9 +230,23 @@ const RantanganList = () => {
     </View>
   );
 
+  const FILTER_OPTIONS = [
+    { key: "distance", label: "Jarak" },
+    { key: "rating", label: "Rating" },
+    { key: "halal", label: "Halal" },
+  ];
+
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Rantangan" />
+      {/* Header selaras dengan halaman lain */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Rantangan</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContainer}
@@ -235,7 +254,7 @@ const RantanganList = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
-        {/* Enhanced Search Bar */}
+        {/* Search bar + tombol filter di ujung kanan */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
             <Ionicons name="search-outline" size={20} color={COLORS.TEXTSECONDARY} style={styles.searchIcon} />
@@ -251,62 +270,22 @@ const RantanganList = () => {
                 <Ionicons name="close-circle" size={20} color={COLORS.TEXTSECONDARY} />
               </TouchableOpacity>
             )}
+            <View style={styles.searchDivider} />
+            <TouchableOpacity
+              onPress={() => setShowFilterModal(true)}
+              style={styles.filterIconBtn}
+              accessibilityLabel="Filter & urutkan"
+            >
+              <Ionicons name="options-outline" size={20} color={COLORS.PRIMARY} />
+            </TouchableOpacity>
           </View>
         </View>
-
-        {/* Sorting Buttons */}
-        {!loading && filteredStores.length > 0 && (
-          <View style={styles.sortingContainer}>
-            <Text style={styles.sortingLabel}>Sort by:</Text>
-            <View style={styles.sortingButtons}>
-              <TouchableOpacity
-                style={[
-                  styles.sortButton,
-                  sortType === "distance" && styles.sortButtonActive
-                ]}
-                onPress={() => handleSortChange("distance")}
-              >
-                <Ionicons 
-                  name="location-outline" 
-                  size={16} 
-                  color={sortType === "distance" ? "#fff" : COLORS.PRIMARY} 
-                />
-                <Text style={[
-                  styles.sortButtonText,
-                  sortType === "distance" && styles.sortButtonTextActive
-                ]}>
-                  Distance
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.sortButton,
-                  sortType === "rating" && styles.sortButtonActive
-                ]}
-                onPress={() => handleSortChange("rating")}
-              >
-                <Ionicons 
-                  name="star-outline" 
-                  size={16} 
-                  color={sortType === "rating" ? "#fff" : COLORS.PRIMARY} 
-                />
-                <Text style={[
-                  styles.sortButtonText,
-                  sortType === "rating" && styles.sortButtonTextActive
-                ]}>
-                  Rating
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        )}
 
         {/* Results Header */}
         {!loading && (
           <View style={styles.resultsHeader}>
             <Text style={styles.resultsText}>
               {filteredStores.length} rantangan{filteredStores.length !== 1 ? 's' : ''} found
-              {filteredStores.length > 0 && ` • Sorted by ${sortType}`}
             </Text>
           </View>
         )}
@@ -331,6 +310,39 @@ const RantanganList = () => {
           </View>
         )}
       </ScrollView>
+
+      {/* Popup filter: Jarak / Rating / Halal */}
+      <Modal
+        visible={showFilterModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowFilterModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowFilterModal(false)}>
+          <View style={styles.filterOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.filterCard}>
+                {FILTER_OPTIONS.map((option) => {
+                  const isSelected = sortType === option.key;
+                  return (
+                    <TouchableOpacity
+                      key={option.key}
+                      style={styles.filterOption}
+                      onPress={() => handleSortChange(option.key)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                        {isSelected && <View style={styles.radioDot} />}
+                      </View>
+                      <Text style={styles.filterOptionLabel}>{option.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -342,6 +354,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8f9fa',
   },
+
+  // ---- Header (selaras dengan halaman lain) ----
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
+  // ------------------------------------------------
+
   scrollView: {
     flex: 1,
   },
@@ -379,44 +407,17 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     padding: 4,
   },
-  sortingContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingBottom: 16,
-  },
-  sortingLabel: {
-    fontSize: 14,
-    color: COLORS.TEXTSECONDARY,
-    fontWeight: '500',
-    marginRight: 12,
-  },
-  sortingButtons: {
-    flexDirection: 'row',
-    flex: 1,
-  },
-  sortButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: COLORS.PRIMARY,
-    marginRight: 8,
-    backgroundColor: 'white',
-  },
-  sortButtonActive: {
-    backgroundColor: COLORS.PRIMARY,
-  },
-  sortButtonText: {
-    fontSize: 13,
-    color: COLORS.PRIMARY,
-    fontWeight: '600',
+  searchDivider: {
+    width: 1,
+    height: 22,
+    backgroundColor: '#e1e5e9',
     marginLeft: 4,
+    marginRight: 6,
   },
-  sortButtonTextActive: {
-    color: 'white',
+  filterIconBtn: {
+    paddingVertical: 10,
+    paddingLeft: 4,
+    paddingRight: 2,
   },
   resultsHeader: {
     paddingHorizontal: 20,
@@ -528,5 +529,55 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     fontSize: 14,
+  },
+
+  // ---- Filter popup ----
+  filterOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.15)',
+    alignItems: 'flex-end',
+    paddingTop: 108,
+    paddingRight: 20,
+  },
+  filterCard: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    width: 170,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  filterOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 11,
+  },
+  radioCircle: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    borderColor: '#d9c3cc',
+    marginRight: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioCircleSelected: {
+    borderColor: COLORS.PRIMARY,
+  },
+  radioDot: {
+    width: 9,
+    height: 9,
+    borderRadius: 4.5,
+    backgroundColor: COLORS.PRIMARY,
+  },
+  filterOptionLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: COLORS.PRIMARY,
   },
 });

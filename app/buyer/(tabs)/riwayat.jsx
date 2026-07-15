@@ -5,11 +5,12 @@ import { StyleSheet, Text, View, ScrollView, RefreshControl } from 'react-native
 import React, { useEffect, useState, useCallback } from 'react'
 import config from '../../constants/config';
 import { useRouter } from 'expo-router';
-import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import PaymentWebViewModal from '../../../components/PaymentWebViewModal';
 import { OrderCardSkeleton } from '../../../components/SkeletonLoader';
+import COLORS from '../../constants/color';
 
 const Riwayat = () => {
   const [orders, setOrders] = useState([]);
@@ -70,6 +71,33 @@ const Riwayat = () => {
     }
   };
 
+  // Metadata tambahan untuk tampilan (ikon, warna lembut, teks) — tidak mengubah logika status manapun
+  const getStatusMeta = (status) => {
+    const s = (status || '').toLowerCase();
+    switch (s) {
+      case 'pending':
+        return { icon: 'schedule', bg: '#F1F1F3', text: '#757575', isFailed: false };
+      case 'menunggu persetujuan':
+      case 'waiting_approval':
+        return { icon: 'hourglass-empty', bg: '#FFF6DE', text: '#B7860B', isFailed: false };
+      case 'diproses':
+      case 'processing':
+        return { icon: 'autorenew', bg: '#F3E7FB', text: '#8E24AA', isFailed: false };
+      case 'pengiriman':
+      case 'delivery':
+        return { icon: 'local-shipping', bg: '#E3F1FE', text: '#1976D2', isFailed: false };
+      case 'selesai':
+      case 'completed':
+      case 'success':
+        return { icon: 'check-circle', bg: '#E8F5E9', text: '#2E7D32', isFailed: false };
+      case 'dibatalkan':
+      case 'cancelled':
+        return { icon: 'cancel', bg: '#FDE8E8', text: '#D32F2F', isFailed: true };
+      default:
+        return { icon: 'help-outline', bg: '#F1F1F3', text: '#757575', isFailed: false };
+    }
+  };
+
   // Check payment status in Midtrans before showing payment button
   const checkMidtransStatusAndPay = async (order) => {
     if (!order.snapUrl || !order.id) return;
@@ -111,82 +139,118 @@ const Riwayat = () => {
 };
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f6f7fb' }}>
-      <View style={styles.container}>
-        <Text style={styles.title}>Riwayat Pesanan</Text>
-        {loading ? (
-          <ScrollView showsVerticalScrollIndicator={false}>
+    <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
+      {/* Header selaras dengan halaman Pesanan penjual */}
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Riwayat Pesanan</Text>
+        <View style={{ width: 26 }} />
+      </View>
+
+      {loading ? (
+        <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+          <View style={styles.content}>
             <OrderCardSkeleton />
             <OrderCardSkeleton />
             <OrderCardSkeleton />
             <OrderCardSkeleton />
             <OrderCardSkeleton />
-          </ScrollView>
-        ) : orders.length === 0 ? (
-          <View style={styles.emptyBox}>
-            <MaterialIcons name="history" size={48} color="#e0e0e0" />
-            <Text style={styles.emptyText}>Tidak ada pesanan.</Text>
           </View>
-        ) : (
-          <ScrollView
-            refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
-            showsVerticalScrollIndicator={false}
-          >
-            {orders.map(order => (
-              <TouchableOpacity
-                key={order.id}
-                style={styles.cardTouchable}
-                activeOpacity={0.85}
-                onPress={() => router.push({ pathname: '/buyer/RiwayatDetail', params: { orderId: order.id } })}
-              >
-                <View style={[styles.card, { borderLeftColor: getStatusColor(order.status) }]}> 
-                  <View style={styles.cardTopRow}>
-                    <Text style={styles.orderId}>#{order.id}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}> 
-                      <Text style={styles.statusText}>{order.status || 'Menunggu Pembayaran'}</Text>
+        </ScrollView>
+      ) : orders.length === 0 ? (
+        <View style={styles.emptyState}>
+          <View style={styles.emptyIconCircle}>
+            <MaterialIcons name="history" size={40} color={COLORS.PRIMARY} />
+          </View>
+          <Text style={styles.emptyTitle}>Belum Ada Pesanan</Text>
+          <Text style={styles.emptyDescription}>
+            Riwayat pesanan kamu akan muncul di sini.
+          </Text>
+        </View>
+      ) : (
+        <ScrollView
+          style={styles.scrollView}
+          refreshControl={
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={onRefresh}
+              colors={[COLORS.PRIMARY]}
+            />
+          }
+          showsVerticalScrollIndicator={false}
+        >
+          <View style={styles.content}>
+            <Text style={styles.sectionTitle}>{orders.length} Pesanan</Text>
+            {orders.map(order => {
+              const meta = getStatusMeta(order.status);
+              return (
+                <TouchableOpacity
+                  key={order.id}
+                  style={[
+                    styles.orderCard,
+                    styles.shadow,
+                    { borderLeftWidth: 4, borderLeftColor: getStatusColor(order.status) },
+                    meta.isFailed && styles.orderCardFailed,
+                  ]}
+                  activeOpacity={0.7}
+                  onPress={() => router.push({ pathname: '/buyer/RiwayatDetail', params: { orderId: order.id } })}
+                >
+                  <View style={styles.orderHeader}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.orderId}>#{order.id}</Text>
+                      <View style={styles.dateRow}>
+                        <MaterialIcons name="event" size={12} color="#9AA0AC" />
+                        <Text style={styles.orderDate}>
+                          {order.createdAt ? new Date(order.createdAt).toLocaleDateString('id-ID', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                          }) : '-'}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.orderAmount}>
+                      <Text style={[styles.amount, meta.isFailed && styles.amountFailed]}>
+                        Rp {order.totalAmount?.toLocaleString('id-ID')}
+                      </Text>
+                      <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
+                        <MaterialIcons name={meta.icon} size={12} color={meta.text} />
+                        <Text style={[styles.statusText, { color: meta.text }]}>
+                          {order.status || 'Menunggu Pembayaran'}
+                        </Text>
+                      </View>
                     </View>
                   </View>
-                  <View style={styles.cardInfoRow}>
-                    <Text style={styles.cardLabel}>Total</Text>
-                    <Text style={styles.cardValue}>Rp {order.totalAmount?.toLocaleString()}</Text>
-                  </View>
-                  <View style={styles.cardInfoRow}>
-                    <Text style={styles.cardLabel}>Tanggal</Text>
-                    <Text style={styles.cardValue}>{order.createdAt ? new Date(order.createdAt).toLocaleDateString() : '-'}</Text>
-                  </View>
+
                   {/* Show button if status is pending and snapUrl exists */}
-                  {((order.status === 'pending' && order.snapUrl) || (order.statusProgress === 'approved_awaiting_payment' && 
+                  {((order.status === 'pending' && order.snapUrl) || (order.statusProgress === 'approved_awaiting_payment' &&
                   !order.snapUrl)) && (
                     <TouchableOpacity
-                    onPress={() =>
-                      order.snapUrl ? checkMidtransStatusAndPay(order) : initiatePayment(order)
-                    }
-                      style={{
-                        marginTop: 12,
-                        backgroundColor: '#FF9800',
-                        paddingVertical: 10,
-                        borderRadius: 8,
-                        alignItems: 'center',
-                        opacity: paymentCheckLoading ? 0.6 : 1,
-                      }}
+                      onPress={() =>
+                        order.snapUrl ? checkMidtransStatusAndPay(order) : initiatePayment(order)
+                      }
+                      style={[styles.payButton, { opacity: paymentCheckLoading ? 0.6 : 1 }]}
                       disabled={paymentCheckLoading}
                     >
-                      <Text style={{ color: '#fff', fontWeight: '700', fontSize: 15 }}>
+                      <MaterialIcons name="payment" size={16} color="#fff" />
+                      <Text style={styles.payButtonText}>
                         {paymentCheckLoading ? 'Memeriksa...' : 'Lanjutkan Pembayaran'}
                       </Text>
                     </TouchableOpacity>
                   )}
-                </View>
-              </TouchableOpacity>
-            ))}
-            <PaymentWebViewModal
-              visible={showPaymentModal}
-              snapUrl={paymentSnapUrl}
-              onClose={() => setShowPaymentModal(false)}
-            />
-          </ScrollView>
-        )}
-      </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+          <PaymentWebViewModal
+            visible={showPaymentModal}
+            snapUrl={paymentSnapUrl}
+            onClose={() => setShowPaymentModal(false)}
+          />
+        </ScrollView>
+      )}
     </SafeAreaView>
   );
 };
@@ -194,80 +258,144 @@ const Riwayat = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 18,
+    backgroundColor: '#F5F6FA',
   },
-  title: {
-    fontWeight: '700',
-    fontSize: 22,
-    marginBottom: 18,
-    color: '#23272f',
-    letterSpacing: 0.2,
-  },
-  emptyBox: {
-    alignItems: 'center',
-    marginTop: 60,
-  },
-  emptyText: {
-    color: '#bbb',
-    fontSize: 16,
-    marginTop: 10,
-  },
-  cardTouchable: {
-    marginBottom: 16,
-    borderRadius: 14,
-    overflow: 'hidden',
-  },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderLeftWidth: 6,
-    padding: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  cardTopRow: {
+  // Header
+  header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 22,
+    borderBottomRightRadius: 22,
   },
-  orderId: {
-    fontWeight: '600',
-    fontSize: 16,
-    color: '#23272f',
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
+
+  shadow: {
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+
+  scrollView: {
     flex: 1,
-    letterSpacing: 0.2,
   },
-  statusBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 7,
-    alignSelf: 'flex-start',
+  content: {
+    padding: 16,
   },
-  statusText: {
-    color: '#fff',
+  sectionTitle: {
+    fontSize: 13,
     fontWeight: '600',
-    fontSize: 12,
-    textTransform: 'capitalize',
-    letterSpacing: 0.1,
+    color: '#888',
+    marginBottom: 12,
   },
-  cardInfoRow: {
+  orderCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 12,
+  },
+  orderCardFailed: {
+    backgroundColor: '#FFF9F9',
+  },
+  orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 2,
-    marginBottom: 2,
+    alignItems: 'flex-start',
   },
-  cardLabel: {
-    color: '#8a8f99',
-    fontSize: 14,
-    fontWeight: '400',
-  },
-  cardValue: {
+  orderId: {
+    fontSize: 15,
+    fontWeight: '700',
     color: '#23272f',
-    fontSize: 14,
+    marginBottom: 4,
+  },
+  dateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  orderDate: {
+    fontSize: 11.5,
+    color: '#9AA0AC',
     fontWeight: '500',
+  },
+  orderAmount: {
+    alignItems: 'flex-end',
+  },
+  amount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#23272f',
+    marginBottom: 6,
+  },
+  amountFailed: {
+    color: '#B71C1C',
+  },
+  statusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 9,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  statusText: {
+    fontSize: 10.5,
+    fontWeight: '700',
+    textTransform: 'capitalize',
+  },
+  payButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 14,
+    backgroundColor: '#FF9800',
+    paddingVertical: 11,
+    borderRadius: 12,
+  },
+  payButtonText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 14,
+  },
+  emptyState: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingTop: 100,
+    paddingHorizontal: 32,
+  },
+  emptyIconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#fff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.06,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  emptyTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#555',
+    marginBottom: 6,
+  },
+  emptyDescription: {
+    fontSize: 13,
+    color: '#999',
+    textAlign: 'center',
+    lineHeight: 19,
   },
 });
 

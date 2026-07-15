@@ -3,7 +3,7 @@ import React, { useCallback, useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import COLORS from "../../constants/color";
 import banner1 from "../../../assets/images/banner1.png";
-import recycle from "../../../assets/images/recycle.png";
+import gizipro from "../../../assets/images/gizipro.png";
 import iconBiteEco from "../../../assets/images/icon-biteeco.png";
 import iconCatering from "../../../assets/images/icon-catering.png";
 import iconRantangan from "../../../assets/images/icon-rantangan.png";
@@ -15,7 +15,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
 
-const CircleButton = ({ icon, onPress, text, navigateTo }) => {
+const CircleButton = ({ icon, onPress, text, navigateTo, iconStyle }) => {
   const router = useRouter();
   return (
     <View style={{ alignItems: "center" }}>
@@ -30,24 +30,37 @@ const CircleButton = ({ icon, onPress, text, navigateTo }) => {
         style={{
           backgroundColor: COLORS.PRIMARY,
           padding: 10,
-          borderRadius: 99,
-          width: 50,
-          height: 50,
+          borderRadius: 16,
+          width: 56,
+          height: 56,
           justifyContent: "center",
           alignItems: "center",
         }}
       >
-        <Image source={icon} style={{ width: 40, height: 40 }} />
+        <Image source={icon} style={[{ width: 28, height: 28 }, iconStyle]} />
       </TouchableOpacity>
       <Text
         style={{
-          fontSize: 16,
+          fontSize: 14,
           textAlign: "center",
           marginTop: 5,
         }}
       >
         {text}
       </Text>
+    </View>
+  );
+};
+
+// Header baris untuk tiap section: judul di kiri, "Lihat Lainnya" di kanan
+const SectionHeader = ({ title, onSeeAllPress }) => {
+  return (
+    <View style={styles.sectionHeaderRow}>
+      <Text style={styles.sectionTitle}>{title}</Text>
+      <TouchableOpacity onPress={onSeeAllPress} activeOpacity={0.7} style={styles.seeAllButton}>
+        <Text style={styles.seeAllText}>Lihat Lainnya</Text>
+        <MaterialIcons name="chevron-right" size={18} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
     </View>
   );
 };
@@ -88,10 +101,10 @@ const ExpandableMenu = () => {
   const loadBuyerLocation = async () => {
     try {
       const savedPinPoint = await AsyncStorage.getItem('pinPoint');
-      
+
       if (savedPinPoint) {
         const pinPoint = JSON.parse(savedPinPoint);
-        
+
         if (pinPoint.lat && pinPoint.lng) {
           const location = {
             lat: pinPoint.lat,
@@ -190,6 +203,10 @@ const ExpandableMenu = () => {
     }, [])
   );
 
+  // Ambil sebagian data saja untuk preview di home (maksimal 4 toko per section)
+  const previewStores = stores.slice(0, 4);
+  const previewRantanganStores = rantanganStores.slice(0, 4);
+
   return (
     <ScrollView contentContainerStyle={styles.scrollContainer}>
       <SafeAreaView edges={['top']} style={styles.header}>
@@ -202,34 +219,39 @@ const ExpandableMenu = () => {
       </SafeAreaView>
 
       <View style={styles.searchContainer}>
+        <MaterialIcons name="search" size={20} color={COLORS.TEXTSECONDARY} style={styles.searchIcon} />
         <TextInput
           style={styles.searchInput}
-          placeholder="Mau mam apa hari ini?"
+          placeholder="Mau makan apa hari ini?"
+          placeholderTextColor={COLORS.TEXTSECONDARY}
         />
       </View>
 
       <View style={styles.categories}>
-        <CircleButton icon={recycle} text={"Catering"} navigateTo="buyer/CateringList" />
-        <CircleButton icon={recycle} text={"Rantangan"} navigateTo="buyer/RantanganList" />
-        <CircleButton icon={recycle} text={"Gizi Pro"} navigateTo="buyer/GiziPro" />
-        <CircleButton icon={recycle} text={"Bite Eco"} navigateTo="buyer/BiteEco" />
+        <CircleButton icon={iconCatering} text={"Catering"} navigateTo="buyer/CateringList" />
+        <CircleButton icon={iconRantangan} text={"Rantangan"} navigateTo="buyer/RantanganList" />
+        <CircleButton icon={gizipro} text={"Gizi Pro"} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} />
+        <CircleButton icon={iconBiteEco} text={"Bite Eco"} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} />
       </View>
 
+      {/* Notice lokasi ditampilkan sekali saja untuk seluruh halaman */}
+      {!buyerLocation && (
+        <View style={styles.locationNotice}>
+          <MaterialIcons name="info" size={16} color={COLORS.PRIMARY} />
+          <Text style={styles.locationNoticeText}>
+            Set lokasi Anda di Profile untuk melihat jarak ke catering & rantangan
+          </Text>
+        </View>
+      )}
+
       <View style={styles.storeSection}>
-        <Text style={styles.sectionTitle}>Rekomendasi Catering</Text>
-        {!buyerLocation && (
-          <View style={styles.locationNotice}>
-            <MaterialIcons name="info" size={16} color={COLORS.PRIMARY} />
-            <Text style={styles.locationNoticeText}>
-              Set lokasi Anda di Profile untuk melihat jarak ke catering
-            </Text>
-          </View>
-        )}
+        <SectionHeader
+          title="Rekomendasi Catering"
+          onSeeAllPress={() => router.push("buyer/CateringList")}
+        />
         <View style={styles.divider} />
         {loading ? (
           <View style={styles.storeGrid}>
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
             <StoreCardSkeleton />
             <StoreCardSkeleton />
             <StoreCardSkeleton />
@@ -239,16 +261,18 @@ const ExpandableMenu = () => {
           <View style={styles.errorContainer}>
             <MaterialIcons name="error-outline" size={48} color="#ccc" />
             <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.retryButton}
               onPress={() => fetchStores()}
             >
               <Text style={styles.retryButtonText}>Coba Lagi</Text>
             </TouchableOpacity>
           </View>
+        ) : previewStores.length === 0 ? (
+          <Text style={styles.emptyText}>Belum ada catering tersedia</Text>
         ) : (
           <View style={styles.storeGrid}>
-            {stores.map(store => (
+            {previewStores.map(store => (
               <StoreList
                 key={store.id}
                 StoreName={store.StoreName}
@@ -256,14 +280,11 @@ const ExpandableMenu = () => {
                 Logo={store.Logo}
                 Rating={store.Rating}
                 Distance={store.Distance}
-                type="catering"
                 onPress={() => {
-                  if ("catering" === "catering") {
-                    router.push({
-                      pathname: "buyer/CateringDetail",
-                      params: { sellerid: store.id },
-                    });
-                  }
+                  router.push({
+                    pathname: "buyer/CateringDetail",
+                    params: { sellerid: store.id },
+                  });
                 }}
               />
             ))}
@@ -272,20 +293,13 @@ const ExpandableMenu = () => {
       </View>
 
       <View style={styles.storeSection}>
-        <Text style={styles.sectionTitle}>Rekomendasi Rantangan</Text>
-        {!buyerLocation && (
-          <View style={styles.locationNotice}>
-            <MaterialIcons name="info" size={16} color={COLORS.PRIMARY} />
-            <Text style={styles.locationNoticeText}>
-              Set lokasi Anda di Profile untuk melihat jarak ke rantangan
-            </Text>
-          </View>
-        )}
+        <SectionHeader
+          title="Rekomendasi Rantangan"
+          onSeeAllPress={() => router.push("buyer/RantanganList")}
+        />
         <View style={styles.divider} />
         {rantanganLoading ? (
           <View style={styles.storeGrid}>
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
             <StoreCardSkeleton />
             <StoreCardSkeleton />
             <StoreCardSkeleton />
@@ -295,20 +309,18 @@ const ExpandableMenu = () => {
           <View style={styles.errorContainer}>
             <MaterialIcons name="error-outline" size={48} color="#ccc" />
             <Text style={styles.errorText}>{rantanganError}</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.retryButton}
               onPress={() => fetchRantanganStores()}
             >
               <Text style={styles.retryButtonText}>Coba Lagi</Text>
             </TouchableOpacity>
           </View>
-        ) : rantanganStores.length === 0 ? (
-          <Text style={{ textAlign: 'center', color: COLORS.TEXTSECONDARY, paddingVertical: 20 }}>
-            Belum ada rantangan tersedia
-          </Text>
+        ) : previewRantanganStores.length === 0 ? (
+          <Text style={styles.emptyText}>Belum ada rantangan tersedia</Text>
         ) : (
           <View style={styles.storeGrid}>
-            {rantanganStores.map(store => (
+            {previewRantanganStores.map(store => (
               <StoreList
                 key={store.id}
                 StoreName={store.StoreName}
@@ -316,7 +328,6 @@ const ExpandableMenu = () => {
                 Logo={store.Logo}
                 Rating={store.Rating}
                 Distance={store.Distance}
-                type="rantangan"
                 onPress={() => {
                   router.push({
                     pathname: "buyer/RantanganDetail",
@@ -354,39 +365,90 @@ const styles = StyleSheet.create({
     resizeMode: "contain",
   },
   searchContainer: {
+    flexDirection: "row",
+    alignItems: "center",
     paddingHorizontal: 20,
-    marginTop: 10,
+    marginTop: 14,
+  },
+  searchIcon: {
+    position: "absolute",
+    left: 34,
+    zIndex: 1,
   },
   searchInput: {
+    flex: 1,
     backgroundColor: "white",
-    padding: 15,
-    borderRadius: 10,
+    paddingVertical: 12,
+    paddingLeft: 40,
+    paddingRight: 15,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: COLORS.TEXTSECONDARY,
-    width: "100%",
+    borderColor: "#eee",
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 1,
   },
   categories: {
     flexDirection: "row",
-    justifyContent: "center",
-    gap: 20,
-    marginVertical: 20,
+    justifyContent: "space-evenly",
+    marginVertical: 22,
     paddingHorizontal: 20,
   },
+  locationNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f0f8ff',
+    padding: 12,
+    borderRadius: 8,
+    marginHorizontal: 16,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#e0e7ff',
+  },
+  locationNoticeText: {
+    fontSize: 12,
+    color: COLORS.PRIMARY,
+    marginLeft: 8,
+    flex: 1,
+  },
   storeSection: {
-    paddingTop: 20,
-    paddingBottom: 20,
+    paddingTop: 16,
+    paddingBottom: 16,
     paddingHorizontal: 10,
   },
-  sectionTitle: {
-    fontSize: 16,
-    marginBottom: 10,
+  sectionHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
     paddingHorizontal: 10,
+    marginBottom: 10,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: "#23272f",
+  },
+  seeAllButton: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  seeAllText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: COLORS.PRIMARY,
   },
   divider: {
     height: 1,
     width: "100%",
-    backgroundColor: COLORS.TEXTSECONDARY,
+    backgroundColor: "#eee",
     marginBottom: 16,
+  },
+  emptyText: {
+    textAlign: 'center',
+    color: COLORS.TEXTSECONDARY,
+    paddingVertical: 20,
   },
   storeGrid: {
     flexDirection: "row",
@@ -471,22 +533,6 @@ const styles = StyleSheet.create({
     color: COLORS.PRIMARY,
     fontWeight: '500',
     marginLeft: 2,
-  },
-  locationNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f8ff',
-    padding: 12,
-    borderRadius: 8,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#e0e7ff',
-  },
-  locationNoticeText: {
-    fontSize: 12,
-    color: COLORS.PRIMARY,
-    marginLeft: 8,
-    flex: 1,
   },
   errorContainer: {
     alignItems: 'center',

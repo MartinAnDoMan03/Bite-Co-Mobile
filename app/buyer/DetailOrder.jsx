@@ -13,7 +13,6 @@ import {
 } from "react-native";
 import React, { useState, useEffect } from "react";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import HeaderTitleBack from '../../components/HeaderTitleBack';
 import starYellow from "../../assets/images/starYellow.png";
 import starGrey from "../../assets/images/starGrey.png";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -124,10 +123,21 @@ const DetailOrder = () => {
     }
   };
 
+  // Header selaras dengan halaman lain (putih, rounded bottom, aksen burgundy)
+  const Header = () => (
+    <View style={styles.header}>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+        <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>Detail Order</Text>
+      <View style={{ width: 26 }} />
+    </View>
+  );
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
-        <HeaderTitleBack title="Detail Order" />
+        <Header />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={COLORS.PRIMARY} />
           <Text style={styles.loadingText}>Memuat detail pesanan...</Text>
@@ -139,7 +149,7 @@ const DetailOrder = () => {
   if (!orderData) {
     return (
       <SafeAreaView style={styles.container}>
-        <HeaderTitleBack title="Detail Order" />
+        <Header />
         <View style={styles.errorContainer}>
           <MaterialIcons name="error-outline" size={60} color="#ccc" />
           <Text style={styles.errorText}>Pesanan tidak ditemukan</Text>
@@ -153,7 +163,7 @@ const DetailOrder = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Detail Order" />
+      <Header />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Rating Section */}
         <View style={styles.ratingSection}>
@@ -322,8 +332,21 @@ export default DetailOrder;
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f6f7fb',
+    backgroundColor: '#F5F6FA',
   },
+  // Header
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
   scrollView: {
     flex: 1,
   },
@@ -370,9 +393,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   questionText: {
     fontSize: 22,
@@ -411,9 +434,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   storeInfo: {
     flexDirection: 'row',
@@ -456,9 +479,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
@@ -563,9 +586,9 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
   },
   reviewInput: {
     borderWidth: 1,
@@ -590,9 +613,9 @@ const styles = StyleSheet.create({
     gap: 8,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
+    shadowOpacity: 0.15,
     shadowRadius: 8,
-    elevation: 6,
+    elevation: 4,
   },
   submitButtonDisabled: {
     backgroundColor: '#ccc',
