@@ -8,6 +8,7 @@ export default {
     info: 'Info',
     warning: 'Amaran',
     back: 'Kembali',
+    delete: 'Padam',
   },
 
   settings: {

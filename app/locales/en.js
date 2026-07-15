@@ -8,6 +8,7 @@ export default {
     info: 'Info',
     warning: 'Warning',
     back: 'Back',
+    delete: 'Delete',
   },
 
   settings: {

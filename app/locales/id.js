@@ -8,6 +8,7 @@ export default {
     info: 'Info',
     warning: 'Peringatan',
     back: 'Kembali',
+    delete: 'Hapus',
   },
 
   settings: {
