@@ -121,7 +121,7 @@ const SellerIndex = () => {
 
             {/* Lupa password */}
             <TouchableOpacity style={styles.forgotWrap} onPress={() => router.push("/seller/SellerForgotPassword")}>
-              <Text style={styles.forgotText}>{t("sellerLogin.forgotPassword")}</Text>
+              <Text style={styles.forgotText}>Lupa Password?</Text>
             </TouchableOpacity>
 
            {/* Tombol Masuk */}

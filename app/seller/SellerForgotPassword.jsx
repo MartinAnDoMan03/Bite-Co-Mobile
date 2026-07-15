@@ -19,7 +19,7 @@ import { Ionicons } from "@expo/vector-icons";
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BURGUNDY = "#711330";
 
-const sellerForgotPassword = () => {
+const SellerForgotPassword = () => {
   const router = useRouter();
   
   // State untuk mengontrol tampilan (1 = Input Email, 2 = Input OTP & Password Baru)
