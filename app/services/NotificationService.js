@@ -11,6 +11,7 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Function to get expo push token
 export const getExpoPushToken = async () => {
   if (!Device.isDevice) {
     console.log ('Must use physical device for push notifications');
@@ -176,12 +177,6 @@ const getStoredToken = async () => {
     console.error('Error getting stored token:', error);
     return null;
   }
-};
-
-// Mock function for getting expo push token
-const getExpoPushToken = async () => {
-  console.log('Expo push token disabled (expo-notifications removed)');
-  return null;
 };
 
 // Export the service functions
