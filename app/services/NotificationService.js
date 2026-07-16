@@ -1,5 +1,39 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+  }),
+});
+
+export const getExpoPushToken = async () => {
+  if (!Device.isDevice) {
+    console.log ('Must use physical device for push notifications');
+    return null;
+  }
+
+  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  let finalStatus = existingStatus;
+
+  if (existingStatus !== 'granted') {
+    const { status } = await Notifications.requestPermissionsAsync();
+    finalStatus = status;
+  }
+
+  if(finalStatus !== 'granted') {
+    console.log('Failed to get push token permission');
+    return null;
+  }
+
+  const token = (await Notifications.getExpoPushTokenAsync()).data;
+  await AsyncStorage.setItem('expoPushToken', token);
+  return token;
+}
 
 // State management for the service
 let pushToken = null;
@@ -17,10 +51,17 @@ const initialize = async () => {
   }
 };
 
-// Mock function for registering push token
+// function for registering push token
 const registerPushToken = async (userType, userId, token = null) => {
   try {
-    console.log('Push token registration disabled (expo-notifications removed)');
+    const pushToken = token || await getExpoPushToken();
+    if (!pushToken) return false;
+
+    await fetch(`${config.API_URL}/${userType}/register-push-token`,{
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pushToken, userId }),
+    });
     return true;
   } catch (error) {
     console.error('Error registering push token:', error);
@@ -28,9 +69,12 @@ const registerPushToken = async (userType, userId, token = null) => {
   }
 };
 
-// Mock function for setting up listeners
-const setupListeners = (onNotificationReceived, onNotificationTapped) => {
-  console.log('Notification listeners disabled (expo-notifications removed)');
+// function for setting up listeners
+const setupListeners = (onNotificationReceived) => {
+  const subscription = Notifications.addNotificationReceivedListener((response) => {
+    onNotificationReceived?.(response.notification);
+  });
+  return subscription;
 };
 
 // Mock function for removing listeners
