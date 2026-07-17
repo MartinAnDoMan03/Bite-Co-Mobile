@@ -246,11 +246,42 @@ const CateringDetail = () => {
   const handleLanjutPembayaran = async () => {
     setCartVisible(false);
     try {
+      // Check for existing cart with different order_type
+      const existingOrderType = await AsyncStorage.getItem('order_type');
+      const existingCartStore = await AsyncStorage.getItem('cart_store');
+      const existingCart = await AsyncStorage.getItem('cart');
+
+      const hasExistingCart = existingCart && JSON.parse(existingCart).length > 0;
+      const isDifferentType = existingOrderType && existingOrderType !== 'Catering';
+      const isDifferentStore = existingCartStore && JSON.parse(existingCartStore)?.id !== sellerid;
+
+      if (hasExistingCart && (isDifferentType || isDifferentStore)) {
+        Alert.alert(
+          'Ganti Pesanan? (Replace Order?)',
+          'Kamu masih punya pesanan yang belum selesai. Melanjutkan ini akan menghapus pesanan sebelumnya\nYou still have unfinished order. Coninuing this step will remove the previous order',
+          [
+            { text: 'Cancel', style: 'cancel', onPress: () => setCartVisible(true) },
+            {
+              text: 'Ganti / Replace',
+              style: 'destructive',
+              onPress: async () => {               
+                await AsyncStorage.setItem('cart', JSON.stringify(cart.items));
+                await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
+                await AsyncStorage.setItem('cart_store', JSON.stringify(store));
+                await AsyncStorage.setItem('order_type', 'Catering');
+                router.push('/buyer/Pembayaran');
+              }
+            }
+          ]
+        );
+        return;
+      }
       await AsyncStorage.setItem('cart', JSON.stringify(cart.items));
       await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
       await AsyncStorage.setItem('cart_store', JSON.stringify(store));
-      await AsyncStorage.setItem('order_type', 'Catering'); // Pass OrderType
+      await AsyncStorage.setItem('order_type', 'Catering');
       router.push('/buyer/Pembayaran');
+
     } catch (e) {
       // handle error if needed
     }
