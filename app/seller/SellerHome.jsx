@@ -2,7 +2,7 @@ import { StyleSheet, Text, View } from 'react-native'
 import React from 'react'
 import { setupListeners } from '../services/NotificationService'
 
-userEffectt(() => {
+useEffect(() => {
   const subscription = setupListeners((notification) => {
     console.log('Notification receiverd:', notification);
   });
