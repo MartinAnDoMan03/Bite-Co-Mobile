@@ -71,8 +71,12 @@ const formatTime = (dateValue, t, options = {}) => {
   }
 };
 
+// FIX: key disamakan dengan statusProgress asli dari backend
+// (awaiting_seller_approval, approved_awaiting_payment) - sebelumnya
+// pakai "waiting_approval" yang tidak pernah cocok dengan data asli.
 const getStatusLabels = (t) => ({
-   waiting_approval: t('buyerStatusOrder.statusLabels.waitingApproval'),
+   awaiting_seller_approval: t('buyerStatusOrder.statusLabels.waitingApproval'),
+   approved_awaiting_payment: t('buyerStatusOrder.statusLabels.awaitingPayment'),
    processing: t('buyerStatusOrder.statusLabels.processing'),
    delivery: t('buyerStatusOrder.statusLabels.delivery'),
    recurring: t('buyerStatusOrder.statusLabels.recurring'),
@@ -80,9 +84,11 @@ const getStatusLabels = (t) => ({
   cancelled: t('buyerStatusOrder.statusLabels.cancelled'),
  });
 
-// Badge status pill config (warna & icon) — selaras dengan palet di halaman Pesanan penjual
+// Badge status pill config (warna & icon) — selaras dengan palet di halaman Pesanan penjual.
+// FIX: key awaiting_seller_approval & approved_awaiting_payment disamakan dengan backend.
 const STATUS_BADGE = {
-  waiting_approval: { color: "#B26A00", bg: "#FFF3E0", icon: "hourglass-empty" },
+  awaiting_seller_approval: { color: "#B26A00", bg: "#FFF3E0", icon: "hourglass-empty" },
+  approved_awaiting_payment: { color: "#1976D2", bg: "#E3F2FD", icon: "schedule" },
   processing: { color: "#B26A00", bg: "#FFF3E0", icon: "autorenew" },
   delivery: { color: "#2E7D32", bg: "#E8F5E9", icon: "local-shipping" },
   recurring: { color: "#2E7D32", bg: "#E8F5E9", icon: "autorenew" },
@@ -90,17 +96,22 @@ const STATUS_BADGE = {
   cancelled: { color: "#C62828", bg: "#FFEBEE", icon: "close" },
 };
 
-// Filter tabs di bawah header — selaras dengan halaman Pesanan penjual
+// Filter tabs di bawah header — selaras dengan halaman Pesanan penjual.
+// FIX: ditambah tab "Pembayaran" supaya order yang sudah di-acc seller dan
+// tinggal dibayar tidak "hilang" di antara tab Diproses/Pengiriman.
 const getFilters = (t) => [
    { key: "semua", label: t('buyerStatusOrder.filters.all') },
    { key: "diproses", label: t('buyerStatusOrder.filters.processing') },
+   { key: "pembayaran", label: t('buyerStatusOrder.filters.payment') },
    { key: "pengiriman", label: t('buyerStatusOrder.filters.delivery') },
    { key: "selesai", label: t('buyerStatusOrder.filters.completed') },
  ];
 
+// FIX: matchesFilter disamakan dengan status asli backend.
 const matchesFilter = (statusProgress, filterKey) => {
   if (filterKey === "semua") return true;
-  if (filterKey === "diproses") return statusProgress === "waiting_approval" || statusProgress === "processing";
+  if (filterKey === "diproses") return statusProgress === "awaiting_seller_approval" || statusProgress === "processing";
+  if (filterKey === "pembayaran") return statusProgress === "approved_awaiting_payment";
   if (filterKey === "pengiriman") return statusProgress === "delivery" || statusProgress === "recurring";
   if (filterKey === "selesai") return statusProgress === "completed" || statusProgress === "cancelled";
   return true;
@@ -109,7 +120,8 @@ const matchesFilter = (statusProgress, filterKey) => {
 // Status badge pill — dipakai di atas kartu, selaras dengan StatusBadge di halaman penjual
  const StatusBadge = ({ statusProgress }) => {
    const { t } = useLanguage();
-   const cfg = STATUS_BADGE[statusProgress] || STATUS_BADGE.waiting_approval;
+   // FIX: fallback disamakan ke key yang benar
+   const cfg = STATUS_BADGE[statusProgress] || STATUS_BADGE.awaiting_seller_approval;
    const labels = getStatusLabels(t);
   return (
     <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
@@ -122,8 +134,13 @@ const matchesFilter = (statusProgress, filterKey) => {
 };
 
 // Default status steps for regular orders
+// FIX: key langkah pertama disamakan ke awaiting_seller_approval. Langkah ini
+// mewakili DUA status backend sekaligus (awaiting_seller_approval &
+// approved_awaiting_payment) supaya stepper tetap 4 langkah dan tidak sempit
+// di layar kecil — detail status yang lebih spesifik tetap terlihat lewat
+// StatusBadge di atas stepper.
 const getStatusSteps_Default = (t) => [
-   { key: "waiting_approval", label: t('buyerStatusOrder.steps.default.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+   { key: "awaiting_seller_approval", label: t('buyerStatusOrder.steps.default.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
    { key: "processing", label: t('buyerStatusOrder.steps.default.processing'), icon: "autorenew", color: COLORS.ORANGE || "#FFA726" },
    { key: "delivery", label: t('buyerStatusOrder.steps.default.delivery'), icon: "local-shipping", color: COLORS.GREEN4 },
    { key: "completed", label: t('buyerStatusOrder.steps.default.completed'), icon: "check-circle", color: COLORS.GREEN3 },
@@ -131,7 +148,7 @@ const getStatusSteps_Default = (t) => [
 
 // Rantangan Harian status steps
 const getRantanganHarianSteps = (t) => [
-   { key: "waiting_approval", label: t('buyerStatusOrder.steps.rantanganHarian.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+   { key: "awaiting_seller_approval", label: t('buyerStatusOrder.steps.rantanganHarian.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
    { key: "processing", label: t('buyerStatusOrder.steps.rantanganHarian.processing'), icon: "local-shipping", color: COLORS.ORANGE || "#FFA726" },
    { key: "delivery", label: t('buyerStatusOrder.steps.rantanganHarian.delivery'), icon: "location-on", color: COLORS.GREEN4 },
    { key: "completed", label: t('buyerStatusOrder.steps.rantanganHarian.completed'), icon: "star", color: COLORS.GREEN3 },
@@ -139,7 +156,7 @@ const getRantanganHarianSteps = (t) => [
 
 // Rantangan Mingguan/Bulanan status steps (cycles between processing and delivery)
 const getRantanganRecurringSteps = (t) => [
-   { key: "waiting_approval", label: t('buyerStatusOrder.steps.rantanganRecurring.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+   { key: "awaiting_seller_approval", label: t('buyerStatusOrder.steps.rantanganRecurring.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
    { key: "processing", label: t('buyerStatusOrder.steps.rantanganRecurring.processing'), icon: "restaurant", color: COLORS.ORANGE || "#FFA726" },
    { key: "delivery", label: t('buyerStatusOrder.steps.rantanganRecurring.delivery'), icon: "location-on", color: COLORS.GREEN4 },
    { key: "completed", label: t('buyerStatusOrder.steps.rantanganRecurring.completed'), icon: "check-circle", color: COLORS.GREEN3 },
@@ -147,7 +164,7 @@ const getRantanganRecurringSteps = (t) => [
 
 // Bite Eco status steps
   const getBiteEcoSteps = (t) => [
-  { key: "waiting_approval", label: t('buyerStatusOrder.steps.biteEco.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+  { key: "awaiting_seller_approval", label: t('buyerStatusOrder.steps.biteEco.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
   { key: "processing", label: t('buyerStatusOrder.steps.biteEco.processing'), icon: "eco", color: COLORS.GREEN4 },
   { key: "delivery", label: t('buyerStatusOrder.steps.biteEco.delivery'), icon: "location-on", color: COLORS.GREEN4 },
   { key: "completed", label: t('buyerStatusOrder.steps.biteEco.completed'), icon: "check-circle", color: COLORS.GREEN3 },
@@ -203,12 +220,16 @@ const getStatusSteps = (t, orderType, packageType) => {
   return getStatusSteps_Default(t);
 };
 
+// FIX: kedua switch block disamakan dengan status asli backend.
+// approved_awaiting_payment tetap dipetakan ke index 0 (satu slot yang sama
+// dengan awaiting_seller_approval) supaya stepper tetap 4 langkah.
 function getStepIndex(statusProgress, orderType, packageType, dailyDeliveryLogs = []) {
 
   if ((orderType === 'Rantangan' || (orderType && orderType.includes('Rantangan'))) &&
       (packageType === 'Mingguan' || packageType === 'Bulanan')) {
     switch (statusProgress) {
-      case "waiting_approval":
+      case "awaiting_seller_approval":
+      case "approved_awaiting_payment":
         return 0;
       case "processing":
         return 1;
@@ -222,7 +243,8 @@ function getStepIndex(statusProgress, orderType, packageType, dailyDeliveryLogs 
   }
 
   switch (statusProgress) {
-    case "waiting_approval":
+    case "awaiting_seller_approval":
+    case "approved_awaiting_payment":
       return 0;
     case "processing":
       return 1;
@@ -747,7 +769,7 @@ const StatusOrder = () => {
       </View>
 
       {/* Filter tabs selaras dengan halaman Pesanan penjual */}
-      <View style={styles.filterBar}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={{ gap: 8 }}>
          {getFilters(t).map((f) => {
           const active = activeFilter === f.key;
           return (
@@ -762,7 +784,7 @@ const StatusOrder = () => {
             </TouchableOpacity>
           );
         })}
-      </View>
+      </ScrollView>
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -952,8 +974,7 @@ const styles = StyleSheet.create({
 
   // Filter tabs
   filterBar: {
-    flexDirection: "row",
-    gap: 8,
+    flexGrow: 0,
     paddingHorizontal: 16,
     paddingVertical: 12,
   },

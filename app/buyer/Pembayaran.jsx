@@ -1,22 +1,27 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SafeAreaView } from "react-native-safe-area-context";
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, TextInput, Platform } from "react-native";
-import { useEffect, useState, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, ActivityIndicator, Modal, TextInput, Platform, Image } from "react-native";
+import { useEffect, useState } from 'react';
 import HeaderTitleBack from '../../components/HeaderTitleBack';
 import COLORS from '../constants/color';
 import axios from 'axios';
 import config from '../constants/config';
-import { WebView } from 'react-native-webview';
 import { useRouter } from 'expo-router';
 import { useToast } from '../../components/ToastProvider';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { MaterialIcons } from '@expo/vector-icons';
+import logo from "../../assets/images/logo.png";
 
 const VALID_PACKAGE_TYPES = ['Harian', 'Mingguan', 'Bulanan'];
+const CANCEL_WINDOW_SECONDS = 15;
 
-// ---- Alert kustom - dipakai untuk pesan yang HARUS dibaca user (validasi,
-// error blocking), beda dari toast yang memang didesain cepat hilang.
-// Baru nutup kalau tombol OK ditekan. ----
+// -----------------------------------------------------------------------
+// ASUMSI BACKEND: pembatalan memanggil PATCH /buyer/orders/:id dengan
+// body { statusProgress: 'cancelled' } — pola sama seperti update status
+// pembayaran yang sudah ada di Riwayat.jsx. Kalau kontrak endpoint ini
+// berbeda, sesuaikan di handleCancelOrder di bawah.
+// -----------------------------------------------------------------------
+
 const ALERT_TYPE_STYLES = {
   info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
   success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
@@ -54,38 +59,81 @@ const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose 
   );
 };
 
-const Pembayaran = (props) => {
+// ---------------------------------------------------------------------------
+// Layar konfirmasi — burgundy penuh di atas (logo + judul), card putih rounded
+// menempel di bawah (subtitle, countdown, tombol batal)
+// ---------------------------------------------------------------------------
+const ConfirmationScreen = ({ countdown, onCancel, cancelling }) => {
+  const windowOpen = countdown > 0;
+  return (
+    <View style={styles.confirmContainer}>
+      <SafeAreaView style={styles.confirmTopSection}>
+        <Image source={logo} style={styles.confirmLogo} resizeMode="contain" />
+        <Text style={styles.confirmTitle}>
+          {windowOpen ? 'Pesanan Diterima !' : 'Menunggu Konfirmasi Penjual'}
+        </Text>
+      </SafeAreaView>
+
+      <View style={styles.confirmCard}>
+        <Text style={styles.confirmSubtitle}>
+          {windowOpen
+            ? 'Pesanan Anda akan diproses dan dikirim ke penjual.'
+            : 'Pesanan Anda telah dikirim ke penjual. Kamu akan diarahkan ke halaman Pesanan.'}
+        </Text>
+
+        {windowOpen ? (
+          <>
+            <View style={styles.countdownCircle}>
+              <Text style={styles.countdownNumber}>{countdown}</Text>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.cancelOrderButton, cancelling && { opacity: 0.6 }]}
+              onPress={onCancel}
+              disabled={cancelling}
+              activeOpacity={0.85}
+            >
+              {cancelling ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.cancelOrderButtonText}>Batalkan Pesanan</Text>
+              )}
+            </TouchableOpacity>
+          </>
+        ) : (
+          <ActivityIndicator size="small" color={COLORS.PRIMARY} style={{ marginTop: 12 }} />
+        )}
+      </View>
+    </View>
+  );
+};
+
+const Pembayaran = () => {
   const router = useRouter();
   const { showToast } = useToast();
   const [cart, setCart] = useState([]);
   const [total, setTotal] = useState(0);
   const [store, setStore] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [snapUrl, setSnapUrl] = useState(null);
-  const [showWebView, setShowWebView] = useState(false);
-  const [orderId, setOrderId] = useState(null);
+  const [submitting, setSubmitting] = useState(false);
   const [address, setAddress] = useState('');
   const [showAddressModal, setShowAddressModal] = useState(false);
   const [addressFields, setAddressFields] = useState({
-    address: '',
-    kelurahan: '',
-    kecamatan: '',
-    provinsi: '',
-    kodepos: '',
-    catatan: '',
+    address: '', kelurahan: '', kecamatan: '', provinsi: '', kodepos: '', catatan: '',
   });
   const [orderType, setOrderType] = useState('');
   const [buyerLocation, setBuyerLocation] = useState(null);
-  const webViewRef = useRef(null);
 
-  // Alert kustom (menggantikan toast untuk pesan yang wajib dibaca user)
+  const [stage, setStage] = useState('form');
+  const [orderId, setOrderId] = useState(null);
+  const [countdown, setCountdown] = useState(CANCEL_WINDOW_SECONDS);
+  const [cancelling, setCancelling] = useState(false);
+
   const [alert, setAlert] = useState({ visible: false, title: '', message: '', buttons: [{ text: 'OK' }], type: 'info' });
   const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
     setAlert({ visible: true, title, message, buttons, type });
   };
   const closeAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
 
-  // Date selection states for Rantangan orders
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [startDate, setStartDate] = useState(null);
@@ -119,73 +167,44 @@ const Pembayaran = (props) => {
 
   const isRantanganOrder = orderType === 'Rantangan' || orderType.includes('Rantangan');
 
-  // Helper function to get package type from orderType.
-  // FIX: store?.rantanganPackageType sebelumnya dipakai tanpa divalidasi -
-  // kalau isinya bukan salah satu dari 3 tipe yang valid, hasil salah tapi
-  // tetap dianggap "ada", bikin perhitungan tanggal berakhir jadi salah.
   const getPackageType = (orderType) => {
     if (!orderType) return null;
-
     if (store?.rantanganPackageType && VALID_PACKAGE_TYPES.includes(store.rantanganPackageType)) {
       return store.rantanganPackageType;
     }
-
     if (orderType === 'Rantangan' || orderType.includes('Rantangan')) {
       if (orderType.includes('Harian')) return 'Harian';
       if (orderType.includes('Mingguan')) return 'Mingguan';
       if (orderType.includes('Bulanan')) return 'Bulanan';
-      return 'Harian'; // fallback untuk order lama tanpa tipe spesifik
+      return 'Harian';
     }
-
     return null;
   };
 
   const calculateEndDate = (fromDate, packageType) => {
     if (!fromDate || !packageType) return;
-
     const start = new Date(fromDate);
     setStartDate(start);
-
     let end = new Date(start);
     switch (packageType) {
-      case 'Harian':
-        end = new Date(start);
-        break;
-      case 'Mingguan':
-        end.setDate(start.getDate() + 6);
-        break;
-      case 'Bulanan':
-        end.setDate(start.getDate() + 29);
-        break;
-      default:
-        end = new Date(start);
+      case 'Harian': end = new Date(start); break;
+      case 'Mingguan': end.setDate(start.getDate() + 6); break;
+      case 'Bulanan': end.setDate(start.getDate() + 29); break;
+      default: end = new Date(start);
     }
     setEndDate(end);
   };
 
-  // Dipanggil setelah tanggal dipilih & dikonfirmasi (baik dari dialog Android
-  // maupun modal spinner iOS). Satu tempat, satu sumber kebenaran.
   const confirmDateSelection = (date) => {
     const packageType = getPackageType(orderType);
     if (!packageType) {
-      showAlert(
-        'Tidak Bisa Menentukan Paket',
-        'Jenis paket rantangan tidak dikenali. Coba pilih ulang paket dari halaman sebelumnya.',
-        [{ text: 'OK' }],
-        'error'
-      );
+      showAlert('Tidak Bisa Menentukan Paket', 'Jenis paket rantangan tidak dikenali. Coba pilih ulang paket dari halaman sebelumnya.', [{ text: 'OK' }], 'error');
       return;
     }
     setSelectedDate(date);
     calculateEndDate(date, packageType);
   };
 
-  // FIX: display="spinner" yang ditanam di dalam Modal custom kurang reliable
-  // di Android (value sering tidak ter-update / picker tidak kebaca dengan
-  // benar). Android sekarang pakai dialog native bawaan (display="default"),
-  // yang muncul & hilang sendiri dan hasil pemilihannya pasti kebaca lewat
-  // event.type === 'set'. iOS tetap pakai spinner custom karena di iOS
-  // memang dirancang untuk ditanam inline.
   const handleAndroidDateChange = (event, date) => {
     setShowDatePicker(false);
     if (event.type === 'set' && date) {
@@ -198,23 +217,10 @@ const Pembayaran = (props) => {
     return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' });
   };
 
-  // Calculate total based on cart
   useEffect(() => {
     const sum = cart.reduce((acc, item) => acc + (item.price || 0), 0);
     setTotal(sum);
   }, [cart]);
-
-  // Resume payment if snapUrl exists in AsyncStorage
-  useEffect(() => {
-    const checkSnapUrl = async () => {
-      const savedSnapUrl = await AsyncStorage.getItem('snap_url');
-      if (savedSnapUrl) {
-        setSnapUrl(savedSnapUrl);
-        setShowWebView(true);
-      }
-    };
-    checkSnapUrl();
-  }, []);
 
   useEffect(() => {
     const fetchAddress = async () => {
@@ -230,14 +236,27 @@ const Pembayaran = (props) => {
     fetchAddress();
   }, []);
 
-  const handlePay = async () => {
+  useEffect(() => {
+    if (stage !== 'confirming' || countdown <= 0) return;
+    const timer = setTimeout(() => setCountdown((c) => c - 1), 1000);
+    return () => clearTimeout(timer);
+  }, [stage, countdown]);
+
+  useEffect(() => {
+    if (stage === 'confirming' && countdown === 0) {
+      const redirectTimer = setTimeout(() => {
+        router.replace('/buyer/(tabs)/riwayat');
+      }, 1800);
+      return () => clearTimeout(redirectTimer);
+    }
+  }, [stage, countdown]);
+
+  const handlePesan = async () => {
     if (!cart.length || !store) {
       showAlert('Tidak Bisa Melanjutkan', 'Keranjang kosong atau toko tidak ditemukan.', [{ text: 'OK' }], 'error');
       return;
     }
 
-    // Validasi tanggal untuk Rantangan - pakai alert persisten (bukan toast)
-    // supaya pesan ini benar-benar terbaca sebelum hilang, sesuai permintaan.
     if (isRantanganOrder && !startDate) {
       showAlert(
         'Pilih Tanggal Dulu',
@@ -248,13 +267,11 @@ const Pembayaran = (props) => {
       return;
     }
 
-    setLoading(true);
+    setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem('buyerToken');
       const addressData = await AsyncStorage.getItem('addressFields');
       const addressObj = addressData ? JSON.parse(addressData) : {};
-
-      showToast('Membuat pesanan...', 'info');
 
       const res = await axios.post(
         `${config.API_URL}/buyer/orders`,
@@ -280,32 +297,51 @@ const Pembayaran = (props) => {
         token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
       );
 
-      if (res.data && res.data.snapUrl && res.data.orderId) {
+      if (res.data && res.data.orderId) {
         setOrderId(res.data.orderId);
-        setSnapUrl(res.data.snapUrl);
-        setShowWebView(true);
-        await AsyncStorage.setItem('snap_url', res.data.snapUrl);
-        await AsyncStorage.setItem('order_id', res.data.orderId);
-        showToast('Pesanan berhasil dibuat', 'success');
+
+        await AsyncStorage.removeItem('cart');
+        await AsyncStorage.removeItem('cart_total');
+        await AsyncStorage.removeItem('cart_store');
+        await AsyncStorage.removeItem('cart_pax');
+        await AsyncStorage.removeItem('order_type');
+
+        setCountdown(CANCEL_WINDOW_SECONDS);
+        setStage('confirming');
       } else {
-        showAlert('Gagal Membuat Pesanan', 'Link pembayaran tidak berhasil didapatkan. Coba lagi beberapa saat.', [{ text: 'OK' }], 'error');
+        showAlert('Gagal Membuat Pesanan', 'Pesanan tidak berhasil dibuat. Coba lagi beberapa saat.', [{ text: 'OK' }], 'error');
       }
     } catch (e) {
-      console.error('Payment error:', e);
-      showAlert('Gagal Membuat Pesanan', 'Terjadi kendala saat membuat pesanan atau mendapatkan link pembayaran. Coba lagi.', [{ text: 'OK' }], 'error');
+      console.error('Create order error:', e);
+      showAlert('Gagal Membuat Pesanan', 'Terjadi kendala saat membuat pesanan. Coba lagi.', [{ text: 'OK' }], 'error');
     } finally {
-      setLoading(false);
+      setSubmitting(false);
     }
   };
 
-  const handleWebViewClose = async () => {
-    setShowWebView(false);
-    await AsyncStorage.removeItem('snap_url');
-    await AsyncStorage.removeItem('cart');
-    await AsyncStorage.removeItem('cart_total');
-    await AsyncStorage.removeItem('cart_store');
-    showToast('Pembayaran selesai', 'info');
-    router.push('/buyer/(tabs)/riwayat');
+  const handleCancelOrder = async () => {
+    if (!orderId) return;
+    setCancelling(true);
+    try {
+      const token = await AsyncStorage.getItem('buyerToken');
+      await axios.patch(
+        `${config.API_URL}/buyer/orders/${orderId}`,
+        { statusProgress: 'cancelled' },
+        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+      );
+      showToast('Pesanan dibatalkan', 'info');
+      router.back();
+    } catch (e) {
+      console.error('Cancel order error:', e);
+      showAlert(
+        'Gagal Membatalkan',
+        'Terjadi kendala saat membatalkan pesanan. Kamu masih bisa membatalkannya dari halaman Pesanan Saya.',
+        [{ text: 'OK' }],
+        'error'
+      );
+    } finally {
+      setCancelling(false);
+    }
   };
 
   const handleSaveAddress = async () => {
@@ -319,20 +355,27 @@ const Pembayaran = (props) => {
     }
   };
 
-  // Watch for WebView modal close and navigate to riwayat
-  const prevShowWebView = useRef(showWebView);
-  useEffect(() => {
-    if (prevShowWebView.current && !showWebView) {
-      router.push('/buyer/(tabs)/riwayat');
-    }
-    prevShowWebView.current = showWebView;
-  }, [showWebView]);
-
   const maxDate = new Date(new Date().setFullYear(new Date().getFullYear() + 1));
+
+  if (stage === 'confirming') {
+    return (
+      <>
+        <ConfirmationScreen countdown={countdown} onCancel={handleCancelOrder} cancelling={cancelling} />
+        <CustomAlert
+          visible={alert.visible}
+          title={alert.title}
+          message={alert.message}
+          buttons={alert.buttons}
+          type={alert.type}
+          onClose={closeAlert}
+        />
+      </>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Pembayaran" />
+      <HeaderTitleBack title="Pesanan" />
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={styles.content}>
           {store && (
@@ -342,9 +385,8 @@ const Pembayaran = (props) => {
               <Text style={styles.storeSub}>{store.type}</Text>
             </View>
           )}
-          <Text style={styles.title}>Ringkasan Pembayaran</Text>
+          <Text style={styles.title}>Ringkasan Pesanan</Text>
 
-          {/* Address Row */}
           <View style={{ marginBottom: 16 }}>
             <Text style={styles.label}>Alamat Pengantaran</Text>
             <Text style={styles.addressMain}>{addressFields.address || '-'}</Text>
@@ -370,7 +412,6 @@ const Pembayaran = (props) => {
             </ScrollView>
           </View>
 
-          {/* Date Selection for Rantangan Orders */}
           {isRantanganOrder && (
             <View style={{ marginTop: 16, marginBottom: 4 }}>
               <Text style={styles.sectionLabel}>Jadwal Pengantaran</Text>
@@ -407,73 +448,17 @@ const Pembayaran = (props) => {
             <Text style={styles.totalValue}>Rp {total?.toLocaleString('id-ID')}</Text>
           </View>
 
-          <TouchableOpacity style={[styles.payButton, loading && { opacity: 0.6 }]} onPress={handlePay} disabled={loading}>
-            {loading ? <ActivityIndicator size="small" color="#fff" /> : (
-              <Text style={styles.payButtonText}>Bayar Sekarang</Text>
+          <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.6 }]} onPress={handlePesan} disabled={submitting}>
+            {submitting ? <ActivityIndicator size="small" color="#fff" /> : (
+              <Text style={styles.submitButtonText}>Pesan</Text>
             )}
           </TouchableOpacity>
+          <Text style={styles.paymentNote}>
+            Pembayaran dilakukan setelah penjual mengonfirmasi pesananmu.
+          </Text>
         </View>
       </ScrollView>
 
-      {/* Modal WebView for Snap */}
-      <Modal visible={showWebView} animationType="slide">
-        <SafeAreaView style={{ flex: 1, backgroundColor: 'white' }}>
-          <View style={styles.webviewHeader}>
-            <TouchableOpacity onPress={handleWebViewClose} style={{ padding: 10 }}>
-              <Text style={styles.webviewHeaderClose}>Tutup</Text>
-            </TouchableOpacity>
-            <Text style={styles.webviewHeaderTitle}>Pembayaran</Text>
-            <View style={{ width: 46 }} />
-          </View>
-          {snapUrl ? (
-            <WebView
-              ref={webViewRef}
-              source={{ uri: snapUrl }}
-              style={{ flex: 1 }}
-              javaScriptEnabled
-              domStorageEnabled
-              startInLoadingState
-              renderLoading={() => <ActivityIndicator size="large" color={COLORS.PRIMARY} style={{ marginTop: 20 }} />}
-              onNavigationStateChange={async (navState) => {
-                const url = navState.url;
-                if (url.includes('finish') || url.includes('success') || url.includes('pending') || url.includes('status') || url.includes('complete')) {
-                  await AsyncStorage.removeItem('snap_url');
-                  await AsyncStorage.removeItem('cart');
-                  await AsyncStorage.removeItem('cart_total');
-                  await AsyncStorage.removeItem('cart_store');
-                  setShowWebView(false);
-                  router.push('/buyer/(tabs)/riwayat');
-                }
-              }}
-              onMessage={async () => {
-                setShowWebView(false);
-                await AsyncStorage.removeItem('cart');
-                await AsyncStorage.removeItem('cart_total');
-                await AsyncStorage.removeItem('cart_store');
-                router.push('/buyer/(tabs)/riwayat');
-              }}
-              onError={async () => {
-                setShowWebView(false);
-                await AsyncStorage.removeItem('cart');
-                await AsyncStorage.removeItem('cart_total');
-                await AsyncStorage.removeItem('cart_store');
-                router.push('/buyer/(tabs)/riwayat');
-              }}
-              onHttpError={async () => {
-                setShowWebView(false);
-                await AsyncStorage.removeItem('cart');
-                await AsyncStorage.removeItem('cart_total');
-                await AsyncStorage.removeItem('cart_store');
-                router.push('/buyer/(tabs)/riwayat');
-              }}
-            />
-          ) : (
-            <ActivityIndicator size="large" color={COLORS.PRIMARY} style={{ marginTop: 20 }} />
-          )}
-        </SafeAreaView>
-      </Modal>
-
-      {/* Modal for Address Input */}
       <Modal visible={showAddressModal} transparent animationType="slide">
         <View style={styles.centerModalOverlay}>
           <View style={styles.addressModalCard}>
@@ -530,7 +515,6 @@ const Pembayaran = (props) => {
         </View>
       </Modal>
 
-      {/* Date Picker - Android: dialog native bawaan (paling reliable) */}
       {showDatePicker && Platform.OS === 'android' && (
         <DateTimePicker
           value={selectedDate}
@@ -542,13 +526,11 @@ const Pembayaran = (props) => {
         />
       )}
 
-      {/* Date Picker - iOS: spinner di dalam modal custom + tombol konfirmasi */}
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal visible={showDatePicker} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
           <View style={styles.centerModalOverlay}>
             <View style={styles.dateModalCard}>
               <Text style={styles.modalTitle}>Pilih Tanggal Mulai</Text>
-
               <DateTimePicker
                 value={selectedDate}
                 mode="date"
@@ -559,7 +541,6 @@ const Pembayaran = (props) => {
                 style={{ backgroundColor: 'white', height: 200 }}
                 textColor="#000"
               />
-
               <View style={styles.dateModalButtonRow}>
                 <TouchableOpacity style={styles.dateModalCancelButton} onPress={() => setShowDatePicker(false)}>
                   <Text style={styles.dateModalCancelText}>Batal</Text>
@@ -591,15 +572,8 @@ const Pembayaran = (props) => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
   content: {
-    margin: 20,
-    backgroundColor: 'white',
-    borderRadius: 18,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    margin: 20, backgroundColor: 'white', borderRadius: 18, padding: 20,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
   storeInfo: { marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: '#eee' },
   storeName: { fontWeight: '700', fontSize: 15, color: '#23272f' },
@@ -613,65 +587,24 @@ const styles = StyleSheet.create({
   sectionLabel: { fontWeight: '700', fontSize: 14.5, color: '#23272f', marginBottom: 10 },
   itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
 
-  dateButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#F7EAEF',
-    padding: 13,
-    borderRadius: 12,
-    marginBottom: 8,
-  },
+  dateButton: { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#F7EAEF', padding: 13, borderRadius: 12, marginBottom: 8 },
   dateButtonText: { flex: 1, fontSize: 13.5, color: '#23272f', fontWeight: '600' },
-  dateInfo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#E8F5E9',
-    padding: 9,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
+  dateInfo: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#E8F5E9', padding: 9, borderRadius: 8, marginBottom: 8 },
   dateInfoText: { fontSize: 12.5, color: '#2E7D32', fontWeight: '600' },
-  packageInfo: {
-    backgroundColor: '#FFF3E0',
-    padding: 9,
-    borderRadius: 8,
-    borderLeftWidth: 3,
-    borderLeftColor: '#B26A00',
-  },
+  packageInfo: { backgroundColor: '#FFF3E0', padding: 9, borderRadius: 8, borderLeftWidth: 3, borderLeftColor: '#B26A00' },
   packageInfoText: { fontSize: 12.5, color: '#8a5a10', fontWeight: '600' },
 
   totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 18, marginBottom: 18 },
   totalLabel: { fontWeight: '700', fontSize: 15, color: '#23272f' },
   totalValue: { fontWeight: '700', fontSize: 15, color: COLORS.PRIMARY },
 
-  payButton: {
-    backgroundColor: COLORS.PRIMARY,
-    borderRadius: 30,
-    paddingVertical: 15,
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+  submitButton: {
+    backgroundColor: COLORS.PRIMARY, borderRadius: 30, paddingVertical: 15, alignItems: 'center', justifyContent: 'center',
+    shadowColor: COLORS.PRIMARY, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
-  payButtonText: { color: 'white', fontWeight: '700', fontSize: 15 },
+  submitButtonText: { color: 'white', fontWeight: '700', fontSize: 15 },
+  paymentNote: { fontSize: 11.5, color: '#999', textAlign: 'center', marginTop: 10 },
 
-  // WebView header
-  webviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 10,
-    backgroundColor: COLORS.PRIMARY,
-  },
-  webviewHeaderClose: { color: 'white', fontWeight: '700' },
-  webviewHeaderTitle: { color: 'white', fontWeight: '700', flex: 1, textAlign: 'center' },
-
-  // Address modal
   centerModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', alignItems: 'center' },
   addressModalCard: { backgroundColor: 'white', padding: 22, borderRadius: 18, width: '87%' },
   modalTitle: { fontWeight: '700', fontSize: 16, color: '#23272f', marginBottom: 14, textAlign: 'center' },
@@ -679,21 +612,45 @@ const styles = StyleSheet.create({
   saveAddressButton: { backgroundColor: COLORS.PRIMARY, borderRadius: 30, padding: 13, alignItems: 'center' },
   saveAddressButtonText: { color: 'white', fontWeight: '700', fontSize: 14 },
 
-  // Date modal (iOS)
-  dateModalCard: {
-    backgroundColor: 'white',
-    borderRadius: 18,
-    padding: 20,
-    width: '90%',
-    maxWidth: 400,
-  },
+  dateModalCard: { backgroundColor: 'white', borderRadius: 18, padding: 20, width: '90%', maxWidth: 400 },
   dateModalButtonRow: { flexDirection: 'row', gap: 10, marginTop: 16 },
   dateModalCancelButton: { flex: 1, backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#e5e5e5', paddingVertical: 12, borderRadius: 30, alignItems: 'center' },
   dateModalCancelText: { color: '#777', fontWeight: '700', fontSize: 14 },
   dateModalConfirmButton: { flex: 1, backgroundColor: COLORS.PRIMARY, paddingVertical: 12, borderRadius: 30, alignItems: 'center' },
   dateModalConfirmText: { color: 'white', fontWeight: '700', fontSize: 14 },
 
-  // CustomAlert (persisten, tunggu tombol ditekan)
+  // ---------------- Layar konfirmasi (selaras dengan referensi gambar) ----------------
+  confirmContainer: { flex: 1, backgroundColor: COLORS.PRIMARY },
+  confirmTopSection: {
+  flex: 1,
+  alignItems: 'center',
+  justifyContent: 'center',
+  paddingHorizontal: 32,
+  paddingBottom: 40,
+},
+  confirmLogo: { width: 120, height: 120, marginBottom: 20, tintColor: '#fff' },
+  confirmTitle: { fontSize: 23, fontWeight: '700', color: '#fff', textAlign: 'center' },
+  confirmCard: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    paddingTop: 28,
+    paddingHorizontal: 28,
+    paddingBottom: 36,
+    alignItems: 'center',
+  },
+  confirmSubtitle: { fontSize: 13.5, color: COLORS.PRIMARY, textAlign: 'center', lineHeight: 20, marginBottom: 22 },
+  countdownCircle: {
+    width: 64, height: 64, borderRadius: 32, borderWidth: 2, borderColor: COLORS.PRIMARY,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 22,
+  },
+  countdownNumber: { fontSize: 22, fontWeight: '700', color: COLORS.PRIMARY },
+  cancelOrderButton: {
+    backgroundColor: COLORS.PRIMARY, borderRadius: 30, paddingVertical: 14,
+    alignItems: 'center', justifyContent: 'center', width: '100%',
+  },
+  cancelOrderButtonText: { color: '#fff', fontWeight: '700', fontSize: 14.5 },
+
   alertOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
   alertContent: { backgroundColor: 'white', borderRadius: 18, padding: 22, width: '100%', maxWidth: 340, alignItems: 'center' },
   alertIconCircle: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },

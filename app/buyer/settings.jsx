@@ -129,6 +129,47 @@ const LanguagePickerModal = ({ visible, onClose, t }) => {
   );
 };
 
+// ==== Policy Modal (Kebijakan Privasi / Syarat & Ketentuan) ====
+const PolicyModal = ({ visible, onClose, title, intro, sections }) => {
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose}>
+      <SafeAreaView style={styles.policyContainer}>
+        <View style={styles.policyHeader}>
+          <TouchableOpacity onPress={onClose} style={styles.policyBackBtn}>
+            <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+          </TouchableOpacity>
+          <Text style={styles.policyHeaderTitle} numberOfLines={1}>{title}</Text>
+          <View style={{ width: 26 }} />
+        </View>
+
+        <ScrollView
+          style={styles.policyScroll}
+          contentContainerStyle={{ paddingBottom: 32 }}
+          showsVerticalScrollIndicator={false}
+        >
+          {!!intro && (
+            <View style={styles.policyIntroCard}>
+              <Text style={styles.policyIntroText}>{intro}</Text>
+            </View>
+          )}
+
+          {sections.map((section, idx) => (
+            <View key={idx} style={styles.policySectionCard}>
+              <View style={styles.policySectionHeader}>
+                <View style={styles.policySectionIconWrap}>
+                  <MaterialIcons name={section.icon} size={18} color={COLORS.PRIMARY} />
+                </View>
+                <Text style={styles.policySectionTitle}>{section.title}</Text>
+              </View>
+              <Text style={styles.policySectionBody}>{section.body}</Text>
+            </View>
+          ))}
+        </ScrollView>
+      </SafeAreaView>
+    </Modal>
+  );
+};
+
 const SettingsPage = () => {
   const router = useRouter();
   const { t } = useLanguage();
@@ -145,6 +186,8 @@ const SettingsPage = () => {
     showOnlineStatus: true,
     allowScheduledOrders: true,
   });
+  const [privacyModal, setPrivacyModal] = useState(false);
+  const [termsModal, setTermsModal] = useState(false);
   const [changePasswordModal, setChangePasswordModal] = useState(false);
   const [languageModal, setLanguageModal] = useState(false);
   const [passwordData, setPasswordData] = useState({
@@ -410,7 +453,7 @@ const SettingsPage = () => {
           subtitle: t('settings.sections.other.privacy.subtitle'),
           type: 'button',
           icon: 'privacy-tip',
-          onPress: () => showAlert(t('common.info'), t('settings.sections.other.privacy.comingSoon'), [{ text: t('common.ok') }], 'info'),
+          onPress: () => setPrivacyModal(true),
         },
         {
           key: 'terms',
@@ -418,7 +461,7 @@ const SettingsPage = () => {
           subtitle: t('settings.sections.other.terms.subtitle'),
           type: 'button',
           icon: 'description',
-          onPress: () => showAlert(t('common.info'), t('settings.sections.other.terms.comingSoon'), [{ text: t('common.ok') }], 'info'),
+          onPress: () => setTermsModal(true),
         },
         {
           key: 'about',
@@ -589,6 +632,24 @@ const SettingsPage = () => {
       {/* Language Picker Modal */}
       <LanguagePickerModal visible={languageModal} onClose={() => setLanguageModal(false)} t={t} />
 
+      {/* Privacy Policy Modal */}
+      <PolicyModal
+        visible={privacyModal}
+        onClose={() => setPrivacyModal(false)}
+        title={t('settings.privacyPolicyBuyerContent.title')}
+        intro={t('settings.privacyPolicyBuyerContent.intro')}
+        sections={t('settings.privacyPolicyBuyerContent.sections')}
+      />
+
+      {/* Terms & Conditions Modal */}
+      <PolicyModal
+        visible={termsModal}
+        onClose={() => setTermsModal(false)}
+        title={t('settings.termsBuyerContent.title')}
+        intro={t('settings.termsBuyerContent.intro')}
+        sections={t('settings.termsBuyerContent.sections')}
+      />
+
       {/* Custom Alert Card (pengganti Alert.alert bawaan) */}
       <CustomAlert
         visible={alertState.visible}
@@ -603,6 +664,79 @@ const SettingsPage = () => {
 };
 
 const styles = StyleSheet.create({
+  // ==== Policy Modal ====
+  policyContainer: { flex: 1, backgroundColor: '#F5F6FA' },
+  policyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  policyBackBtn: { width: 26 },
+  policyHeaderTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 16,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+    marginHorizontal: 8,
+  },
+  policyScroll: { flex: 1, paddingHorizontal: 16 },
+  policyIntroCard: {
+    backgroundColor: '#F7EAEF',
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 16,
+    marginBottom: 6,
+    borderWidth: 1,
+    borderColor: '#F0DCE3',
+  },
+  policyIntroText: {
+    fontSize: 13.5,
+    lineHeight: 20,
+    color: '#5c3341',
+    fontWeight: '500',
+  },
+  policySectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 14,
+    padding: 16,
+    marginTop: 12,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  policySectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 8,
+  },
+  policySectionIconWrap: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: '#F7EAEF',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  policySectionTitle: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#23272f',
+    flex: 1,
+  },
+  policySectionBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#666',
+  },
   container: {
     flex: 1,
     backgroundColor: '#F5F6FA',
