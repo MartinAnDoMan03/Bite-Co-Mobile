@@ -1,18 +1,25 @@
 import { Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import * as Notifications from 'expo-notifications';
 import * as Device from 'expo-device';
 
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowAlert: true,
-    shouldPlaySound: true,
-    shouldSetBadge: true,
-  }),
-});
+let notificationAvailable = false;
+
+if (Device.isDevice && Platform.OS !== 'android') {
+  notificationAvailable = true;
+  import ('expo-notifications').then(Notifications => {
+    Notifications.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowAlert: true,
+        shouldPlaySound: true,
+        shouldSetBadge: true,
+      }),
+    });
+  });
+}
 
 // Function to get expo push token
 export const getExpoPushToken = async () => {
+  if(!notificationAvailable) return null;
   if (!Device.isDevice) {
     console.log ('Must use physical device for push notifications');
     return null;
@@ -72,6 +79,7 @@ const registerPushToken = async (userType, userId, token = null) => {
 
 // function for setting up listeners
 const setupListeners = (onNotificationReceived) => {
+  if (!notificationAvailable) return null;
   const subscription = Notifications.addNotificationReceivedListener((response) => {
     onNotificationReceived?.(response.notification);
   });
