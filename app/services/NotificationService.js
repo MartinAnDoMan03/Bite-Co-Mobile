@@ -213,7 +213,6 @@ export {
   setupNotificationCategories,
   getNotificationSettings,
   getStoredToken,
-  getExpoPushToken
 };
 
 // Default export for backward compatibility

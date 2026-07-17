@@ -419,7 +419,7 @@ const CateringDetail = () => {
             <Text style={styles.errorText}>Tidak ada menu</Text>
           </View>
         ) : (
-          categories.map((cat, idx) => (
+          categories.filter(cat => cat.items && cat.items.length > 0).map((cat, idx) => (
             <View key={cat.name || idx} style={{ gap: 12, marginBottom: 6 }}>
               <Text style={styles.categoryTitle}>{cat.name}</Text>
               {cat.items && cat.items.length > 0 ? (
