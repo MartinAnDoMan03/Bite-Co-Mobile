@@ -63,7 +63,6 @@ const CateringDetail = () => {
   const [menuImagesTotal, setMenuImagesTotal] = useState(0);
   const [allContentLoaded, setAllContentLoaded] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(null);
-  const [pax, setPax] = useState('1');
   const [buyerLocation, setBuyerLocation] = useState(null);
   const [cardHeight, setCardHeight] = useState(FALLBACK_CARD_HEIGHT);
   const router = useRouter();
@@ -169,14 +168,14 @@ const CateringDetail = () => {
       if (prevCart.sellerId !== sellerid) {
         newCart = {
           sellerId: sellerid,
-          items: [{ ...menu }],
+          items: [{ ...menu, qty: 1 }],
         };
       } else {
         const found = prevCart.items.find((item) => item.id === menu.id);
         if (!found) {
           newCart = {
             ...prevCart,
-            items: [...prevCart.items, { ...menu }],
+            items: [...prevCart.items, { ...menu, qty: 1 }],
           };
         } else {
           newCart = prevCart;
@@ -199,6 +198,23 @@ const CateringDetail = () => {
     });
   };
 
+  // Function for5 updating pax for items
+  const updateItemPax = (menuId, newQty) => {
+    setCart((prevCart) => {
+      // Pax cant be less than 1
+      const safeQty = Math.max(1, newQty);
+
+      const updatedItems = prevCart.items.map(item => 
+        item.id === menuId ? { ...item, qty: safeQty } : item
+      );
+
+      const newCart = { ...prevCart, items: updatedItems };
+      saveCartToStorage(updatedItems, store);
+      return newCart;
+    });
+  };
+
+
   // Helper to check if item is in cart
   const isInCart = (menuId) => {
     if (cart.sellerId !== sellerid) return false;
@@ -210,9 +226,11 @@ const CateringDetail = () => {
 
   // Total calculation: sum of item prices * pax
   const getTotal = () => {
-    const sum = cart.items.reduce((total, item) => total + (item.price || 0), 0);
-    const paxNum = parseInt(pax) || 1;
-    return sum * paxNum;
+    return cart.items.reduce((total, item) => {
+      const itemPrice = item.price || 0;
+      const itemQty = item.qty || 0;
+      return total + (itemPrice + itemQty);
+    }, 0);
   };
 
   const saveCartToStorage = async (cartItems, storeObj) => {
@@ -231,7 +249,6 @@ const CateringDetail = () => {
       await AsyncStorage.setItem('cart', JSON.stringify(cart.items));
       await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
       await AsyncStorage.setItem('cart_store', JSON.stringify(store));
-      await AsyncStorage.setItem('cart_pax', pax); // Save pax amount
       await AsyncStorage.setItem('order_type', 'Catering'); // Pass OrderType
       router.push('/buyer/Pembayaran');
     } catch (e) {
@@ -471,23 +488,30 @@ const CateringDetail = () => {
               <ScrollView>
                 {cart.items.map((item) => (
                   <View key={item.id} style={styles.cartItemRow}>
-                    <Text style={{ flex: 1, fontSize: 13 }}>{item.name}</Text>
+                    <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 13 }}>{item.name}</Text>
                     <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
+                  </View>
+
+                  {/* Kontrol Pax per Item */}
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) - 1)}>
+                      <MaterialIcons name="remove-circle-outline" size={22} color={COLORS.PRIMARY} />
+                    </TouchableOpacity>
+
+                    <Text style={{ fontSize: 14, fontWeight: '600', minWidth: 20, textAlign: 'center'}}>
+                      {item.qty || 1}
+                    </Text>
+
+                    <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) + 1)}>
+                      <MaterialIcons name="add-circle-outline" size={22} color={COLORS.PRIMARY} />
+                    </TouchableOpacity>
+                    </View>
                   </View>
                 ))}
               </ScrollView>
             </View>
-            <View style={styles.paxRow}>
-              <Text style={styles.paxLabel}>Jumlah Pax</Text>
-              <TextInput
-                style={styles.paxInput}
-                value={pax}
-                onChangeText={setPax}
-                keyboardType="numeric"
-                placeholder="1"
-                onBlur={Keyboard.dismiss}
-              />
-            </View>
+
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
               <Text style={styles.totalValue}>Rp {getTotal().toLocaleString()}</Text>

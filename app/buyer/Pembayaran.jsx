@@ -303,7 +303,6 @@ const Pembayaran = () => {
         await AsyncStorage.removeItem('cart');
         await AsyncStorage.removeItem('cart_total');
         await AsyncStorage.removeItem('cart_store');
-        await AsyncStorage.removeItem('cart_pax');
         await AsyncStorage.removeItem('order_type');
 
         setCountdown(CANCEL_WINDOW_SECONDS);
