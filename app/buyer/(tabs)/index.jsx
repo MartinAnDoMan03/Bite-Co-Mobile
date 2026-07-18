@@ -14,6 +14,7 @@ import config from "../../constants/config";
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import axios from 'axios';
 import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
 
 // Aktifkan LayoutAnimation di Android (sama seperti di halaman seller)
@@ -23,6 +24,59 @@ if (
 ) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
+
+// Batas waktu tunggu approval seller sebelum buyer ditawari opsi batal —
+// disamakan dengan APPROVAL_TIMEOUT_MINUTES di Riwayat.jsx.
+const APPROVAL_TIMEOUT_MINUTES = 30;
+
+const isApprovalOverdue = (order, nowTs) => {
+  if (order.statusProgress !== 'awaiting_seller_approval') return false;
+  if (!order.createdAt) return false;
+  const createdTs = new Date(order.createdAt).getTime();
+  if (isNaN(createdTs)) return false;
+  const elapsedMinutes = (nowTs - createdTs) / (1000 * 60);
+  return elapsedMinutes >= APPROVAL_TIMEOUT_MINUTES;
+};
+
+// ---------------------------------------------------------------------------
+// Floating banner — muncul dari bawah kalau ada order yang belum dikonfirmasi
+// penjual lewat 30 menit. Ringkas & bisa handle beberapa order sekaligus,
+// tap buat ke Riwayat lihat detailnya satu-satu.
+// ---------------------------------------------------------------------------
+const OverdueOrderBanner = ({ count, onPress, onDismiss }) => {
+  const slideAnim = useRef(new Animated.Value(120)).current;
+
+  useEffect(() => {
+    Animated.spring(slideAnim, {
+      toValue: 0,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 60,
+    }).start();
+  }, []);
+
+  const message = count > 1
+    ? `Kamu punya ${count} pesanan yang belum dikonfirmasi penjual`
+    : 'Yah, pesanan kamu belum dikonfirmasi penjual';
+
+  return (
+    <Animated.View style={[styles.overdueBanner, { transform: [{ translateY: slideAnim }] }]}>
+      <TouchableOpacity style={styles.overdueBannerContent} onPress={onPress} activeOpacity={0.85}>
+        <View style={styles.overdueBannerIconCircle}>
+          <MaterialIcons name="hourglass-empty" size={20} color="#B26A00" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={styles.overdueBannerTitle}>{message}</Text>
+          <Text style={styles.overdueBannerSubtitle}>Ketuk untuk lihat & atur pesananmu</Text>
+        </View>
+        <MaterialIcons name="chevron-right" size={22} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.overdueBannerDismiss} onPress={onDismiss} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <MaterialIcons name="close" size={16} color="#aaa" />
+      </TouchableOpacity>
+    </Animated.View>
+  );
+};
 
 // CircleButton mendukung 2 jenis icon:
 // - iconType="image" (default) -> pakai gambar PNG seperti sebelumnya
@@ -121,6 +175,7 @@ const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress 
 
 const ExpandableMenu = () => {
   const { t } = useLanguage();
+  const router = useRouter();
   const [stores, setStores] = useState([]);
   const [rantanganStores, setRantanganStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -130,7 +185,10 @@ const ExpandableMenu = () => {
   const [buyerLocation, setBuyerLocation] = useState(null);
   const [menuExpanded, setMenuExpanded] = useState(false);
   const rotateAnim = useRef(new Animated.Value(0)).current;
-  const router = useRouter();
+
+  // State buat banner order yang overdue
+  const [overdueOrders, setOverdueOrders] = useState([]);
+  const [bannerDismissed, setBannerDismissed] = useState(false);
 
   const toggleMenuExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -150,6 +208,32 @@ const ExpandableMenu = () => {
     inputRange: [0, 1],
     outputRange: ["0deg", "180deg"],
   });
+
+  // Cek order buyer yang overdue (belum dikonfirmasi seller lewat 30 menit).
+  // Dijalankan tiap kali Home difokuskan, biar kalau buyer habis pesan lalu
+  // balik ke Home, banner-nya bisa langsung muncul kalau relevan.
+const checkOverdueOrders = useCallback(async () => {
+  try {
+    const token = await AsyncStorage.getItem('buyerToken');
+    if (!token) return;
+    const res = await axios.get(`${config.API_URL}/buyer/orders`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const orders = res.data.orders || [];
+    const now = Date.now();
+    const overdue = orders.filter((o) => isApprovalOverdue(o, now));
+    setOverdueOrders(overdue);
+  } catch (e) {
+      // Gagal diam-diam — banner cuma nice-to-have, jangan ganggu Home kalau gagal fetch
+    }
+  }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      checkOverdueOrders();
+      setBannerDismissed(false); // reset dismiss tiap kali Home dibuka ulang
+    }, [checkOverdueOrders])
+  );
 
   // Load buyer's pinpoint location from AsyncStorage
   const loadBuyerLocation = async () => {
@@ -261,167 +345,187 @@ const ExpandableMenu = () => {
   const previewStores = stores.slice(0, 4);
   const previewRantanganStores = rantanganStores.slice(0, 4);
 
+  const showBanner = overdueOrders.length > 0 && !bannerDismissed;
+
   return (
-    <ScrollView contentContainerStyle={styles.scrollContainer}>
-      <SafeAreaView edges={['top']} style={styles.header}>
-        <View style={styles.bannerContainer}>
-          <Image
-            source={banner1}
-            style={styles.bannerImage}
+    <View style={{ flex: 1 }}>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <SafeAreaView edges={['top']} style={styles.header}>
+          <View style={styles.bannerContainer}>
+            <Image
+              source={banner1}
+              style={styles.bannerImage}
+            />
+          </View>
+        </SafeAreaView>
+
+        <View style={styles.searchContainer}>
+          <MaterialIcons name="search" size={20} color={COLORS.TEXTSECONDARY} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder={t('buyerBeranda.searchPlaceholder')}
+            placeholderTextColor={COLORS.TEXTSECONDARY}
           />
         </View>
-      </SafeAreaView>
 
-      <View style={styles.searchContainer}>
-        <MaterialIcons name="search" size={20} color={COLORS.TEXTSECONDARY} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder={t('buyerBeranda.searchPlaceholder')}
-          placeholderTextColor={COLORS.TEXTSECONDARY}
-        />
-      </View>
+        {/* Baris menu utama - selalu tampil */}
+        <View style={styles.categoriesSection}>
+          <View style={styles.categories}>
+            <CircleButton icon={iconCatering} text={t('buyerBeranda.categories.catering')} navigateTo="buyer/CateringList" />
+            <CircleButton icon={iconRantangan} text={t('buyerBeranda.categories.rantangan')} navigateTo="buyer/RantanganList" />
+            <CircleButton icon={gizipro} text={t('buyerBeranda.categories.giziPro')} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} />
+            <CircleButton icon={iconBiteEco} text={t('buyerBeranda.categories.biteCo')} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} />
+          </View>
 
-      {/* Baris menu utama - selalu tampil */}
-      <View style={styles.categoriesSection}>
-        <View style={styles.categories}>
-          <CircleButton icon={iconCatering} text={t('buyerBeranda.categories.catering')} navigateTo="buyer/CateringList" />
-          <CircleButton icon={iconRantangan} text={t('buyerBeranda.categories.rantangan')} navigateTo="buyer/RantanganList" />
-          <CircleButton icon={gizipro} text={t('buyerBeranda.categories.giziPro')} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} />
-          <CircleButton icon={iconBiteEco} text={t('buyerBeranda.categories.biteCo')} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} />
+          {/* Baris menu tambahan - hanya tampil saat expanded */}
+          {menuExpanded && (
+            <View style={[styles.categories, styles.categoriesSecondRow]}>
+              <CircleButton
+                iconType="material"
+                iconName="live-help"
+                text={t('buyerBeranda.categories.bantuan')}
+                navigateTo="buyer/bantuan"
+              />
+              <CircleButton
+                iconType="material"
+                iconName="settings"
+                text={t('buyerBeranda.categories.pengaturan')}
+                navigateTo="buyer/settings"
+              />
+            </View>
+          )}
+
+          {/* Tombol expand/collapse */}
+          <TouchableOpacity onPress={toggleMenuExpand} style={styles.expandButton}>
+            <Animated.View style={[styles.expandButtonCircle, { transform: [{ rotate: chevronRotate }] }]}>
+              <MaterialIcons name="keyboard-arrow-down" size={22} color={COLORS.PRIMARY} />
+            </Animated.View>
+          </TouchableOpacity>
         </View>
 
-        {/* Baris menu tambahan - hanya tampil saat expanded */}
-        {menuExpanded && (
-          <View style={[styles.categories, styles.categoriesSecondRow]}>
-            <CircleButton
-              iconType="material"
-              iconName="live-help"
-              text={t('buyerBeranda.categories.bantuan')}
-              navigateTo="buyer/bantuan"
-            />
-            <CircleButton
-              iconType="material"
-              iconName="settings"
-              text={t('buyerBeranda.categories.pengaturan')}
-              navigateTo="buyer/settings"
-            />
+        {/* Notice lokasi ditampilkan sekali saja untuk seluruh halaman */}
+        {!buyerLocation && (
+          <View style={styles.locationNotice}>
+            <MaterialIcons name="info" size={16} color={COLORS.PRIMARY} />
+            <Text style={styles.locationNoticeText}>
+              {t('buyerBeranda.locationNotice')}
+            </Text>
           </View>
         )}
 
-        {/* Tombol expand/collapse */}
-        <TouchableOpacity onPress={toggleMenuExpand} style={styles.expandButton}>
-          <Animated.View style={[styles.expandButtonCircle, { transform: [{ rotate: chevronRotate }] }]}>
-            <MaterialIcons name="keyboard-arrow-down" size={22} color={COLORS.PRIMARY} />
-          </Animated.View>
-        </TouchableOpacity>
-      </View>
-
-      {/* Notice lokasi ditampilkan sekali saja untuk seluruh halaman */}
-      {!buyerLocation && (
-        <View style={styles.locationNotice}>
-          <MaterialIcons name="info" size={16} color={COLORS.PRIMARY} />
-          <Text style={styles.locationNoticeText}>
-            {t('buyerBeranda.locationNotice')}
-          </Text>
+        <View style={styles.storeSection}>
+          <SectionHeader
+            title={t('buyerBeranda.sections.catering.title')}
+            onSeeAllPress={() => router.push("buyer/CateringList")}
+          />
+          <View style={styles.divider} />
+          {loading ? (
+            <View style={styles.storeGrid}>
+              <StoreCardSkeleton />
+              <StoreCardSkeleton />
+              <StoreCardSkeleton />
+              <StoreCardSkeleton />
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={48} color="#ccc" />
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => fetchStores()}
+              >
+                <Text style={styles.retryButtonText}>{t('buyerBeranda.retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : previewStores.length === 0 ? (
+            <Text style={styles.emptyText}>{t('buyerBeranda.sections.catering.empty')}</Text>
+          ) : (
+            <View style={styles.storeGrid}>
+              {previewStores.map(store => (
+                <StoreList
+                  key={store.id}
+                  StoreName={store.StoreName}
+                  storeKelurahan={store.storeKelurahan}
+                  Logo={store.Logo}
+                  Rating={store.Rating}
+                  Distance={store.Distance}
+                  onPress={() => {
+                    router.push({
+                      pathname: "buyer/CateringDetail",
+                      params: { sellerid: store.id },
+                    });
+                  }}
+                />
+              ))}
+            </View>
+          )}
         </View>
+
+        <View style={styles.storeSection}>
+          <SectionHeader
+            title={t('buyerBeranda.sections.rantangan.title')}
+            onSeeAllPress={() => router.push("buyer/RantanganList")}
+          />
+          <View style={styles.divider} />
+          {rantanganLoading ? (
+            <View style={styles.storeGrid}>
+              <StoreCardSkeleton />
+              <StoreCardSkeleton />
+              <StoreCardSkeleton />
+              <StoreCardSkeleton />
+            </View>
+          ) : rantanganError ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={48} color="#ccc" />
+              <Text style={styles.errorText}>{rantanganError}</Text>
+              <TouchableOpacity
+                style={styles.retryButton}
+                onPress={() => fetchRantanganStores()}
+              >
+                <Text style={styles.retryButtonText}>{t('buyerBeranda.retry')}</Text>
+              </TouchableOpacity>
+            </View>
+          ) : previewRantanganStores.length === 0 ? (
+            <Text style={styles.emptyText}>{t('buyerBeranda.sections.rantangan.empty')}</Text>
+          ) : (
+            <View style={styles.storeGrid}>
+              {previewRantanganStores.map(store => (
+                <StoreList
+                  key={store.id}
+                  StoreName={store.StoreName}
+                  storeKelurahan={store.storeKelurahan}
+                  Logo={store.Logo}
+                  Rating={store.Rating}
+                  Distance={store.Distance}
+                  onPress={() => {
+                    router.push({
+                      pathname: "buyer/RantanganDetail",
+                      params: { sellerid: store.id },
+                    });
+                  }}
+                />
+              ))}
+            </View>
+          )}
+        </View>
+      </ScrollView>
+
+      {showBanner && (
+  <OverdueOrderBanner
+    count={overdueOrders.length}
+    onPress={() => {
+      if (overdueOrders.length === 1) {
+        // Cuma 1 order overdue -> langsung ke halaman detail/proses order itu
+        router.push({ pathname: '/buyer/RiwayatDetail', params: { orderId: overdueOrders[0].id } });
+      } else {
+        // Lebih dari 1 -> ke Riwayat dulu, biar buyer pilih mana yang mau ditindak
+        router.push('buyer/(tabs)/riwayat');
+      }
+    }}
+    onDismiss={() => setBannerDismissed(true)}
+  />
       )}
-
-      <View style={styles.storeSection}>
-        <SectionHeader
-          title={t('buyerBeranda.sections.catering.title')}
-          onSeeAllPress={() => router.push("buyer/CateringList")}
-        />
-        <View style={styles.divider} />
-        {loading ? (
-          <View style={styles.storeGrid}>
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
-          </View>
-        ) : error ? (
-          <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={48} color="#ccc" />
-            <Text style={styles.errorText}>{error}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => fetchStores()}
-            >
-              <Text style={styles.retryButtonText}>{t('buyerBeranda.retry')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : previewStores.length === 0 ? (
-          <Text style={styles.emptyText}>{t('buyerBeranda.sections.catering.empty')}</Text>
-        ) : (
-          <View style={styles.storeGrid}>
-            {previewStores.map(store => (
-              <StoreList
-                key={store.id}
-                StoreName={store.StoreName}
-                storeKelurahan={store.storeKelurahan}
-                Logo={store.Logo}
-                Rating={store.Rating}
-                Distance={store.Distance}
-                onPress={() => {
-                  router.push({
-                    pathname: "buyer/CateringDetail",
-                    params: { sellerid: store.id },
-                  });
-                }}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-
-      <View style={styles.storeSection}>
-        <SectionHeader
-          title={t('buyerBeranda.sections.rantangan.title')}
-          onSeeAllPress={() => router.push("buyer/RantanganList")}
-        />
-        <View style={styles.divider} />
-        {rantanganLoading ? (
-          <View style={styles.storeGrid}>
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
-            <StoreCardSkeleton />
-          </View>
-        ) : rantanganError ? (
-          <View style={styles.errorContainer}>
-            <MaterialIcons name="error-outline" size={48} color="#ccc" />
-            <Text style={styles.errorText}>{rantanganError}</Text>
-            <TouchableOpacity
-              style={styles.retryButton}
-              onPress={() => fetchRantanganStores()}
-            >
-              <Text style={styles.retryButtonText}>{t('buyerBeranda.retry')}</Text>
-            </TouchableOpacity>
-          </View>
-        ) : previewRantanganStores.length === 0 ? (
-          <Text style={styles.emptyText}>{t('buyerBeranda.sections.rantangan.empty')}</Text>
-        ) : (
-          <View style={styles.storeGrid}>
-            {previewRantanganStores.map(store => (
-              <StoreList
-                key={store.id}
-                StoreName={store.StoreName}
-                storeKelurahan={store.storeKelurahan}
-                Logo={store.Logo}
-                Rating={store.Rating}
-                Distance={store.Distance}
-                onPress={() => {
-                  router.push({
-                    pathname: "buyer/RantanganDetail",
-                    params: { sellerid: store.id },
-                  });
-                }}
-              />
-            ))}
-          </View>
-        )}
-      </View>
-    </ScrollView>
+    </View>
   );
 };
 
@@ -657,6 +761,60 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 14,
     fontWeight: '600',
+  },
+
+  // ---------------- Floating banner order overdue ----------------
+  overdueBanner: {
+    position: 'absolute',
+    left: 16,
+    right: 16,
+    bottom: 16,
+    backgroundColor: '#fff',
+    borderRadius: 18,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 14,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#FFE8C2',
+  },
+  overdueBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 14,
+    paddingRight: 30,
+    gap: 12,
+  },
+  overdueBannerIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFF3E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  overdueBannerTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#23272f',
+    lineHeight: 18,
+  },
+  overdueBannerSubtitle: {
+    fontSize: 11.5,
+    color: '#999',
+    marginTop: 2,
+  },
+  overdueBannerDismiss: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

@@ -1,13 +1,14 @@
 import { SafeAreaView } from "react-native-safe-area-context";
 import banner2 from "../../assets/images/banner2.png";
-import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal } from "react-native";
 import starSolid from "../../assets/images/starSolid.png";
 import COLORS from '../constants/color';
 import { useLocalSearchParams } from "expo-router";
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import config from '../constants/config';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import SkeletonLoader from '../../components/SkeletonLoader';
@@ -15,6 +16,43 @@ import SkeletonLoader from '../../components/SkeletonLoader';
 const BANNER_HEIGHT = 150;
 const OVERLAP = 30;
 const FALLBACK_CARD_HEIGHT = 100;
+
+const ALERT_TYPE_STYLES = {
+  info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
+  success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
+  error: { icon: 'error', color: '#C62828', bg: '#FFEBEE' },
+  warning: { icon: 'warning', color: '#B26A00', bg: '#FFF3E0' },
+};
+
+const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose }) => {
+  const typeStyle = ALERT_TYPE_STYLES[type] || ALERT_TYPE_STYLES.info;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.alertOverlay}>
+        <View style={styles.alertContent}>
+          <View style={[styles.alertIconCircle, { backgroundColor: typeStyle.bg }]}>
+            <MaterialIcons name={typeStyle.icon} size={26} color={typeStyle.color} />
+          </View>
+          <Text style={styles.alertTitle}>{title}</Text>
+          {!!message && <Text style={styles.alertMessage}>{message}</Text>}
+          <View style={styles.alertButtons}>
+            {buttons.map((btn, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.alertButton, btn.style === 'cancel' ? styles.alertButtonOutline : styles.alertButtonSolid]}
+                onPress={() => { onClose(); btn.onPress && btn.onPress(); }}
+              >
+                <Text style={[styles.alertButtonText, btn.style === 'cancel' ? styles.alertButtonTextOutline : styles.alertButtonTextSolid]}>
+                  {btn.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const PACKAGE_ICONS = {
   harian: "today",
@@ -57,6 +95,47 @@ const RantanganDetail = () => {
   const [buyerLocation, setBuyerLocation] = useState(null);
   const [cardHeight, setCardHeight] = useState(FALLBACK_CARD_HEIGHT);
   const router = useRouter();
+
+  // Keranjang global (dibaca dari AsyncStorage, tidak terikat sellerid halaman ini).
+  // Ini yang bikin tombol "Lihat Keranjang" tetap muncul walau user pindah dari
+  // Catering ke Rantangan tanpa nge-checkout dulu.
+  const [globalCart, setGlobalCart] = useState({ items: [], store: null, orderType: null, total: 0 });
+  const [cartModalVisible, setCartModalVisible] = useState(false);
+
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', buttons: [{ text: 'OK' }], type: 'info' });
+  const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
+    setAlert({ visible: true, title, message, buttons, type });
+  };
+  const closeAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
+
+  const loadGlobalCart = async () => {
+    try {
+      const cartRaw = await AsyncStorage.getItem('cart');
+      const storeRaw = await AsyncStorage.getItem('cart_store');
+      const totalRaw = await AsyncStorage.getItem('cart_total');
+      const orderType = await AsyncStorage.getItem('order_type');
+      setGlobalCart({
+        items: cartRaw ? JSON.parse(cartRaw) : [],
+        store: storeRaw ? JSON.parse(storeRaw) : null,
+        orderType,
+        total: totalRaw ? JSON.parse(totalRaw) : 0,
+      });
+    } catch (e) {
+      setGlobalCart({ items: [], store: null, orderType: null, total: 0 });
+    }
+  };
+
+  useEffect(() => {
+    loadGlobalCart();
+  }, []);
+
+  // Refresh keranjang tiap halaman ini kembali fokus (misal user habis nambah
+  // item di Catering lalu balik/pindah ke sini lewat tab).
+  useFocusEffect(
+    useCallback(() => {
+      loadGlobalCart();
+    }, [])
+  );
 
   const loadBuyerLocation = async () => {
     try {
@@ -117,7 +196,8 @@ const RantanganDetail = () => {
     }
   }, [sellerid, buyerLocation]);
 
-  const handlePackageSelect = async (packageType, packageData) => {
+  // Nyimpen pilihan paket ke AsyncStorage dan lanjut ke pembayaran.
+  const savePackageSelection = async (packageType, packageData) => {
     try {
       const cartItem = {
         id: `${packageType}-${sellerid}`,
@@ -127,19 +207,70 @@ const RantanganDetail = () => {
         packageType: packageType,
         sellerId: sellerid
       };
-
       const capitalizedPackageType = packageType.charAt(0).toUpperCase() + packageType.slice(1);
-
       await AsyncStorage.setItem('cart', JSON.stringify([cartItem]));
       await AsyncStorage.setItem('cart_total', JSON.stringify(packageData.price));
       await AsyncStorage.setItem('cart_store', JSON.stringify(store));
       await AsyncStorage.setItem('cart_pax', '1');
       await AsyncStorage.setItem('order_type', `Rantangan ${capitalizedPackageType}`);
-
       router.push('/buyer/Pembayaran');
     } catch (error) {
       console.error('Error saving package selection:', error);
+      showAlert('Gagal Menyimpan', 'Terjadi kendala saat menyimpan pilihan paket. Coba lagi.', [{ text: 'OK' }], 'error');
     }
+  };
+
+  // Ceknya sekarang di titik klik (bukan pas halaman baru dibuka). Kalau ada
+  // pesanan lain yang beda seller/tipe, tanya dulu sebelum di-overwrite.
+  const handlePackageSelect = async (packageType, packageData) => {
+    const existingOrderType = await AsyncStorage.getItem('order_type');
+    const existingCartRaw = await AsyncStorage.getItem('cart');
+    const existingStoreRaw = await AsyncStorage.getItem('cart_store');
+    const hasExistingCart = existingCartRaw && JSON.parse(existingCartRaw).length > 0;
+    const existingStore = existingStoreRaw ? JSON.parse(existingStoreRaw) : null;
+    const sameSellerSameType = existingStore?.id === sellerid && existingOrderType?.startsWith('Rantangan');
+
+    if (hasExistingCart && existingOrderType && !sameSellerSameType) {
+      showAlert(
+        'Ganti Pesanan?',
+        `Kamu masih punya pesanan ${existingOrderType} yang belum diselesaikan. Melanjutkan di sini akan menghapus pesanan tersebut.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: 'Ya, Ganti',
+            onPress: async () => {
+              await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+              await savePackageSelection(packageType, packageData);
+              loadGlobalCart();
+            },
+          },
+        ],
+        'warning'
+      );
+      return;
+    }
+
+    await savePackageSelection(packageType, packageData);
+    loadGlobalCart();
+  };
+
+  const handleCancelCart = () => {
+    showAlert(
+      'Batalkan Pesanan?',
+      'Semua item di keranjang akan dihapus.',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Ya, Batalkan',
+          onPress: async () => {
+            await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+            setGlobalCart({ items: [], store: null, orderType: null, total: 0 });
+            setCartModalVisible(false);
+          },
+        },
+      ],
+      'warning'
+    );
   };
 
   const handleBannerImageLoad = () => setBannerLoading(false);
@@ -312,6 +443,64 @@ const RantanganDetail = () => {
           <InfoRow icon="verified" text="Kemasan aman dan higienis" />
         </View>
       </ScrollView>
+
+      {/* Floating Cart Button - global, tetap muncul walau cart bukan punya seller ini */}
+      {globalCart.items.length > 0 && (
+        <TouchableOpacity style={styles.floatingCartButton} onPress={() => setCartModalVisible(true)}>
+          <MaterialIcons name="shopping-bag" size={18} color="white" />
+          <Text style={styles.floatingCartText}>Lihat Keranjang ({globalCart.items.length} item)</Text>
+        </TouchableOpacity>
+      )}
+
+      {/* Global Cart Modal */}
+      <Modal visible={cartModalVisible} animationType="slide" transparent onRequestClose={() => setCartModalVisible(false)}>
+        <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
+          <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={() => setCartModalVisible(false)} />
+          <View style={styles.cartSheet}>
+            <View style={styles.cartHandle} />
+            <Text style={styles.cartTitle}>Keranjang</Text>
+            {!!globalCart.store?.name && (
+              <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY, marginBottom: 10 }}>
+                {globalCart.store.name} · {globalCart.orderType}
+              </Text>
+            )}
+            <View style={{ maxHeight: 120, marginBottom: 14 }}>
+              <ScrollView>
+                {globalCart.items.map((item) => (
+                  <View key={item.id} style={styles.cartItemRow}>
+                    <Text style={{ fontSize: 13 }}>{item.name}</Text>
+                    <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
+                  </View>
+                ))}
+              </ScrollView>
+            </View>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total</Text>
+              <Text style={styles.totalValue}>Rp {globalCart.total?.toLocaleString()}</Text>
+            </View>
+            <View style={{ gap: 10, marginTop: 14 }}>
+              <TouchableOpacity
+                style={styles.primaryCartBtn}
+                onPress={() => { setCartModalVisible(false); router.push('/buyer/Pembayaran'); }}
+              >
+                <Text style={styles.primaryCartBtnText}>Lanjut Pembayaran</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.secondaryCartBtn} onPress={handleCancelCart}>
+                <Text style={{ color: '#D64545', fontWeight: '700' }}>Batalkan Pesanan</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        type={alert.type}
+        onClose={closeAlert}
+      />
     </SafeAreaView>
   );
 };
@@ -512,6 +701,108 @@ const styles = StyleSheet.create({
     color: COLORS.WHITE,
     fontWeight: 'bold',
   },
+  // ---- Floating cart + cart sheet ----
+  floatingCartButton: {
+    position: "absolute",
+    bottom: 30,
+    left: 20,
+    right: 20,
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 18,
+    paddingVertical: 15,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  floatingCartText: {
+    color: "white",
+    fontWeight: "700",
+    fontSize: 14,
+  },
+  cartSheet: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 20,
+    minHeight: 260,
+    maxHeight: 380,
+  },
+  cartHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#E5E5E5",
+    alignSelf: "center",
+    marginBottom: 14,
+  },
+  cartTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    marginBottom: 14,
+    color: "#1A1A1A",
+  },
+  cartItemRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+  },
+  totalLabel: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: "#1A1A1A",
+  },
+  totalValue: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: COLORS.PRIMARY,
+  },
+  primaryCartBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    borderRadius: 16,
+    padding: 15,
+    alignItems: 'center',
+  },
+  primaryCartBtnText: {
+    color: 'white',
+    fontWeight: '700',
+  },
+  secondaryCartBtn: {
+    backgroundColor: "#F0F0F0",
+    borderRadius: 16,
+    padding: 15,
+    alignItems: 'center',
+  },
+  secondaryCartBtnText: {
+    color: '#555',
+    fontWeight: '700',
+  },
+  // ---- CustomAlert ----
+  alertOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  alertContent: { backgroundColor: 'white', borderRadius: 18, padding: 22, width: '100%', maxWidth: 340, alignItems: 'center' },
+  alertIconCircle: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  alertTitle: { fontSize: 16, fontWeight: '700', color: '#23272f', textAlign: 'center', marginBottom: 6 },
+  alertMessage: { fontSize: 13.5, color: '#777', textAlign: 'center', lineHeight: 19, marginBottom: 20 },
+  alertButtons: { flexDirection: 'row', gap: 10, width: '100%' },
+  alertButton: { flex: 1, paddingVertical: 12, borderRadius: 30, alignItems: 'center' },
+  alertButtonSolid: { backgroundColor: COLORS.PRIMARY },
+  alertButtonOutline: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#e5e5e5' },
+  alertButtonText: { fontSize: 14, fontWeight: '700' },
+  alertButtonTextSolid: { color: '#fff' },
+  alertButtonTextOutline: { color: '#777' },
 });
 
 export default RantanganDetail;

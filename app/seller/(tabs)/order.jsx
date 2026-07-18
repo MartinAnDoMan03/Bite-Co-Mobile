@@ -95,7 +95,7 @@ const calculateDaysRemaining = (startDate, endDate, dailyDeliveryLogs = []) => {
 const StatusBadge = ({ statusProgress }) => {
   const { t } = useLanguage();
   const STATUS_BADGE = getStatusBadgeConfig(t);
-  const cfg = STATUS_BADGE[statusProgress] || STATUS_BADGE.pending;
+  const cfg = STATUS_BADGE[statusProgress] || STATUS_BADGE.awaiting_seller_approval;
   return (
     <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
       <MaterialIcons name={cfg.icon} size={14} color={cfg.color} />

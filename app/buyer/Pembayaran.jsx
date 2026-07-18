@@ -324,8 +324,8 @@ const Pembayaran = () => {
     try {
       const token = await AsyncStorage.getItem('buyerToken');
       await axios.patch(
-        `${config.API_URL}/buyer/orders/${orderId}`,
-        { statusProgress: 'cancelled' },
+        `${config.API_URL}/buyer/orders/${orderId}/cancel`,
+        {},
         token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
       );
       showToast('Pesanan dibatalkan', 'info');
@@ -374,7 +374,13 @@ const Pembayaran = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <HeaderTitleBack title="Pesanan" />
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel="Kembali">
+          <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Pesanan</Text>
+        <View style={{ width: 26 }} />
+      </View>
       <ScrollView contentContainerStyle={{ paddingBottom: 24 }}>
         <View style={styles.content}>
           {store && (
@@ -570,6 +576,18 @@ const Pembayaran = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F6FA' },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  },
+  backBtn: { width: 26 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
   content: {
     margin: 20, backgroundColor: 'white', borderRadius: 18, padding: 20,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,

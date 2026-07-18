@@ -17,7 +17,7 @@ import COLORS from '../constants/color';
 import { useRouter } from "expo-router";
 import config from '../constants/config';
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { MaterialIcons, FontAwesome5, Ionicons } from "@expo/vector-icons";
+import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import axios from 'axios';
 import { OrderCardSkeleton } from '../../components/SkeletonLoader';
 import { useToast } from '../../components/ToastProvider';
@@ -99,21 +99,31 @@ const STATUS_BADGE = {
 // Filter tabs di bawah header — selaras dengan halaman Pesanan penjual.
 // FIX: ditambah tab "Pembayaran" supaya order yang sudah di-acc seller dan
 // tinggal dibayar tidak "hilang" di antara tab Diproses/Pengiriman.
+// FIX: ditambah tab "Batal" supaya pesanan yang dibatalkan punya tab sendiri
+// dan tidak lagi nyampur dengan tab "Selesai".
+// FIX: LanguageContext punya mekanisme fallback bawaan lewat t(key, fallback) —
+// kalau key belum terdaftar di locale manapun (id/en/ms), t() otomatis pakai
+// fallback ini alih-alih balikin key mentahnya. Ini lebih pasti dibanding
+// nebak dari isi string hasil t().
 const getFilters = (t) => [
-   { key: "semua", label: t('buyerStatusOrder.filters.all') },
-   { key: "diproses", label: t('buyerStatusOrder.filters.processing') },
-   { key: "pembayaran", label: t('buyerStatusOrder.filters.payment') },
-   { key: "pengiriman", label: t('buyerStatusOrder.filters.delivery') },
-   { key: "selesai", label: t('buyerStatusOrder.filters.completed') },
+   { key: "semua", label: t('buyerStatusOrder.filters.all', 'Semua') },
+   { key: "diproses", label: t('buyerStatusOrder.filters.processing', 'Diproses') },
+   { key: "pembayaran", label: t('buyerStatusOrder.filters.payment', 'Pembayaran') },
+   { key: "pengiriman", label: t('buyerStatusOrder.filters.delivery', 'Pengiriman') },
+   { key: "selesai", label: t('buyerStatusOrder.filters.completed', 'Selesai') },
+   { key: "batal", label: t('buyerStatusOrder.filters.cancelled', 'Batal') },
  ];
 
 // FIX: matchesFilter disamakan dengan status asli backend.
+// FIX: "selesai" sekarang murni statusProgress === "completed" karena
+// "cancelled" sudah punya tab sendiri ("batal").
 const matchesFilter = (statusProgress, filterKey) => {
   if (filterKey === "semua") return true;
   if (filterKey === "diproses") return statusProgress === "awaiting_seller_approval" || statusProgress === "processing";
   if (filterKey === "pembayaran") return statusProgress === "approved_awaiting_payment";
   if (filterKey === "pengiriman") return statusProgress === "delivery" || statusProgress === "recurring";
-  if (filterKey === "selesai") return statusProgress === "completed" || statusProgress === "cancelled";
+  if (filterKey === "selesai") return statusProgress === "completed";
+  if (filterKey === "batal") return statusProgress === "cancelled";
   return true;
 };
 
@@ -260,20 +270,13 @@ function getStepIndex(statusProgress, orderType, packageType, dailyDeliveryLogs 
 const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endDate, dailyDeliveryLogs = [] }) => {
 const { t, language } = useLanguage();
 const dateLocale = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' }[language] || 'id-ID';
+  // FIX: dulu di sini ada blok icon X + teks "Dibatalkan" gede di tengah,
+  // padahal StatusBadge di atas card sudah menampilkan "Pesanan Dibatalkan".
+  // Itu bikin label dobel dan ruang kosong nganggur. Sekarang untuk order
+  // cancelled, StatusStepper tidak render apa-apa — lihat CardStatus, seluruh
+  // statusContainer (termasuk border & padding-nya) juga di-skip kalau cancelled.
   if (statusProgress === "cancelled") {
-    return (
-      <View style={{ alignItems: "center", marginTop: 14, marginBottom: 4 }}>
-        <MaterialIcons
-          name="close"
-          size={28}
-          color="#C62828"
-          style={{ backgroundColor: "#fff", borderRadius: 14 }}
-        />
-        <Text style={{ fontSize: 13, color: "#C62828", fontWeight: "700", marginTop: 4 }}>
-+         {t('buyerStatusOrder.cancelled')}
-+       </Text>
-      </View>
-    );
+    return null;
   }
 
   const steps = getStatusSteps(t, orderType, packageType);
@@ -470,13 +473,16 @@ const renderProgressButtons = (t, statusProgress, orderType, packageType, onPres
   }
 };
 
+// FIX: tombol detail (info-circle) dihapus. Untuk melihat detail, seluruh
+// card sekarang bisa langsung di-tap (lihat onPress di wrapper TouchableOpacity
+// pada StatusOrder). Chat tetap punya icon terpisah karena aksinya berbeda
+// (buka chat room, bukan navigasi ke detail).
 const CardStatus = ({
   date,
   total,
   outletName,
   storeIcon,
   statusProgress,
-  onPressDetail,
   items,
   buyerId,
   sellerId,
@@ -528,34 +534,43 @@ const CardStatus = ({
               {orderType ? ` · ${orderType}${packageType ? ` ${packageType}` : ''}` : ''}
             </Text>
           </View>
-          <Text style={styles.price}>{total}</Text>
+          <View style={{ alignItems: "flex-end" }}>
+            <Text style={styles.price}>{total}</Text>
+            <TouchableOpacity
+              style={styles.chatBtnUnderPrice}
+              onPress={handleChatPress}
+              accessibilityLabel={t('buyerStatusOrder.accessibility.chatSeller')}
+            >
+              <Ionicons name="chatbubble-outline" size={13} color={COLORS.PRIMARY} />
+              <Text style={styles.chatBtnUnderPriceText}>{t('buyerStatusOrder.chat', 'Chat')}</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         <View style={styles.badgeRow}>
           <StatusBadge statusProgress={statusProgress} />
         </View>
 
-        {/* Detail progres pesanan (tetap dipertahankan) */}
-        <View style={styles.statusContainer}>
-          <StatusStepper
-            statusProgress={statusProgress}
-            orderType={orderType}
-            packageType={packageType}
-            startDate={startDate}
-            endDate={endDate}
-            dailyDeliveryLogs={dailyDeliveryLogs}
-          />
-        </View>
+        {/* Detail progres pesanan — di-skip untuk order cancelled supaya card
+            tidak menyisakan ruang kosong (badge di atas sudah cukup mewakili status). */}
+        {statusProgress !== 'cancelled' && (
+          <View style={styles.statusContainer}>
+            <StatusStepper
+              statusProgress={statusProgress}
+              orderType={orderType}
+              packageType={packageType}
+              startDate={startDate}
+              endDate={endDate}
+              dailyDeliveryLogs={dailyDeliveryLogs}
+            />
+          </View>
+        )}
 
-        <View style={styles.actionRow}>
-          {progressButton}
-          <TouchableOpacity style={styles.iconBtn} onPress={onPressDetail} accessibilityLabel={t('buyerStatusOrder.accessibility.orderDetail')}>
-            <FontAwesome5 name="info-circle" size={16} color={COLORS.PRIMARY} />
-          </TouchableOpacity>
-           <TouchableOpacity style={styles.iconBtn} onPress={handleChatPress} accessibilityLabel={t('buyerStatusOrder.accessibility.chatSeller')}>
-            <Ionicons name="chatbubble-outline" size={16} color={COLORS.PRIMARY} />
-          </TouchableOpacity>
-        </View>
+        {progressButton && (
+          <View style={styles.actionRow}>
+            {progressButton}
+          </View>
+        )}
       </View>
     </View>
   );
@@ -769,7 +784,12 @@ const StatusOrder = () => {
       </View>
 
       {/* Filter tabs selaras dengan halaman Pesanan penjual */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterBar} contentContainerStyle={{ gap: 8 }}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterBar}
+        contentContainerStyle={styles.filterBarContent}
+      >
          {getFilters(t).map((f) => {
           const active = activeFilter === f.key;
           return (
@@ -778,7 +798,11 @@ const StatusOrder = () => {
               onPress={() => setActiveFilter(f.key)}
               style={[styles.filterChip, active && styles.filterChipActive]}
             >
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+              <Text
+                style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                numberOfLines={1}
+                ellipsizeMode="tail"
+              >
                 {f.label}
               </Text>
             </TouchableOpacity>
@@ -835,7 +859,13 @@ const StatusOrder = () => {
             visibleOrders.map((order) => (
               <TouchableOpacity
                 key={order.id}
-                activeOpacity={1}
+                activeOpacity={0.7}
+                onPress={() => {
+                  router.push({
+                    pathname: "/buyer/RiwayatDetail",
+                    params: { orderId: order.id },
+                  });
+                }}
                 onLongPress={() => {
                   if (order.statusProgress === 'delivery') {
                     router.push({
@@ -854,12 +884,6 @@ const StatusOrder = () => {
                   items={order.items}
                   buyerId={order.buyerId || buyerProfile?.id}
                   sellerId={order.sellerId}
-                  onPressDetail={() => {
-                    router.push({
-                      pathname: "/buyer/RiwayatDetail",
-                      params: { orderId: order.id },
-                    });
-                  }}
                   onPressChat={handleOpenChatRoom}
                   onPressTrack={() => handleTrackDelivery(order)}
                   onPressReview={() => {
@@ -973,19 +997,29 @@ const styles = StyleSheet.create({
   headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
 
   // Filter tabs
+  // FIX: filterChip sekarang flexShrink: 0 + numberOfLines={1} di teksnya,
+  // supaya chip tidak pernah mengecil/saling menimpa walau salah satu
+  // label lebih panjang dari yang lain (mis. saat translasi belum lengkap).
   filterBar: {
     flexGrow: 0,
-    paddingHorizontal: 16,
     paddingVertical: 12,
   },
-  filterChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 20,
-    backgroundColor: "#fff",
-    borderWidth: 1,
-    borderColor: "#EAEAEA",
+  filterBarContent: {
+    paddingHorizontal: 16,
+    gap: 8,
   },
+filterChip: {
+  flexShrink: 0,
+  minWidth: 90,
+  height: 36,
+  justifyContent: "center",
+  alignItems: "center",
+  paddingHorizontal: 16,
+  borderRadius: 18,
+  backgroundColor: "#fff",
+  borderWidth: 1,
+  borderColor: "#EAEAEA",
+},
   filterChipActive: {
     backgroundColor: COLORS.PRIMARY,
     borderColor: COLORS.PRIMARY,
@@ -1017,7 +1051,19 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 14.5, fontWeight: "700", color: "#23272f" },
   subtitle: { fontSize: 12, color: "#8a8f99", marginTop: 2 },
-  price: { fontSize: 14, fontWeight: "700", color: COLORS.GREEN4, marginLeft: 8 },
+  price: { fontSize: 14, fontWeight: "700", color: COLORS.GREEN4 },
+  chatBtnUnderPrice: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: "#EAEAEA",
+  },
+  chatBtnUnderPriceText: { fontSize: 11, fontWeight: "600", color: COLORS.PRIMARY },
 
   badgeRow: { marginTop: 10 },
   badge: {
@@ -1060,15 +1106,6 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   progressBtnText: { color: "#fff", fontWeight: "700", fontSize: 13.5 },
-  iconBtn: {
-    width: 36,
-    height: 36,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: "#EAEAEA",
-    justifyContent: "center",
-    alignItems: "center",
-  },
 
   storeIconImg: {
     width: 54,

@@ -6,9 +6,10 @@ import COLORS from '../constants/color';
 import menuImage from "../../assets/images/menuImage.png";
 import { useLocalSearchParams } from "expo-router";
 import axios from "axios";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import config from '../constants/config';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import SkeletonLoader, { MenuItemSkeleton } from '../../components/SkeletonLoader';
@@ -16,6 +17,43 @@ import SkeletonLoader, { MenuItemSkeleton } from '../../components/SkeletonLoade
 const BANNER_HEIGHT = 150;
 const OVERLAP = 30;
 const FALLBACK_CARD_HEIGHT = 100;
+
+const ALERT_TYPE_STYLES = {
+  info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
+  success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
+  error: { icon: 'error', color: '#C62828', bg: '#FFEBEE' },
+  warning: { icon: 'warning', color: '#B26A00', bg: '#FFF3E0' },
+};
+
+const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose }) => {
+  const typeStyle = ALERT_TYPE_STYLES[type] || ALERT_TYPE_STYLES.info;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.alertOverlay}>
+        <View style={styles.alertContent}>
+          <View style={[styles.alertIconCircle, { backgroundColor: typeStyle.bg }]}>
+            <MaterialIcons name={typeStyle.icon} size={26} color={typeStyle.color} />
+          </View>
+          <Text style={styles.alertTitle}>{title}</Text>
+          {!!message && <Text style={styles.alertMessage}>{message}</Text>}
+          <View style={styles.alertButtons}>
+            {buttons.map((btn, index) => (
+              <TouchableOpacity
+                key={index}
+                style={[styles.alertButton, btn.style === 'cancel' ? styles.alertButtonOutline : styles.alertButtonSolid]}
+                onPress={() => { onClose(); btn.onPress && btn.onPress(); }}
+              >
+                <Text style={[styles.alertButtonText, btn.style === 'cancel' ? styles.alertButtonTextOutline : styles.alertButtonTextSolid]}>
+                  {btn.text}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 const ListMenu = ({ menu, inCart, onAdd, onRemove, onImageLoad, onImageError }) => {
   return (
@@ -67,15 +105,47 @@ const CateringDetail = () => {
   const [cardHeight, setCardHeight] = useState(FALLBACK_CARD_HEIGHT);
   const router = useRouter();
 
-  // Clear cart if seller changes
+  // Keranjang global (dibaca dari AsyncStorage, tidak terikat sellerid halaman ini).
+  // Dipakai buat nentuin apakah tombol "Lihat Keranjang" harus muncul, dan buat
+  // nampilin isi cart walau item-nya bukan milik seller yang lagi dibuka.
+  const [globalCart, setGlobalCart] = useState({ items: [], store: null, orderType: null, total: 0 });
+
+  const [alert, setAlert] = useState({ visible: false, title: '', message: '', buttons: [{ text: 'OK' }], type: 'info' });
+  const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
+    setAlert({ visible: true, title, message, buttons, type });
+  };
+  const closeAlert = () => setAlert((prev) => ({ ...prev, visible: false }));
+
+  const loadGlobalCart = async () => {
+    try {
+      const cartRaw = await AsyncStorage.getItem('cart');
+      const storeRaw = await AsyncStorage.getItem('cart_store');
+      const totalRaw = await AsyncStorage.getItem('cart_total');
+      const orderType = await AsyncStorage.getItem('order_type');
+      setGlobalCart({
+        items: cartRaw ? JSON.parse(cartRaw) : [],
+        store: storeRaw ? JSON.parse(storeRaw) : null,
+        orderType,
+        total: totalRaw ? JSON.parse(totalRaw) : 0,
+      });
+    } catch (e) {
+      setGlobalCart({ items: [], store: null, orderType: null, total: 0 });
+    }
+  };
+
   useEffect(() => {
-    setCart((prevCart) => {
-      if (prevCart.sellerId !== sellerid) {
-        return { sellerId: sellerid, items: [] };
-      }
-      return prevCart;
-    });
-  }, [sellerid]);
+    loadGlobalCart();
+  }, []);
+
+  // Refresh keranjang tiap halaman ini kembali fokus.
+  useFocusEffect(
+    useCallback(() => {
+      loadGlobalCart();
+    }, [])
+  );
+
+  // Cart di AsyncStorage ini beneran "punya" halaman Catering seller ini atau bukan.
+  const isOwnCart = globalCart.store?.id === sellerid && globalCart.orderType === 'Catering';
 
   // Load buyer's pinpoint location from AsyncStorage
   const loadBuyerLocation = async () => {
@@ -100,6 +170,30 @@ const CateringDetail = () => {
   useEffect(() => {
     loadBuyerLocation();
   }, []);
+
+  // Nentuin isi cart LOKAL (state `cart`) untuk seller ini saja -- tanpa nge-alert
+  // apa pun. Kalau cart di storage memang punya seller & tipe (Catering) yang
+  // sama, di-load. Kalau bukan, state lokal mulai kosong (alert-nya baru muncul
+  // nanti pas user benar-benar nge-klik "Tambah").
+  useEffect(() => {
+    const resolveCart = async () => {
+      if (!sellerid) return;
+      try {
+        const existingOrderType = await AsyncStorage.getItem('order_type');
+        const existingCartRaw = await AsyncStorage.getItem('cart');
+        const existingStoreRaw = await AsyncStorage.getItem('cart_store');
+        const parsedCart = existingCartRaw ? JSON.parse(existingCartRaw) : [];
+        const existingStore = existingStoreRaw ? JSON.parse(existingStoreRaw) : null;
+        const hasExistingCart = Array.isArray(parsedCart) && parsedCart.length > 0;
+        const sameSellerSameType = hasExistingCart && existingOrderType === 'Catering' && existingStore?.id === sellerid;
+
+        setCart(sameSellerSameType ? { sellerId: sellerid, items: parsedCart } : { sellerId: sellerid, items: [] });
+      } catch (e) {
+        setCart({ sellerId: sellerid, items: [] });
+      }
+    };
+    resolveCart();
+  }, [sellerid]);
 
   useEffect(() => {
     const fetchDetail = async () => {
@@ -139,51 +233,66 @@ const CateringDetail = () => {
     if (sellerid) fetchDetail();
   }, [sellerid, buyerLocation]);
 
-  // Load cart from AsyncStorage on first load
-  useEffect(() => {
-    const loadCartFromStorage = async () => {
-      try {
-        const cartData = await AsyncStorage.getItem('cart');
-        const cartTotal = await AsyncStorage.getItem('cart_total');
-        const cartStore = await AsyncStorage.getItem('cart_store');
-        if (cartData && cartStore) {
-          const parsedCart = JSON.parse(cartData);
-          const parsedStore = JSON.parse(cartStore);
-          setCart({
-            sellerId: parsedStore?.id || null,
-            items: Array.isArray(parsedCart) ? parsedCart : [],
-          });
-        }
-      } catch (e) {
-        // ignore error, fallback to default cart
-      }
-    };
-    loadCartFromStorage();
-  }, []);
+  const saveCartToStorage = async (cartItems, storeObj) => {
+    try {
+      const total = cartItems.reduce((sum, item) => sum + ((item.price || 0) * (item.qty || 0)), 0);
+      await AsyncStorage.setItem('cart', JSON.stringify(cartItems));
+      await AsyncStorage.setItem('cart_total', JSON.stringify(total));
+      await AsyncStorage.setItem('cart_store', JSON.stringify(storeObj));
+      setGlobalCart({ items: cartItems, store: storeObj, orderType: 'Catering', total });
+    } catch (e) {
+      // handle error if needed
+    }
+  };
 
-  // Change addToCart/removeFromCart to only add/remove item (no qty)
-  const addToCart = (menu) => {
-    setCart((prevCart) => {
-      let newCart;
-      if (prevCart.sellerId !== sellerid) {
-        newCart = {
-          sellerId: sellerid,
-          items: [{ ...menu, qty: 1 }],
-        };
-      } else {
-        const found = prevCart.items.find((item) => item.id === menu.id);
-        if (!found) {
-          newCart = {
-            ...prevCart,
-            items: [...prevCart.items, { ...menu, qty: 1 }],
-          };
+  // Cek konflik di titik klik (bukan pas halaman dibuka). Kalau ada pesanan lain
+  // yang beda seller/tipe, tanya dulu -- baru dihapus & diganti kalau user setuju.
+  const addToCart = async (menu) => {
+    const existingOrderType = await AsyncStorage.getItem('order_type');
+    const existingStoreRaw = await AsyncStorage.getItem('cart_store');
+    const existingStore = existingStoreRaw ? JSON.parse(existingStoreRaw) : null;
+    const sameSellerSameType = existingStore?.id === sellerid && existingOrderType === 'Catering';
+
+    const doAdd = async () => {
+      setCart((prevCart) => {
+        let newCart;
+        if (prevCart.sellerId !== sellerid) {
+          newCart = { sellerId: sellerid, items: [{ ...menu, qty: 1 }] };
         } else {
-          newCart = prevCart;
+          const found = prevCart.items.find((item) => item.id === menu.id);
+          if (!found) {
+            newCart = { ...prevCart, items: [...prevCart.items, { ...menu, qty: 1 }] };
+          } else {
+            newCart = prevCart;
+          }
         }
-      }
-      saveCartToStorage(newCart.items, store);
-      return newCart;
-    });
+        saveCartToStorage(newCart.items, store);
+        return newCart;
+      });
+      await AsyncStorage.setItem('order_type', 'Catering');
+    };
+
+    if (existingOrderType && !sameSellerSameType) {
+      showAlert(
+        'Ganti Pesanan?',
+        `Kamu masih punya pesanan ${existingOrderType} yang belum diselesaikan. Menambah menu di sini akan menghapus pesanan tersebut.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: 'Ya, Ganti',
+            onPress: async () => {
+              await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+              setCart({ sellerId: sellerid, items: [] });
+              await doAdd();
+            },
+          },
+        ],
+        'warning'
+      );
+      return;
+    }
+
+    await doAdd();
   };
 
   const removeFromCart = (menu) => {
@@ -198,7 +307,7 @@ const CateringDetail = () => {
     });
   };
 
-  // Function for5 updating pax for items
+  // Function for updating pax for items
   const updateItemPax = (menuId, newQty) => {
     setCart((prevCart) => {
       // Pax cant be less than 1
@@ -222,69 +331,54 @@ const CateringDetail = () => {
   };
 
   // Cart button text
-  const cartButtonText = `Lihat Keranjang (${cart.items.length} item)`;
+  const cartButtonText = `Lihat Keranjang (${globalCart.items.length} item)`;
 
-  // Total calculation: sum of item prices * pax
+  // Total calculation: sum of item price * pax
   const getTotal = () => {
     return cart.items.reduce((total, item) => {
       const itemPrice = item.price || 0;
       const itemQty = item.qty || 0;
-      return total + (itemPrice + itemQty);
+      return total + (itemPrice * itemQty);
     }, 0);
-  };
-
-  const saveCartToStorage = async (cartItems, storeObj) => {
-    try {
-      await AsyncStorage.setItem('cart', JSON.stringify(cartItems));
-      await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
-      await AsyncStorage.setItem('cart_store', JSON.stringify(storeObj));
-    } catch (e) {
-      // handle error if needed
-    }
   };
 
   const handleLanjutPembayaran = async () => {
     setCartVisible(false);
+    if (!isOwnCart) {
+      // Cart yang ditampilkan berasal dari seller/tipe lain (mis. dari Rantangan),
+      // jadi langsung lanjut pakai apa yang sudah ada di storage.
+      router.push('/buyer/Pembayaran');
+      return;
+    }
     try {
-      // Check for existing cart with different order_type
-      const existingOrderType = await AsyncStorage.getItem('order_type');
-      const existingCartStore = await AsyncStorage.getItem('cart_store');
-      const existingCart = await AsyncStorage.getItem('cart');
-
-      const hasExistingCart = existingCart && JSON.parse(existingCart).length > 0;
-      const isDifferentType = existingOrderType && existingOrderType !== 'Catering';
-      const isDifferentStore = existingCartStore && JSON.parse(existingCartStore)?.id !== sellerid;
-
-      if (hasExistingCart && (isDifferentType || isDifferentStore)) {
-        Alert.alert(
-          'Ganti Pesanan? (Replace Order?)',
-          'Kamu masih punya pesanan yang belum selesai. Melanjutkan ini akan menghapus pesanan sebelumnya\nYou still have unfinished order. Coninuing this step will remove the previous order',
-          [
-            { text: 'Cancel', style: 'cancel', onPress: () => setCartVisible(true) },
-            {
-              text: 'Ganti / Replace',
-              style: 'destructive',
-              onPress: async () => {               
-                await AsyncStorage.setItem('cart', JSON.stringify(cart.items));
-                await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
-                await AsyncStorage.setItem('cart_store', JSON.stringify(store));
-                await AsyncStorage.setItem('order_type', 'Catering');
-                router.push('/buyer/Pembayaran');
-              }
-            }
-          ]
-        );
-        return;
-      }
       await AsyncStorage.setItem('cart', JSON.stringify(cart.items));
       await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
       await AsyncStorage.setItem('cart_store', JSON.stringify(store));
       await AsyncStorage.setItem('order_type', 'Catering');
       router.push('/buyer/Pembayaran');
-
     } catch (e) {
       // handle error if needed
     }
+  };
+
+  const handleCancelCart = () => {
+    showAlert(
+      'Batalkan Pesanan?',
+      'Semua item di keranjang akan dihapus.',
+      [
+        { text: 'Batal', style: 'cancel' },
+        {
+          text: 'Ya, Batalkan',
+          onPress: async () => {
+            await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+            setCart({ sellerId: sellerid, items: [] });
+            setGlobalCart({ items: [], store: null, orderType: null, total: 0 });
+            setCartVisible(false);
+          },
+        },
+      ],
+      'warning'
+    );
   };
 
   // Track menu images loading
@@ -297,11 +391,9 @@ const CateringDetail = () => {
       });
       setMenuImagesTotal(total);
       setMenuImagesLoaded(0); // reset on new data
-      console.log(`Menu images total set to: ${total}`);
     } else {
       setMenuImagesTotal(0);
       setMenuImagesLoaded(0);
-      console.log('No menu items found, setting total to 0');
     }
   }, [categories]);
 
@@ -309,19 +401,16 @@ const CateringDetail = () => {
   const handleMenuImageLoad = () => {
     setMenuImagesLoaded((prev) => {
       const newCount = prev + 1;
-      console.log(`Menu image loaded: ${newCount}/${menuImagesTotal}`);
       return newCount > menuImagesTotal ? menuImagesTotal : newCount;
     });
   };
 
   // Handler for banner image load
   const handleBannerImageLoad = () => {
-    console.log('Banner image loaded');
     setBannerImageLoaded(true);
   };
 
   const handleBannerImageError = () => {
-    console.log('Banner image load error, but marking as loaded');
     setBannerImageLoaded(true); // Still mark as loaded even on error
   };
 
@@ -330,25 +419,10 @@ const CateringDetail = () => {
     const dataLoaded = !loading && !error && store && categories !== null;
     const allMenuImagesLoaded = menuImagesTotal === 0 || menuImagesLoaded >= menuImagesTotal;
     const imagesLoaded = bannerImageLoaded && allMenuImagesLoaded;
-    
-    console.log('Loading states:', {
-      loading,
-      error: !!error,
-      store: !!store,
-      categories: categories?.length || 0,
-      dataLoaded,
-      bannerImageLoaded,
-      allMenuImagesLoaded,
-      menuImagesLoaded,
-      menuImagesTotal,
-      imagesLoaded,
-      allContentLoaded
-    });
-    
+
     if (dataLoaded && imagesLoaded && !allContentLoaded) {
       // Add a small delay to ensure smooth transition
       const timer = setTimeout(() => {
-        console.log('All content loaded, hiding skeleton');
         setAllContentLoaded(true);
       }, 500);
       return () => clearTimeout(timer);
@@ -359,7 +433,6 @@ const CateringDetail = () => {
   useEffect(() => {
     if (!loading && !allContentLoaded) {
       const fallbackTimer = setTimeout(() => {
-        console.log('Fallback timeout reached, hiding skeleton');
         setAllContentLoaded(true);
       }, 5000); // 5 second maximum wait
       
@@ -490,8 +563,8 @@ const CateringDetail = () => {
         )}
       </ScrollView>
 
-      {/* Floating Cart Button */}
-      {allContentLoaded && cart.items.length > 0 && cart.sellerId === sellerid && (
+      {/* Floating Cart Button - global, tetap muncul walau cart bukan punya seller ini */}
+      {allContentLoaded && globalCart.items.length > 0 && (
         <TouchableOpacity
           style={styles.floatingCartButton}
           onPress={() => setCartVisible(true)}
@@ -515,29 +588,36 @@ const CateringDetail = () => {
           <View style={styles.cartSheet}>
             <View style={styles.cartHandle} />
             <Text style={styles.cartTitle}>Keranjang</Text>
+            {!isOwnCart && !!globalCart.store?.name && (
+              <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY, marginBottom: 10 }}>
+                {globalCart.store.name} · {globalCart.orderType}
+              </Text>
+            )}
             <View style={{ maxHeight: 120, marginBottom: 14 }}>
               <ScrollView>
-                {cart.items.map((item) => (
+                {(isOwnCart ? cart.items : globalCart.items).map((item) => (
                   <View key={item.id} style={styles.cartItemRow}>
                     <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 13 }}>{item.name}</Text>
-                    <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
-                  </View>
-
-                  {/* Kontrol Pax per Item */}
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) - 1)}>
-                      <MaterialIcons name="remove-circle-outline" size={22} color={COLORS.PRIMARY} />
-                    </TouchableOpacity>
-
-                    <Text style={{ fontSize: 14, fontWeight: '600', minWidth: 20, textAlign: 'center'}}>
-                      {item.qty || 1}
-                    </Text>
-
-                    <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) + 1)}>
-                      <MaterialIcons name="add-circle-outline" size={22} color={COLORS.PRIMARY} />
-                    </TouchableOpacity>
+                      <Text style={{ fontSize: 13 }}>{item.name}</Text>
+                      <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
                     </View>
+
+                    {/* Kontrol Pax per Item - cuma bisa diubah kalau ini memang cart Catering seller ini */}
+                    {isOwnCart && (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) - 1)}>
+                          <MaterialIcons name="remove-circle-outline" size={22} color={COLORS.PRIMARY} />
+                        </TouchableOpacity>
+
+                        <Text style={{ fontSize: 14, fontWeight: '600', minWidth: 20, textAlign: 'center'}}>
+                          {item.qty || 1}
+                        </Text>
+
+                        <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) + 1)}>
+                          <MaterialIcons name="add-circle-outline" size={22} color={COLORS.PRIMARY} />
+                        </TouchableOpacity>
+                      </View>
+                    )}
                   </View>
                 ))}
               </ScrollView>
@@ -545,7 +625,7 @@ const CateringDetail = () => {
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>Rp {getTotal().toLocaleString()}</Text>
+              <Text style={styles.totalValue}>Rp {(isOwnCart ? getTotal() : globalCart.total).toLocaleString()}</Text>
             </View>
             <View style={{ gap: 10, marginTop: 6 }}>
               <TouchableOpacity
@@ -561,15 +641,23 @@ const CateringDetail = () => {
                 style={styles.secondaryCartBtn}
                 onPress={() => {
                   Keyboard.dismiss();
-                  setCartVisible(false);
+                  handleCancelCart();
                 }}
               >
-                <Text style={styles.secondaryCartBtnText}>Tutup</Text>
+                <Text style={{ color: '#D64545', fontWeight: '700' }}>Batalkan Pesanan</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
+      <CustomAlert
+        visible={alert.visible}
+        title={alert.title}
+        message={alert.message}
+        buttons={alert.buttons}
+        type={alert.type}
+        onClose={closeAlert}
+      />
     </SafeAreaView>
   );
 };
@@ -865,6 +953,19 @@ const styles = StyleSheet.create({
     color: '#555',
     fontWeight: '700',
   },
+  // ---- CustomAlert ----
+  alertOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
+  alertContent: { backgroundColor: 'white', borderRadius: 18, padding: 22, width: '100%', maxWidth: 340, alignItems: 'center' },
+  alertIconCircle: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },
+  alertTitle: { fontSize: 16, fontWeight: '700', color: '#23272f', textAlign: 'center', marginBottom: 6 },
+  alertMessage: { fontSize: 13.5, color: '#777', textAlign: 'center', lineHeight: 19, marginBottom: 20 },
+  alertButtons: { flexDirection: 'row', gap: 10, width: '100%' },
+  alertButton: { flex: 1, paddingVertical: 12, borderRadius: 30, alignItems: 'center' },
+  alertButtonSolid: { backgroundColor: COLORS.PRIMARY },
+  alertButtonOutline: { backgroundColor: '#fff', borderWidth: 1.5, borderColor: '#e5e5e5' },
+  alertButtonText: { fontSize: 14, fontWeight: '700' },
+  alertButtonTextSolid: { color: '#fff' },
+  alertButtonTextOutline: { color: '#777' },
 });
 
 export default CateringDetail;

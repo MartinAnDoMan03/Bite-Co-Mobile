@@ -51,30 +51,21 @@ const RiwayatDetail = () => {
     if (orderId) fetchOrder();
   }, [orderId]);
 
-  const getStatusColor = (status) => {
-    switch ((status || '').toLowerCase()) {
-      case 'pending':
-        return '#BDBDBD'; // Grey (Pending)
-      case 'menunggu persetujuan':
-      case 'waiting_approval':
-        return '#FFC107'; // Yellow (Waiting Approval)
-      case 'diproses':
-      case 'processing':
-        return '#9C27B0'; // Purple (Processing)
-      case 'pengiriman':
-      case 'delivery':
-        return '#2196F3'; // Blue (Delivery)
-      case 'selesai':
-      case 'completed':
-      case 'success':
-        return '#4CAF50'; // Green (Completed/Success)
-      case 'dibatalkan':
-      case 'cancelled':
-        return '#F44336'; // Red (Cancelled)
-      default:
-        return '#BDBDBD'; // Grey (Unknown)
-    }
-  };
+  // FIX: badge status sekarang netral (abu-abu + teks gelap) untuk semua status,
+  // kecuali "cancelled" yang tetap merah karena satu-satunya status kritikal
+  // yang memang perlu nonjol. Selaras dengan skema warna di Riwayat.jsx.
+  const STATUS_PROGRESS_META = {
+  awaiting_seller_approval: { bg: '#F1F1F3', text: '#3A3F47', label: 'Menunggu Persetujuan Penjual' },
+  approved_awaiting_payment: { bg: '#F1F1F3', text: '#3A3F47', label: 'Menunggu Pembayaran' },
+  processing: { bg: '#F1F1F3', text: '#3A3F47', label: 'Diproses' },
+  delivery: { bg: '#F1F1F3', text: '#3A3F47', label: 'Pengiriman' },
+  completed: { bg: '#F1F1F3', text: '#3A3F47', label: 'Selesai' },
+  cancelled: { bg: '#FDECEA', text: '#D32F2F', label: 'Dibatalkan' },
+};
+
+const getStatusMeta = (statusProgress) => {
+  return STATUS_PROGRESS_META[statusProgress] || { bg: '#F1F1F3', text: '#3A3F47', label: 'Menunggu' };
+};
 
   // Header selaras dengan halaman lain
   const Header = () => (
@@ -109,78 +100,93 @@ const RiwayatDetail = () => {
     );
   }
 
+  const statusMeta = getStatusMeta(order.statusProgress);
+
   return (
     <SafeAreaView style={styles.container}>
       <Header />
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
-        {/* Order Summary Card */}
-        <View style={[styles.card, { paddingBottom: 10 }]}> 
-          <View style={styles.cardHeaderRow}>
-            <Text style={styles.orderId}>#{order.id}</Text>
-            <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.status) }]}> 
-              <Text style={styles.statusText}>{order.status || 'Menunggu Pembayaran'}</Text>
-            </View>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Text style={styles.metaLabel}>Tanggal</Text>
-            <Text style={styles.metaValue}>{order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 4 }}>
-            <Text style={styles.metaLabel}>Total</Text>
-            <Text style={styles.metaValue}>Rp {order.totalAmount?.toLocaleString()}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-            {seller && seller.storeIcon ? (
-              <Image source={{ uri: seller.storeIcon }} style={{ width: 28, height: 28, borderRadius: 8, marginRight: 8, backgroundColor: '#eee' }} />
-            ) : (
-              <View style={{ width: 28, height: 28, borderRadius: 8, marginRight: 8, backgroundColor: '#eee', justifyContent: 'center', alignItems: 'center' }}>
-                <MaterialIcons name="store" size={20} color="#bbb" />
-              </View>
-            )}
-            <Text style={{ fontWeight: '600', fontSize: 15, color: '#23272f' }}>{seller?.outletName || '-'}</Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer} showsVerticalScrollIndicator={false}>
+        {/* Order id + status */}
+        <View style={styles.topRow}>
+          <Text style={styles.orderId}>#{order.id}</Text>
+          <View style={[styles.statusBadge, { backgroundColor: statusMeta.bg }]}>
+            <Text style={[styles.statusText, { color: statusMeta.text }]}>{statusMeta.label}</Text>
           </View>
         </View>
-        {/* Delivery Address & Notes */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Alamat Pengantaran</Text>
-          <Text style={styles.sectionValue}>{order.deliveryAddress || '-'}</Text>
-          <View style={styles.divider} />
-          <Text style={styles.sectionTitle}>Catatan</Text>
-          <Text style={styles.sectionValue}>{order.notes || '-'}</Text>
+
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLabel}>Tanggal</Text>
+          <Text style={styles.metaValue}>{order.createdAt ? new Date(order.createdAt).toLocaleString() : '-'}</Text>
         </View>
-        {/* Items List */}
-        <View style={styles.sectionCard}>
-          <Text style={styles.sectionTitle}>Item Pesanan</Text>
-          {order.items && order.items.length > 0 ? (
-            order.items.map((item, idx) => (
-              <View key={idx} style={styles.itemRow}>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.itemName}>{item.name}</Text>
-                  <Text style={styles.itemQty}>Qty: {item.qty}</Text>
-                </View>
-                <Text style={styles.itemPrice}>Rp {item.price?.toLocaleString()}</Text>
-              </View>
-            ))
+        <View style={styles.metaRow}>
+          <Text style={styles.metaLabel}>Total</Text>
+          <Text style={styles.metaValue}>Rp {order.totalAmount?.toLocaleString()}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        {/* Seller */}
+        <View style={styles.sellerRow}>
+          {seller && seller.storeIcon ? (
+            <Image source={{ uri: seller.storeIcon }} style={styles.sellerIcon} />
           ) : (
-            <Text style={styles.sectionValue}>-</Text>
+            <View style={[styles.sellerIcon, styles.sellerIconFallback]}>
+              <MaterialIcons name="store" size={20} color="#bbb" />
+            </View>
           )}
+          <Text style={styles.sellerName}>{seller?.outletName || '-'}</Text>
         </View>
-        {/* Order Summary Footer */}
-        <View style={[styles.sectionCard, { marginBottom: 24, backgroundColor: '#fff', borderWidth: 1, borderColor: '#e0e0e0' }]}> 
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-            <Text style={{ fontWeight: '600', color: '#23272f' }}>Subtotal</Text>
-            <Text style={{ color: '#23272f' }}>Rp {order.totalAmount?.toLocaleString()}</Text>
-          </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 6 }}>
-            <Text style={{ fontWeight: '600', color: '#23272f' }}>Ongkir</Text>
-            <Text style={{ color: '#23272f' }}>Rp {order.deliveryFee ? order.deliveryFee.toLocaleString() : '0'}</Text>
-          </View>
-          <View style={styles.divider} />
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-            <Text style={{ fontWeight: '700', color: '#388e3c', fontSize: 16 }}>Total Bayar</Text>
-            <Text style={{ fontWeight: '700', color: '#388e3c', fontSize: 16 }}>Rp {(order.totalAmount + (order.deliveryFee || 0)).toLocaleString()}</Text>
-          </View>
+
+        <View style={styles.divider} />
+
+        {/* Delivery Address & Notes */}
+        <Text style={styles.sectionTitle}>Alamat Pengantaran</Text>
+        <Text style={styles.sectionValue}>{order.deliveryAddress || '-'}</Text>
+
+        <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Catatan</Text>
+        <Text style={styles.sectionValue}>{order.notes || '-'}</Text>
+
+        <View style={styles.divider} />
+
+        {/* Items List */}
+        <Text style={styles.sectionTitle}>Item Pesanan</Text>
+        {order.items && order.items.length > 0 ? (
+          order.items.map((item, idx) => (
+            <View
+              key={idx}
+              style={[
+                styles.itemRow,
+                idx === order.items.length - 1 && { borderBottomWidth: 0 },
+              ]}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemQty}>Qty: {item.qty}</Text>
+              </View>
+              <Text style={styles.itemPrice}>Rp {item.price?.toLocaleString()}</Text>
+            </View>
+          ))
+        ) : (
+          <Text style={styles.sectionValue}>-</Text>
+        )}
+
+        <View style={styles.divider} />
+
+        {/* Payment Summary */}
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Subtotal</Text>
+          <Text style={styles.summaryValue}>Rp {order.totalAmount?.toLocaleString()}</Text>
+        </View>
+        <View style={styles.summaryRow}>
+          <Text style={styles.summaryLabel}>Ongkir</Text>
+          <Text style={styles.summaryValue}>Rp {order.deliveryFee ? order.deliveryFee.toLocaleString() : '0'}</Text>
+        </View>
+
+        <View style={styles.divider} />
+
+        <View style={styles.summaryRow}>
+          <Text style={styles.totalLabel}>Total Bayar</Text>
+          <Text style={styles.totalValue}>Rp {(order.totalAmount + (order.deliveryFee || 0)).toLocaleString()}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -190,7 +196,7 @@ const RiwayatDetail = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F5F6FA',
+    backgroundColor: '#fff',
   },
   // Header
   header: {
@@ -211,112 +217,134 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContainer: {
-    padding: 18,
-    paddingBottom: 32,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 40,
   },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.06,
-    shadowRadius: 4,
-    elevation: 1,
-  },
-  cardHeaderRow: {
+
+  topRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    justifyContent: 'space-between',
+    marginBottom: 12,
   },
   orderId: {
     fontWeight: '700',
-    fontSize: 18,
+    fontSize: 19,
     color: '#23272f',
-    flex: 1,
     letterSpacing: 0.2,
   },
   statusBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 3,
-    borderRadius: 7,
-    alignSelf: 'flex-start',
+    paddingVertical: 4,
+    borderRadius: 8,
   },
   statusText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 12,
-    textTransform: 'capitalize',
-    letterSpacing: 0.1,
+    fontWeight: '700',
+    fontSize: 11.5,
   },
+
   metaRow: {
     flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 2,
-    marginBottom: 2,
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   metaLabel: {
     color: '#8a8f99',
     fontSize: 14,
-    fontWeight: '400',
-    marginRight: 6,
   },
   metaValue: {
     color: '#23272f',
     fontSize: 14,
     fontWeight: '500',
-    flex: 1,
   },
-  sectionCard: {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    padding: 18,
-    marginBottom: 18,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
-    elevation: 1,
+
+  divider: {
+    height: 1,
+    backgroundColor: '#EFEFEF',
+    marginVertical: 16,
   },
-  sectionTitle: {
+
+  sellerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  sellerIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 9,
+    marginRight: 10,
+    backgroundColor: '#eee',
+  },
+  sellerIconFallback: {
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sellerName: {
     fontWeight: '600',
     fontSize: 15,
     color: '#23272f',
-    marginBottom: 2,
+  },
+
+  sectionTitle: {
+    fontWeight: '700',
+    fontSize: 14,
+    color: '#23272f',
+    marginBottom: 4,
   },
   sectionValue: {
-    color: '#555',
+    color: '#666',
     fontSize: 14,
-    marginBottom: 8,
+    lineHeight: 20,
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#f0f0f0',
-    marginVertical: 10,
-    borderRadius: 1,
-  },
+
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#F5F5F5',
   },
   itemName: {
     fontWeight: '500',
-    fontSize: 15,
+    fontSize: 14.5,
     color: '#23272f',
   },
   itemQty: {
-    color: '#888',
-    fontSize: 13,
+    color: '#9AA0AC',
+    fontSize: 12.5,
+    marginTop: 1,
   },
   itemPrice: {
     color: '#23272f',
-    fontSize: 15,
+    fontSize: 14.5,
     fontWeight: '600',
     marginLeft: 10,
+  },
+
+  summaryRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  summaryLabel: {
+    color: '#666',
+    fontSize: 14,
+  },
+  summaryValue: {
+    color: '#23272f',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  totalLabel: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: '#23272f',
+  },
+  totalValue: {
+    fontWeight: '700',
+    fontSize: 16,
+    color: COLORS.PRIMARY,
   },
 });
 

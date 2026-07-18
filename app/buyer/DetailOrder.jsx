@@ -27,7 +27,7 @@ const DetailOrder = () => {
   const { orderId } = useLocalSearchParams();
   const router = useRouter();
   const { showError, showSuccess } = useToast();
-  
+
   const [rating, setRating] = useState(5);
   const [review, setReview] = useState("");
   const [maxRating, setMaxRating] = useState(5);
@@ -46,7 +46,7 @@ const DetailOrder = () => {
     try {
       setLoading(true);
       const token = await AsyncStorage.getItem("buyerToken");
-      
+
       // Fetch order details
       const orderResponse = await fetch(`${config.API_URL}/buyer/orders/${orderId}`, {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
@@ -84,7 +84,7 @@ const DetailOrder = () => {
     try {
       setSubmitting(true);
       const token = await AsyncStorage.getItem("buyerToken");
-      
+
       const reviewData = {
         rating: rating,
         review: review.trim(),
@@ -104,7 +104,7 @@ const DetailOrder = () => {
       });
 
       console.log('[DEBUG] Review response status:', response.status);
-      
+
       if (response.ok) {
         const responseData = await response.json();
         console.log('[DEBUG] Review response data:', responseData);
@@ -165,34 +165,39 @@ const DetailOrder = () => {
     <SafeAreaView style={styles.container}>
       <Header />
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Rating Section */}
-        <View style={styles.ratingSection}>
-          <Text style={styles.questionText}>Bagaimana makanan mu?</Text>
-          <Text style={styles.subText}>Berikan rating dan ulasan untuk pesanan ini</Text>
-          
-          <View style={styles.starsContainer}>
-            {[...Array(maxRating)].map((_, index) => (
-              <TouchableOpacity
-                key={index}
-                activeOpacity={0.7}
-                onPress={() => setRating(index + 1)}
-                style={styles.starButton}
-              >
-                <Image
-                  source={index < rating ? starYellow : starGrey}
-                  style={styles.starImage}
-                />
-              </TouchableOpacity>
-            ))}
-          </View>
-          
-          <Text style={styles.ratingText}>
-            {rating} dari {maxRating} bintang
-          </Text>
-        </View>
+        {/* Semua section digabung jadi 1 card besar, dipisah pakai divider tipis
+            biar gak "rame" banyak card putih terpisah */}
+        <View style={styles.mainCard}>
 
-        {/* Order Info Section */}
-        <View style={styles.orderInfoSection}>
+          {/* Rating Section */}
+          <View style={styles.ratingBlock}>
+            <Text style={styles.questionText}>Bagaimana makanan mu?</Text>
+            <Text style={styles.subText}>Berikan rating dan ulasan untuk pesanan ini</Text>
+
+            <View style={styles.starsContainer}>
+              {[...Array(maxRating)].map((_, index) => (
+                <TouchableOpacity
+                  key={index}
+                  activeOpacity={0.7}
+                  onPress={() => setRating(index + 1)}
+                  style={styles.starButton}
+                >
+                  <Image
+                    source={index < rating ? starYellow : starGrey}
+                    style={styles.starImage}
+                  />
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <Text style={styles.ratingText}>
+              {rating} dari {maxRating} bintang
+            </Text>
+          </View>
+
+          <View style={styles.sectionDivider} />
+
+          {/* Store & Order Info */}
           <View style={styles.storeInfo}>
             {sellerData?.storeIcon ? (
               <Image source={{ uri: sellerData.storeIcon }} style={styles.storeIcon} />
@@ -211,98 +216,103 @@ const DetailOrder = () => {
               </Text>
             </View>
           </View>
-        </View>
 
-        {/* Order Details Section */}
-        <View style={styles.detailsSection}>
-          <Text style={styles.sectionTitle}>Detail Pembelian</Text>
-          
-          {orderData.items && orderData.items.map((item, index) => (
-            <View key={index} style={styles.itemRow}>
-              <View style={styles.itemInfo}>
-                <Text style={styles.itemName}>{item.name}</Text>
-                {item.description && (
-                  <Text style={styles.itemDescription}>{item.description}</Text>
-                )}
-              </View>
-              <Text style={styles.itemPrice}>
-                Rp {item.price?.toLocaleString()}
-              </Text>
-            </View>
-          ))}
-          
-          <View style={styles.divider} />
-          
-          <View style={styles.totalRow}>
-            <Text style={styles.totalLabel}>Total Pembayaran</Text>
-            <Text style={styles.totalAmount}>
-              Rp {orderData.totalAmount?.toLocaleString()}
-            </Text>
-          </View>
+          <View style={styles.sectionDivider} />
 
-          {orderData.pax && (
-            <View style={styles.paxInfo}>
-              <MaterialIcons name="people" size={18} color={COLORS.PRIMARY} />
-              <Text style={styles.paxText}>Jumlah Pax: {orderData.pax}</Text>
-            </View>
-          )}
+          {/* Order Details Section */}
+          <View>
+            <Text style={styles.sectionTitle}>Detail Pembelian</Text>
 
-          {orderData.orderType && (
-            <View style={styles.orderTypeInfo}>
-              <MaterialIcons name="category" size={18} color={COLORS.PRIMARY} />
-              <Text style={styles.orderTypeText}>Tipe: {orderData.orderType}</Text>
-            </View>
-          )}
-
-          {/* Show date information for Rantangan orders */}
-          {orderData.orderType === 'Rantangan' && orderData.startDate && (
-            <View style={styles.dateInfo}>
-              <View style={styles.dateRow}>
-                <MaterialIcons name="calendar-today" size={18} color={COLORS.GREEN4} />
-                <Text style={styles.dateText}>
-                  Mulai: {new Date(orderData.startDate).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                  })}
+            {orderData.items && orderData.items.map((item, index) => (
+              <View key={index} style={styles.itemRow}>
+                <View style={styles.itemInfo}>
+                  <Text style={styles.itemName}>{item.name}</Text>
+                  {item.description && (
+                    <Text style={styles.itemDescription}>{item.description}</Text>
+                  )}
+                </View>
+                <Text style={styles.itemPrice}>
+                  Rp {item.price?.toLocaleString()}
                 </Text>
               </View>
-              {orderData.endDate && orderData.packageType !== 'Harian' && (
+            ))}
+
+            <View style={styles.divider} />
+
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Pembayaran</Text>
+              <Text style={styles.totalAmount}>
+                Rp {orderData.totalAmount?.toLocaleString()}
+              </Text>
+            </View>
+
+            {orderData.pax && (
+              <View style={styles.paxInfo}>
+                <MaterialIcons name="people" size={18} color={COLORS.PRIMARY} />
+                <Text style={styles.paxText}>Jumlah Pax: {orderData.pax}</Text>
+              </View>
+            )}
+
+            {orderData.orderType && (
+              <View style={styles.orderTypeInfo}>
+                <MaterialIcons name="category" size={18} color={COLORS.PRIMARY} />
+                <Text style={styles.orderTypeText}>Tipe: {orderData.orderType}</Text>
+              </View>
+            )}
+
+            {/* Show date information for Rantangan orders */}
+            {orderData.orderType === 'Rantangan' && orderData.startDate && (
+              <View style={styles.dateInfo}>
                 <View style={styles.dateRow}>
-                  <MaterialIcons name="event" size={18} color="#666" />
+                  <MaterialIcons name="calendar-today" size={18} color={COLORS.GREEN4} />
                   <Text style={styles.dateText}>
-                    Berakhir: {new Date(orderData.endDate).toLocaleDateString('id-ID', {
+                    Mulai: {new Date(orderData.startDate).toLocaleDateString('id-ID', {
                       day: 'numeric',
                       month: 'long',
                       year: 'numeric'
                     })}
                   </Text>
                 </View>
-              )}
-              {orderData.packageType && (
-                <View style={styles.dateRow}>
-                  <MaterialIcons name="local-offer" size={18} color="#ff9800" />
-                  <Text style={[styles.dateText, { color: '#ff9800', fontWeight: '600' }]}>
-                    Paket: {orderData.packageType}
-                  </Text>
-                </View>
-              )}
-            </View>
-          )}
-        </View>
+                {orderData.endDate && orderData.packageType !== 'Harian' && (
+                  <View style={styles.dateRow}>
+                    <MaterialIcons name="event" size={18} color="#666" />
+                    <Text style={styles.dateText}>
+                      Berakhir: {new Date(orderData.endDate).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </Text>
+                  </View>
+                )}
+                {orderData.packageType && (
+                  <View style={styles.dateRow}>
+                    <MaterialIcons name="local-offer" size={18} color="#ff9800" />
+                    <Text style={[styles.dateText, { color: '#ff9800', fontWeight: '600' }]}>
+                      Paket: {orderData.packageType}
+                    </Text>
+                  </View>
+                )}
+              </View>
+            )}
+          </View>
 
-        {/* Review Input Section */}
-        <View style={styles.reviewSection}>
-          <Text style={styles.sectionTitle}>Tulis Ulasan</Text>
-          <TextInput
-            style={styles.reviewInput}
-            placeholder="Ceritakan pengalaman Anda dengan pesanan ini..."
-            multiline
-            numberOfLines={4}
-            value={review}
-            onChangeText={setReview}
-            textAlignVertical="top"
-          />
+          <View style={styles.sectionDivider} />
+
+          {/* Review Input Section */}
+          <View>
+            <Text style={styles.sectionTitle}>Tulis Ulasan</Text>
+            <TextInput
+              style={styles.reviewInput}
+              placeholder="Ceritakan pengalaman Anda dengan pesanan ini..."
+              multiline
+              numberOfLines={4}
+              value={review}
+              onChangeText={setReview}
+              textAlignVertical="top"
+            />
+          </View>
+
         </View>
 
         {/* Submit Button */}
@@ -385,17 +395,29 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  ratingSection: {
+  // Card besar tunggal — menggantikan ratingSection, orderInfoSection,
+  // detailsSection, reviewSection yang sebelumnya masing-masing punya
+  // background/shadow sendiri. Sekarang semua jadi 1 card, dipisah divider.
+  mainCard: {
     backgroundColor: '#fff',
-    margin: 16,
-    padding: 24,
-    borderRadius: 16,
-    alignItems: 'center',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: 16,
+    padding: 20,
+    borderRadius: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    elevation: 3,
+  },
+  sectionDivider: {
+    height: 1,
+    backgroundColor: '#f0f0f0',
+    marginVertical: 20,
+  },
+  ratingBlock: {
+    alignItems: 'center',
   },
   questionText: {
     fontSize: 22,
@@ -425,18 +447,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: COLORS.PRIMARY,
     fontWeight: '600',
-  },
-  orderInfoSection: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
   storeInfo: {
     flexDirection: 'row',
@@ -470,18 +480,6 @@ const styles = StyleSheet.create({
   orderDate: {
     fontSize: 14,
     color: '#666',
-  },
-  detailsSection: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
   sectionTitle: {
     fontSize: 18,
@@ -577,18 +575,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#333',
     fontWeight: '500',
-  },
-  reviewSection: {
-    backgroundColor: '#fff',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    padding: 20,
-    borderRadius: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    elevation: 2,
   },
   reviewInput: {
     borderWidth: 1,
