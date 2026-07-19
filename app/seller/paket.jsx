@@ -852,7 +852,7 @@ const TabPaketCatering = ({ showAlert, t }) => {
         body: JSON.stringify(buildPayload()),
       });
       const resJson = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(resJson.message || "Gagal menambahkan paket");
+      if (!response.ok) throw new Error(resJson.error || resJson.message || "Gagal menambahkan paket");
 
       showAlert(t('common.success'), t('paket.catering.addSuccess'), [{ text: t('common.ok') }], "success");
       resetForm();
@@ -909,7 +909,8 @@ const TabPaketCatering = ({ showAlert, t }) => {
                   Authorization: `Bearer ${await getAuthToken()}`,
                 },
               });
-              if (!response.ok) throw new Error("Failed to delete package");
+              const resJson = await response.json().catch(() => ({}));
+              if (!response.ok) throw new Error(resJson.error || resJson.message || "Failed to delete package");
 
               showAlert(t('common.success'), t('paket.catering.deleteSuccess'), [{ text: t('common.ok') }], "success");
               fetchAll();
