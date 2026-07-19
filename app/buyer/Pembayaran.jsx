@@ -218,7 +218,7 @@ const Pembayaran = () => {
   };
 
   useEffect(() => {
-    const sum = cart.reduce((acc, item) => acc + (item.price || 0), 0);
+    const sum = cart.reduce((acc, item) => acc + ((item.price || 0) * (item.qty || 1)), 0);
     setTotal(sum);
   }, [cart]);
 
@@ -411,7 +411,12 @@ const Pembayaran = () => {
             <ScrollView>
               {cart && cart.length > 0 ? cart.map((item) => (
                 <View key={item.id} style={styles.itemRow}>
-                  <Text style={{ flex: 1, color: '#23272f' }}>{item.name}</Text>
+                  <Text style={{ flex:1, color: '#23272f' }}>
+                    {item.qty || 1}x {item.name}
+                  </Text>
+                  <Text style={{ color: '#23272f', fontSize:13, fontWeight: '600' }}>
+                    Rp {((item.price || 0) * (item.qty || 1)).toLocaleString('id-ID')}
+                  </Text>
                 </View>
               )) : <Text style={{ color: '#888' }}>Tidak ada item di keranjang.</Text>}
             </ScrollView>
