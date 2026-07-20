@@ -12,6 +12,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import SkeletonLoader from '../../components/SkeletonLoader';
+import { getOutletStatus, isOutletOrderable } from '../services/OutletStatusService';
 
 const BANNER_HEIGHT = 150;
 const OVERLAP = 30;
@@ -60,9 +61,14 @@ const PACKAGE_ICONS = {
   bulanan: "event-repeat",
 };
 
-const PackageItem = ({ type, title, description, price, onPress }) => {
+const PackageItem = ({ type, title, description, price, onPress, disabled }) => {
   return (
-    <TouchableOpacity style={styles.packageCard} onPress={onPress} activeOpacity={0.8}>
+    <TouchableOpacity
+      style={[styles.packageCard, disabled && styles.packageCardDisabled]}
+      onPress={disabled ? undefined : onPress}
+      activeOpacity={disabled ? 1 : 0.8}
+      disabled={disabled}
+    >
       <View style={styles.packageIconWrap}>
         <MaterialIcons name={PACKAGE_ICONS[type] || "event"} size={22} color={COLORS.PRIMARY} />
       </View>
@@ -71,7 +77,11 @@ const PackageItem = ({ type, title, description, price, onPress }) => {
         <Text style={styles.packageDesc} numberOfLines={2}>{description}</Text>
         <Text style={styles.packagePrice}>Rp {price?.toLocaleString() || "-"}</Text>
       </View>
-      <MaterialIcons name="arrow-forward-ios" size={16} color={COLORS.TEXTSECONDARY} />
+      {disabled ? (
+        <Text style={styles.packageClosedText}>Tutup</Text>
+      ) : (
+        <MaterialIcons name="arrow-forward-ios" size={16} color={COLORS.TEXTSECONDARY} />
+      )}
     </TouchableOpacity>
   );
 };
@@ -95,6 +105,10 @@ const RantanganDetail = () => {
   const [buyerLocation, setBuyerLocation] = useState(null);
   const [cardHeight, setCardHeight] = useState(FALLBACK_CARD_HEIGHT);
   const router = useRouter();
+
+  // Dihitung ulang tiap kali `store` berubah (setelah fetch detail selesai)
+  const outletStatus = store ? getOutletStatus(store) : null;
+  const orderable = store ? isOutletOrderable(store) : true;
 
   // Keranjang global (dibaca dari AsyncStorage, tidak terikat sellerid halaman ini).
   // Ini yang bikin tombol "Lihat Keranjang" tetap muncul walau user pindah dari
@@ -223,6 +237,11 @@ const RantanganDetail = () => {
   // Ceknya sekarang di titik klik (bukan pas halaman baru dibuka). Kalau ada
   // pesanan lain yang beda seller/tipe, tanya dulu sebelum di-overwrite.
   const handlePackageSelect = async (packageType, packageData) => {
+    if (!orderable) {
+      showAlert('Outlet Tutup', outletStatus?.nextOpenLabel || 'Outlet sedang tutup, coba lagi nanti.', [{ text: 'OK' }], 'warning');
+      return;
+    }
+
     const existingOrderType = await AsyncStorage.getItem('order_type');
     const existingCartRaw = await AsyncStorage.getItem('cart');
     const existingStoreRaw = await AsyncStorage.getItem('cart_store');
@@ -239,7 +258,13 @@ const RantanganDetail = () => {
           {
             text: 'Ya, Ganti',
             onPress: async () => {
-              await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+              // Bersihin juga sisa lokasi custom Catering (delivery_location_override,
+              // catering_delivery_location) — kalau tidak, Pembayaran.jsx bisa salah
+              // pakai alamat Catering lama untuk order Rantangan yang baru ini.
+              await AsyncStorage.multiRemove([
+                'cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type',
+                'delivery_location_override', 'catering_delivery_location',
+              ]);
               await savePackageSelection(packageType, packageData);
               loadGlobalCart();
             },
@@ -263,7 +288,11 @@ const RantanganDetail = () => {
         {
           text: 'Ya, Batalkan',
           onPress: async () => {
-            await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+            // Sama seperti di atas: bersihin juga sisa lokasi custom Catering.
+            await AsyncStorage.multiRemove([
+              'cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type',
+              'delivery_location_override', 'catering_delivery_location',
+            ]);
             setGlobalCart({ items: [], store: null, orderType: null, total: 0 });
             setCartModalVisible(false);
           },
@@ -417,6 +446,15 @@ const RantanganDetail = () => {
           <Text style={styles.sectionTitle}>Pilih Paket Rantangan</Text>
           <Text style={styles.sectionSubtitle}>Sesuaikan durasi langganan dengan kebutuhanmu</Text>
 
+          {!orderable && outletStatus && (
+            <View style={styles.closedNotice}>
+              <MaterialIcons name="info" size={16} color="#B26A00" />
+              <Text style={styles.closedNoticeText}>
+                {outletStatus.label}{outletStatus.nextOpenLabel ? ` — ${outletStatus.nextOpenLabel}` : ''}
+              </Text>
+            </View>
+          )}
+
           <View style={{ marginTop: 16 }}>
             {['harian', 'mingguan', 'bulanan'].map((type) => {
               const pkg = getPackageData(type);
@@ -428,6 +466,7 @@ const RantanganDetail = () => {
                   description={pkg.description}
                   price={pkg.price}
                   onPress={() => handlePackageSelect(type, pkg)}
+                  disabled={!orderable}
                 />
               );
             })}
@@ -612,6 +651,29 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
+  },
+  packageCardDisabled: {
+    opacity: 0.55,
+  },
+  packageClosedText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#B26A00',
+  },
+  closedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF3E0',
+    padding: 12,
+    borderRadius: 12,
+    marginTop: 12,
+  },
+  closedNoticeText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#B26A00',
+    fontWeight: '600',
   },
   packageIconWrap: {
     width: 44,

@@ -13,10 +13,24 @@ import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { MaterialIcons } from '@expo/vector-icons';
 import SkeletonLoader, { MenuItemSkeleton } from '../../components/SkeletonLoader';
+import PinPointMapModal from '../../components/PinPointMapModal';
+import { getOutletStatus, isOutletOrderable } from '../services/OutletStatusService';
 
 const BANNER_HEIGHT = 150;
 const OVERLAP = 30;
 const FALLBACK_CARD_HEIGHT = 100;
+
+// Key AsyncStorage khusus buat lokasi antar Catering — TERPISAH dari 'pinPoint'
+// (lokasi profil) supaya milih lokasi custom di sini tidak menimpa alamat
+// rumah/default buyer yang tersimpan di profilnya.
+const CATERING_LOCATION_KEY = 'catering_delivery_location';
+// Key yang dibaca Pembayaran.jsx untuk tahu "pakai lokasi custom ini, bukan
+// pinPoint profil" — cuma di-set kalau buyer benar-benar pilih "Lokasi Lain".
+const DELIVERY_LOCATION_OVERRIDE_KEY = 'delivery_location_override';
+// Catatan buyer untuk pesanan Catering ini (mis. permintaan khusus ke seller).
+// Disimpan generic (gak per-seller) sama kayak 'cart'/'cart_total'/'cart_store',
+// dibaca ulang sama Pembayaran.jsx pas bikin order lalu dikirim sebagai field `notes`.
+const CART_NOTES_KEY = 'cart_notes';
 
 const ALERT_TYPE_STYLES = {
   info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
@@ -55,12 +69,12 @@ const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose 
   );
 };
 
-const ListMenu = ({ menu, inCart, onAdd, onRemove, onImageLoad, onImageError }) => {
+const ListMenu = ({ menu, inCart, onAdd, onRemove, onImageLoad, onImageError, orderable }) => {
   return (
-    <View style={styles.menuCard}>
+    <View style={[styles.menuCard, !orderable && styles.menuCardClosed]}>
       <Image
         source={menu?.image ? { uri: menu.image } : menuImage}
-        style={styles.menuImage}
+        style={[styles.menuImage, !orderable && styles.menuImageClosed]}
         resizeMode="cover"
         onLoad={onImageLoad}
         onError={onImageError}
@@ -75,15 +89,55 @@ const ListMenu = ({ menu, inCart, onAdd, onRemove, onImageLoad, onImageError }) 
               <MaterialIcons name="close" size={13} color="#D64545" />
               <Text style={styles.removeBtnText}>Hapus</Text>
             </TouchableOpacity>
-          ) : (
+           ) : orderable ? (
             <TouchableOpacity style={styles.addBtn} onPress={onAdd}>
               <MaterialIcons name="add" size={14} color="white" />
               <Text style={styles.addBtnText}>Tambah</Text>
             </TouchableOpacity>
+          ) : (
+            <View style={styles.addBtnDisabled}>
+              <Text style={styles.addBtnDisabledText}>Tutup</Text>
+            </View>
           )}
         </View>
       </View>
     </View>
+  );
+};
+
+// Input pax yang bisa diketik langsung, selain lewat tombol +/-.
+// Nyimpen text lokal supaya user bisa kosongin dulu pas lagi ngetik ulang
+// angkanya, dan baru divalidasi/dikomit pas blur atau submit.
+const QtyInput = ({ value, onChange }) => {
+  const [text, setText] = useState(String(value));
+
+  useEffect(() => {
+    setText(String(value));
+  }, [value]);
+
+  const commit = () => {
+    const parsed = parseInt(text, 10);
+    if (!text || isNaN(parsed) || parsed < 1) {
+      setText(String(value)); // balikin ke nilai valid terakhir kalau input kosong/invalid
+      onChange(value);
+    } else {
+      onChange(parsed);
+      setText(String(parsed));
+    }
+  };
+
+  return (
+    <TextInput
+      style={styles.qtyInput}
+      value={text}
+      onChangeText={(t) => setText(t.replace(/[^0-9]/g, ''))}
+      onBlur={commit}
+      onSubmitEditing={commit}
+      keyboardType="number-pad"
+      maxLength={3}
+      selectTextOnFocus
+      textAlign="center"
+    />
   );
 };
 
@@ -102,13 +156,24 @@ const CateringDetail = () => {
   const [allContentLoaded, setAllContentLoaded] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(null);
   const [buyerLocation, setBuyerLocation] = useState(null);
+  const [buyerAddress, setBuyerAddress] = useState(null);
   const [cardHeight, setCardHeight] = useState(FALLBACK_CARD_HEIGHT);
   const router = useRouter();
-
+  // Dihitung ulang tiap kali `store` berubah (setelah fetch detail selesai)
+  const outletStatus = store ? getOutletStatus(store) : null;
+  const orderable = store ? isOutletOrderable(store) : true;
   // Keranjang global (dibaca dari AsyncStorage, tidak terikat sellerid halaman ini).
-  // Dipakai buat nentuin apakah tombol "Lihat Keranjang" harus muncul, dan buat
-  // nampilin isi cart walau item-nya bukan milik seller yang lagi dibuka.
   const [globalCart, setGlobalCart] = useState({ items: [], store: null, orderType: null, total: 0 });
+
+  // --- Lokasi pengantaran khusus untuk order Catering ---
+  // customLocation: titik yang pernah dipilih lewat PinPointMapModal (kalau ada)
+  // useCustomLocation: toggle "pakai lokasi tersimpan" vs "pakai lokasi lain"
+  const [customLocation, setCustomLocation] = useState(null);
+  const [useCustomLocation, setUseCustomLocation] = useState(false);
+  const [showLocationPicker, setShowLocationPicker] = useState(false);
+
+  // Catatan buyer untuk pesanan Catering ini (opsional).
+  const [orderNotes, setOrderNotes] = useState('');
 
   const [alert, setAlert] = useState({ visible: false, title: '', message: '', buttons: [{ text: 'OK' }], type: 'info' });
   const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
@@ -147,34 +212,62 @@ const CateringDetail = () => {
   // Cart di AsyncStorage ini beneran "punya" halaman Catering seller ini atau bukan.
   const isOwnCart = globalCart.store?.id === sellerid && globalCart.orderType === 'Catering';
 
-  // Load buyer's pinpoint location from AsyncStorage
+  // Load buyer's pinpoint location from AsyncStorage (lokasi default/profil)
   const loadBuyerLocation = async () => {
     try {
       const savedPinPoint = await AsyncStorage.getItem('pinPoint');
       if (savedPinPoint) {
         const pinPoint = JSON.parse(savedPinPoint);
         if (pinPoint.lat && pinPoint.lng) {
-          const location = {
-            lat: pinPoint.lat,
-            lng: pinPoint.lng
-          };
-          setBuyerLocation(location);
+          setBuyerLocation({ lat: pinPoint.lat, lng: pinPoint.lng, address: pinPoint.address || '' });
         }
       }
     } catch (error) {
       console.error('Error loading buyer location:', error);
     }
   };
+// Load alamat manual buyer (diisi lewat form di profil) — ini yang ditampilkan
+// di card "Lokasi Tersimpan", BUKAN pinPoint.address yang bisa berupa hasil
+// reverse-geocode/plus code.
+const loadBuyerAddress = async () => {
+  try {
+    const savedAddress = await AsyncStorage.getItem('addressFields');
+    if (savedAddress) {
+      const parsed = JSON.parse(savedAddress);
+      setBuyerAddress(parsed.address || null);
+    }
+  } catch (error) {
+    console.error('Error loading buyer address:', error);
+  }
+};
+  // Load lokasi custom Catering yang pernah dipilih sebelumnya (kalau ada),
+  // supaya kalau buyer keluar-masuk halaman ini, pilihannya tidak hilang.
+  const loadCateringLocation = async () => {
+    try {
+      const raw = await AsyncStorage.getItem(CATERING_LOCATION_KEY);
+      if (raw) {
+        const loc = JSON.parse(raw);
+        if (loc.lat && loc.lng) setCustomLocation(loc);
+      }
+      const overrideRaw = await AsyncStorage.getItem(DELIVERY_LOCATION_OVERRIDE_KEY);
+      setUseCustomLocation(!!overrideRaw);
+    } catch (e) {
+      // biarkan default (pakai lokasi profil)
+    }
+  };
 
-  // Load buyer location on component mount
+  // Catatan pesanan Catering ini ikut di-load/di-reset di dalam resolveCart
+  // di bawah, supaya scoped ke seller+tipe order yang sama — bukan cuma dibaca
+  // begitu saja dari storage tanpa pengecekan (itu sebabnya sebelumnya catatan
+  // pesanan lama bisa "nempel" ke pesanan baru).
+
   useEffect(() => {
     loadBuyerLocation();
+    loadCateringLocation();
+    loadBuyerAddress();
   }, []);
 
-  // Nentuin isi cart LOKAL (state `cart`) untuk seller ini saja -- tanpa nge-alert
-  // apa pun. Kalau cart di storage memang punya seller & tipe (Catering) yang
-  // sama, di-load. Kalau bukan, state lokal mulai kosong (alert-nya baru muncul
-  // nanti pas user benar-benar nge-klik "Tambah").
+  // Nentuin isi cart LOKAL (state `cart`) untuk seller ini saja.
   useEffect(() => {
     const resolveCart = async () => {
       if (!sellerid) return;
@@ -188,8 +281,21 @@ const CateringDetail = () => {
         const sameSellerSameType = hasExistingCart && existingOrderType === 'Catering' && existingStore?.id === sellerid;
 
         setCart(sameSellerSameType ? { sellerId: sellerid, items: parsedCart } : { sellerId: sellerid, items: [] });
+
+        // Catatan cuma relevan kalau cart aktif itu beneran punya seller & tipe
+        // yang sama dengan halaman ini. Kalau enggak (cart lain, cart kosong,
+        // atau sisa dari pesanan yang sudah selesai), reset ke kosong — biar
+        // gak "nempel" ke pesanan baru.
+        if (sameSellerSameType) {
+          const notesRaw = await AsyncStorage.getItem(CART_NOTES_KEY);
+          setOrderNotes(notesRaw || '');
+        } else {
+          setOrderNotes('');
+          await AsyncStorage.removeItem(CART_NOTES_KEY);
+        }
       } catch (e) {
         setCart({ sellerId: sellerid, items: [] });
+        setOrderNotes('');
       }
     };
     resolveCart();
@@ -199,7 +305,6 @@ const CateringDetail = () => {
     const fetchDetail = async () => {
       setLoading(true);
       setError(null);
-      // Reset all loading states when fetching new data
       setBannerImageLoaded(false);
       setMenuImagesLoaded(0);
       setAllContentLoaded(false);
@@ -207,9 +312,8 @@ const CateringDetail = () => {
         clearTimeout(loadingTimeout);
         setLoadingTimeout(null);
       }
-      
+
       try {
-        // Construct API URL with buyer location if available
         let apiUrl = `${config.API_URL}/seller/detail/${sellerid}`;
         if (buyerLocation) {
           apiUrl += `?buyerLat=${buyerLocation.lat}&buyerLng=${buyerLocation.lng}`;
@@ -245,9 +349,8 @@ const CateringDetail = () => {
     }
   };
 
-  // Cek konflik di titik klik (bukan pas halaman dibuka). Kalau ada pesanan lain
-  // yang beda seller/tipe, tanya dulu -- baru dihapus & diganti kalau user setuju.
   const addToCart = async (menu) => {
+    if (!orderable) return;
     const existingOrderType = await AsyncStorage.getItem('order_type');
     const existingStoreRaw = await AsyncStorage.getItem('cart_store');
     const existingStore = existingStoreRaw ? JSON.parse(existingStoreRaw) : null;
@@ -281,8 +384,11 @@ const CateringDetail = () => {
           {
             text: 'Ya, Ganti',
             onPress: async () => {
-              await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+              await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type', CATERING_LOCATION_KEY, DELIVERY_LOCATION_OVERRIDE_KEY, CART_NOTES_KEY]);
               setCart({ sellerId: sellerid, items: [] });
+              setCustomLocation(null);
+              setUseCustomLocation(false);
+              setOrderNotes('');
               await doAdd();
             },
           },
@@ -307,33 +413,25 @@ const CateringDetail = () => {
     });
   };
 
-  // Function for updating pax for items
   const updateItemPax = (menuId, newQty) => {
     setCart((prevCart) => {
-      // Pax cant be less than 1
       const safeQty = Math.max(1, newQty);
-
-      const updatedItems = prevCart.items.map(item => 
+      const updatedItems = prevCart.items.map(item =>
         item.id === menuId ? { ...item, qty: safeQty } : item
       );
-
       const newCart = { ...prevCart, items: updatedItems };
       saveCartToStorage(updatedItems, store);
       return newCart;
     });
   };
 
-
-  // Helper to check if item is in cart
   const isInCart = (menuId) => {
     if (cart.sellerId !== sellerid) return false;
     return cart.items.some((item) => item.id === menuId);
   };
 
-  // Cart button text
   const cartButtonText = `Lihat Keranjang (${globalCart.items.length} item)`;
 
-  // Total calculation: sum of item price * pax
   const getTotal = () => {
     return cart.items.reduce((total, item) => {
       const itemPrice = item.price || 0;
@@ -342,11 +440,26 @@ const CateringDetail = () => {
     }, 0);
   };
 
+  // Dipanggil dari PinPointMapModal setelah buyer pilih titik lokasi acara.
+  const handleCateringLocationSelect = async (point) => {
+    const newLocation = { lat: point.latitude, lng: point.longitude, address: point.address || '', addressComponents: point.addressComponents || null,};
+    setCustomLocation(newLocation);
+    setUseCustomLocation(true);
+    try {
+      await AsyncStorage.setItem(CATERING_LOCATION_KEY, JSON.stringify(newLocation));
+    } catch (e) {
+      // biarkan, state lokal tetap ke-set walau gagal simpan
+    }
+    setShowLocationPicker(false);
+  };
+
   const handleLanjutPembayaran = async () => {
+    if (!orderable) {
+     showAlert('Outlet Tutup', outletStatus?.nextOpenLabel || 'Outlet sedang tutup, coba lagi nanti.', [{ text: 'OK' }], 'warning');
+     return;
+   }
     setCartVisible(false);
     if (!isOwnCart) {
-      // Cart yang ditampilkan berasal dari seller/tipe lain (mis. dari Rantangan),
-      // jadi langsung lanjut pakai apa yang sudah ada di storage.
       router.push('/buyer/Pembayaran');
       return;
     }
@@ -355,6 +468,21 @@ const CateringDetail = () => {
       await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
       await AsyncStorage.setItem('cart_store', JSON.stringify(store));
       await AsyncStorage.setItem('order_type', 'Catering');
+
+      // Simpan pilihan lokasi pengantaran khusus untuk order Catering ini.
+      // Kalau buyer pilih "Lokasi Lain", override ini dibaca Pembayaran.jsx
+      // menggantikan pinPoint profil. Kalau tetap pakai lokasi tersimpan,
+      // hapus override lama supaya otomatis fallback ke profil.
+      if (useCustomLocation && customLocation) {
+        await AsyncStorage.setItem(DELIVERY_LOCATION_OVERRIDE_KEY, JSON.stringify(customLocation));
+      } else {
+        await AsyncStorage.removeItem(DELIVERY_LOCATION_OVERRIDE_KEY);
+      }
+
+      // Simpan catatan buyer supaya bisa dibaca & dikirim sebagai field
+      // `notes` pas Pembayaran.jsx bikin order.
+      await AsyncStorage.setItem(CART_NOTES_KEY, orderNotes || '');
+
       router.push('/buyer/Pembayaran');
     } catch (e) {
       // handle error if needed
@@ -370,9 +498,12 @@ const CateringDetail = () => {
         {
           text: 'Ya, Batalkan',
           onPress: async () => {
-            await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type']);
+            await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type', CATERING_LOCATION_KEY, DELIVERY_LOCATION_OVERRIDE_KEY, CART_NOTES_KEY]);
             setCart({ sellerId: sellerid, items: [] });
             setGlobalCart({ items: [], store: null, orderType: null, total: 0 });
+            setCustomLocation(null);
+            setUseCustomLocation(false);
+            setOrderNotes('');
             setCartVisible(false);
           },
         },
@@ -381,8 +512,6 @@ const CateringDetail = () => {
     );
   };
 
-  // Track menu images loading
-  // Update menuImagesTotal when categories change
   useEffect(() => {
     if (categories && categories.length > 0) {
       let total = 0;
@@ -390,14 +519,13 @@ const CateringDetail = () => {
         if (Array.isArray(cat.items)) total += cat.items.length;
       });
       setMenuImagesTotal(total);
-      setMenuImagesLoaded(0); // reset on new data
+      setMenuImagesLoaded(0);
     } else {
       setMenuImagesTotal(0);
       setMenuImagesLoaded(0);
     }
   }, [categories]);
 
-  // Handler for each menu image load/error
   const handleMenuImageLoad = () => {
     setMenuImagesLoaded((prev) => {
       const newCount = prev + 1;
@@ -405,23 +533,20 @@ const CateringDetail = () => {
     });
   };
 
-  // Handler for banner image load
   const handleBannerImageLoad = () => {
     setBannerImageLoaded(true);
   };
 
   const handleBannerImageError = () => {
-    setBannerImageLoaded(true); // Still mark as loaded even on error
+    setBannerImageLoaded(true);
   };
 
-  // Check if all content is loaded
   useEffect(() => {
     const dataLoaded = !loading && !error && store && categories !== null;
     const allMenuImagesLoaded = menuImagesTotal === 0 || menuImagesLoaded >= menuImagesTotal;
     const imagesLoaded = bannerImageLoaded && allMenuImagesLoaded;
 
     if (dataLoaded && imagesLoaded && !allContentLoaded) {
-      // Add a small delay to ensure smooth transition
       const timer = setTimeout(() => {
         setAllContentLoaded(true);
       }, 500);
@@ -429,22 +554,20 @@ const CateringDetail = () => {
     }
   }, [loading, error, store, categories, bannerImageLoaded, menuImagesLoaded, menuImagesTotal, allContentLoaded]);
 
-  // Fallback timeout to hide skeleton after maximum wait time
   useEffect(() => {
     if (!loading && !allContentLoaded) {
       const fallbackTimer = setTimeout(() => {
         setAllContentLoaded(true);
-      }, 5000); // 5 second maximum wait
-      
+      }, 5000);
+
       setLoadingTimeout(fallbackTimer);
-      
+
       return () => {
         if (fallbackTimer) clearTimeout(fallbackTimer);
       };
     }
   }, [loading, allContentLoaded]);
 
-  // Clear timeout when content loads
   useEffect(() => {
     if (allContentLoaded && loadingTimeout) {
       clearTimeout(loadingTimeout);
@@ -456,7 +579,6 @@ const CateringDetail = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom', 'left', 'right']}>
-      {/* Fixed header: banner, does NOT scroll */}
       <View style={styles.bannerLayer}>
         {!bannerImageLoaded && (
           <View style={StyleSheet.absoluteFill}>
@@ -473,7 +595,6 @@ const CateringDetail = () => {
         <View style={styles.bannerScrim} pointerEvents="none" />
       </View>
 
-      {/* Fixed store card, does NOT scroll */}
       <View
         style={[styles.storeCard, { top: BANNER_HEIGHT - OVERLAP }, !allContentLoaded && styles.storeCardLoading]}
         onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
@@ -516,11 +637,18 @@ const CateringDetail = () => {
         )}
       </View>
 
-      {/* Scrollable content, sits below the fixed header */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={{ paddingTop: headerHeight + 15, paddingBottom: 20, gap: 10 }}
       >
+        {allContentLoaded && !orderable && outletStatus && (
+          <View style={styles.closedNotice}>
+            <MaterialIcons name="info" size={16} color="#B26A00" />
+            <Text style={styles.closedNoticeText}>
+              {outletStatus.label}{outletStatus.nextOpenLabel ? ` — ${outletStatus.nextOpenLabel}` : ''}
+            </Text>
+          </View>
+        )}
         {!allContentLoaded || loading ? (
           <View style={{ paddingHorizontal: 20, gap: 12 }}>
             <MenuItemSkeleton />
@@ -553,6 +681,7 @@ const CateringDetail = () => {
                     onRemove={() => removeFromCart(menu)}
                     onImageLoad={handleMenuImageLoad}
                     onImageError={handleMenuImageLoad}
+                    orderable={orderable}
                   />
                 ))
               ) : (
@@ -563,7 +692,6 @@ const CateringDetail = () => {
         )}
       </ScrollView>
 
-      {/* Floating Cart Button - global, tetap muncul walau cart bukan punya seller ini */}
       {allContentLoaded && globalCart.items.length > 0 && (
         <TouchableOpacity
           style={styles.floatingCartButton}
@@ -574,7 +702,6 @@ const CateringDetail = () => {
         </TouchableOpacity>
       )}
 
-      {/* Cart Modal */}
       <Modal visible={cartVisible} animationType="slide" transparent>
         <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
           <TouchableOpacity
@@ -586,70 +713,141 @@ const CateringDetail = () => {
             }}
           />
           <View style={styles.cartSheet}>
-            <View style={styles.cartHandle} />
-            <Text style={styles.cartTitle}>Keranjang</Text>
-            {!isOwnCart && !!globalCart.store?.name && (
-              <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY, marginBottom: 10 }}>
-                {globalCart.store.name} · {globalCart.orderType}
-              </Text>
-            )}
-            <View style={{ maxHeight: 120, marginBottom: 14 }}>
-              <ScrollView>
-                {(isOwnCart ? cart.items : globalCart.items).map((item) => (
-                  <View key={item.id} style={styles.cartItemRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={{ fontSize: 13 }}>{item.name}</Text>
-                      <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
-                    </View>
-
-                    {/* Kontrol Pax per Item - cuma bisa diubah kalau ini memang cart Catering seller ini */}
-                    {isOwnCart && (
-                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) - 1)}>
-                          <MaterialIcons name="remove-circle-outline" size={22} color={COLORS.PRIMARY} />
-                        </TouchableOpacity>
-
-                        <Text style={{ fontSize: 14, fontWeight: '600', minWidth: 20, textAlign: 'center'}}>
-                          {item.qty || 1}
-                        </Text>
-
-                        <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) + 1)}>
-                          <MaterialIcons name="add-circle-outline" size={22} color={COLORS.PRIMARY} />
-                        </TouchableOpacity>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={styles.cartHandle} />
+              <Text style={styles.cartTitle}>Keranjang</Text>
+              {!isOwnCart && !!globalCart.store?.name && (
+                <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY, marginBottom: 10 }}>
+                  {globalCart.store.name} · {globalCart.orderType}
+                </Text>
+              )}
+              <View style={{ maxHeight: 120, marginBottom: 14 }}>
+                <ScrollView>
+                  {(isOwnCart ? cart.items : globalCart.items).map((item) => (
+                    <View key={item.id} style={styles.cartItemRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 13 }}>{item.name}</Text>
+                        <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
                       </View>
-                    )}
-                  </View>
-                ))}
-              </ScrollView>
-            </View>
 
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Total</Text>
-              <Text style={styles.totalValue}>Rp {(isOwnCart ? getTotal() : globalCart.total).toLocaleString()}</Text>
-            </View>
-            <View style={{ gap: 10, marginTop: 6 }}>
-              <TouchableOpacity
-                style={styles.primaryCartBtn}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  handleLanjutPembayaran();
-                }}
-              >
-                <Text style={styles.primaryCartBtnText}>Lanjut Pembayaran</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.secondaryCartBtn}
-                onPress={() => {
-                  Keyboard.dismiss();
-                  handleCancelCart();
-                }}
-              >
-                <Text style={{ color: '#D64545', fontWeight: '700' }}>Batalkan Pesanan</Text>
-              </TouchableOpacity>
-            </View>
+                      {isOwnCart && (
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                          <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) - 1)}>
+                            <MaterialIcons name="remove-circle-outline" size={22} color={COLORS.PRIMARY} />
+                          </TouchableOpacity>
+
+                          <QtyInput
+                            value={item.qty || 1}
+                            onChange={(newQty) => updateItemPax(item.id, newQty)}
+                          />
+
+                          <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) + 1)}>
+                            <MaterialIcons name="add-circle-outline" size={22} color={COLORS.PRIMARY} />
+                          </TouchableOpacity>
+                        </View>
+                      )}
+                    </View>
+                  ))}
+                </ScrollView>
+              </View>
+
+              {/* ---------------- Lokasi Pengantaran (khusus Catering) ---------------- */}
+              {isOwnCart && (
+                <View style={styles.locationSection}>
+                  <Text style={styles.locationSectionTitle}>Lokasi Pengantaran</Text>
+                  <View style={styles.locationToggleRow}>
+                    <TouchableOpacity
+                      style={[styles.locationToggleBtn, !useCustomLocation && styles.locationToggleBtnActive]}
+                      onPress={() => setUseCustomLocation(false)}
+                    >
+                      <Text style={[styles.locationToggleText, !useCustomLocation && styles.locationToggleTextActive]}>
+                        Lokasi Tersimpan
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.locationToggleBtn, useCustomLocation && styles.locationToggleBtnActive]}
+                      onPress={() => setUseCustomLocation(true)}
+                    >
+                      <Text style={[styles.locationToggleText, useCustomLocation && styles.locationToggleTextActive]}>
+                        Lokasi Lain
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {useCustomLocation ? (
+                    <TouchableOpacity style={styles.locationPickBox} onPress={() => setShowLocationPicker(true)}>
+                      <MaterialIcons name="place" size={16} color={COLORS.PRIMARY} />
+                      <Text style={styles.locationPickText} numberOfLines={2}>
+                        {customLocation?.address || 'Ketuk untuk pilih titik lokasi acara'}
+                      </Text>
+                      <MaterialIcons name="chevron-right" size={18} color="#c9c9c9" />
+                    </TouchableOpacity>
+                  ) : (
+                    <View style={styles.locationPickBox}>
+                    <MaterialIcons name="home" size={16} color={COLORS.PRIMARY} />
+                    <Text style={styles.locationPickText} numberOfLines={2}>
+                      {buyerAddress || 'Alamat tersimpan di profil'}
+                    </Text>
+                  </View>
+                  )}
+                </View>
+              )}
+
+              {/* ---------------- Catatan (khusus Catering) ---------------- */}
+              {isOwnCart && (
+                <View style={styles.notesSection}>
+                  <Text style={styles.locationSectionTitle}>Catatan (opsional)</Text>
+                  <TextInput
+                    style={styles.notesInput}
+                    value={orderNotes}
+                    onChangeText={setOrderNotes}
+                    placeholder="Contoh: pedas level 2, jangan pakai bawang, dll"
+                    placeholderTextColor="#AAA"
+                    multiline
+                    numberOfLines={3}
+                    maxLength={300}
+                    textAlignVertical="top"
+                    onSubmitEditing={Keyboard.dismiss}
+                  />
+                </View>
+              )}
+
+              <View style={styles.totalRow}>
+                <Text style={styles.totalLabel}>Total</Text>
+                <Text style={styles.totalValue}>Rp {(isOwnCart ? getTotal() : globalCart.total).toLocaleString()}</Text>
+              </View>
+              <View style={{ gap: 10, marginTop: 6 }}>
+                <TouchableOpacity
+                  style={styles.primaryCartBtn}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    handleLanjutPembayaran();
+                  }}
+                >
+                  <Text style={styles.primaryCartBtnText}>Lanjut Pembayaran</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.secondaryCartBtn}
+                  onPress={() => {
+                    Keyboard.dismiss();
+                    handleCancelCart();
+                  }}
+                >
+                  <Text style={{ color: '#D64545', fontWeight: '700' }}>Batalkan Pesanan</Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
+
+      <PinPointMapModal
+        visible={showLocationPicker}
+        onClose={() => setShowLocationPicker(false)}
+        onSelect={handleCateringLocationSelect}
+        initialPin={customLocation ? { latitude: customLocation.lat, longitude: customLocation.lng } : null}
+      />
+
       <CustomAlert
         visible={alert.visible}
         title={alert.title}
@@ -781,11 +979,17 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 2,
   },
+    menuCardClosed: {
+    opacity: 0.5,
+  },
   menuImage: {
     width: 80,
     height: 80,
     borderRadius: 14,
   },
+   menuImageClosed: {
+   opacity: 0.7,
+ },
   menuName: {
     fontSize: 14,
     fontWeight: "700",
@@ -821,6 +1025,32 @@ const styles = StyleSheet.create({
     color: "white",
     fontSize: 11,
     fontWeight: "600",
+  },
+    addBtnDisabled: {
+    backgroundColor: "#E5E5E5",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  addBtnDisabledText: {
+    color: "#999",
+    fontSize: 11,
+    fontWeight: "600",
+  },
+  closedNotice: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFF3E0',
+    marginHorizontal: 20,
+    padding: 12,
+    borderRadius: 12,
+  },
+  closedNoticeText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#B26A00',
+    fontWeight: '600',
   },
   removeBtn: {
     flexDirection: "row",
@@ -875,7 +1105,7 @@ const styles = StyleSheet.create({
     borderTopRightRadius: 24,
     padding: 20,
     minHeight: 260,
-    maxHeight: 380,
+    maxHeight: 520,
   },
   cartHandle: {
     width: 40,
@@ -897,24 +1127,88 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 10,
   },
-  paxRow: {
+  // ---------------- Qty input di keranjang ----------------
+  qtyInput: {
+    minWidth: 34,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1A1A1A',
+    paddingVertical: 2,
+    paddingHorizontal: 4,
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+    borderRadius: 6,
+    backgroundColor: '#F7F5F1',
+  },
+  // ---------------- Lokasi Pengantaran ----------------
+  locationSection: {
+    marginBottom: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
+  },
+  locationSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: "#1A1A1A",
+    marginBottom: 8,
+  },
+  locationToggleRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 10,
+  },
+  locationToggleBtn: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 20,
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  locationToggleBtnActive: {
+    backgroundColor: COLORS.PRIMARY,
+    borderColor: COLORS.PRIMARY,
+  },
+  locationToggleText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#888',
+  },
+  locationToggleTextActive: {
+    color: '#fff',
+  },
+  locationPickBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: "space-between",
+    gap: 8,
+    backgroundColor: '#F7F5F1',
+    padding: 12,
+    borderRadius: 12,
+  },
+  locationPickText: {
+    flex: 1,
+    fontSize: 12.5,
+    color: '#23272f',
+    fontWeight: '500',
+  },
+  // ---------------- Catatan ----------------
+  notesSection: {
     marginBottom: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: "#F0F0F0",
   },
-  paxLabel: {
-    fontWeight: '600',
-    fontSize: 13,
-    color: "#1A1A1A",
-  },
-  paxInput: {
+  notesInput: {
+    backgroundColor: '#F7F5F1',
+    borderRadius: 12,
+    padding: 12,
+    fontSize: 12.5,
+    color: '#23272f',
+    minHeight: 70,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
-    borderRadius: 10,
-    padding: 8,
-    width: 80,
-    textAlign: 'center',
+    borderColor: '#EAEAEA',
   },
   totalRow: {
     flexDirection: 'row',
@@ -953,7 +1247,6 @@ const styles = StyleSheet.create({
     color: '#555',
     fontWeight: '700',
   },
-  // ---- CustomAlert ----
   alertOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
   alertContent: { backgroundColor: 'white', borderRadius: 18, padding: 22, width: '100%', maxWidth: 340, alignItems: 'center' },
   alertIconCircle: { width: 52, height: 52, borderRadius: 26, justifyContent: 'center', alignItems: 'center', marginBottom: 14 },

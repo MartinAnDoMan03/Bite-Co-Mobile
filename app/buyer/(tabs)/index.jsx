@@ -16,7 +16,8 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
-
+import OutletStatusBadge from '../../../components/OutletStatusBadge';
+import { getOutletStatus } from '../../services/OutletStatusService';
 // Aktifkan LayoutAnimation di Android (sama seperti di halaman seller)
 if (
   Platform.OS === "android" &&
@@ -150,7 +151,7 @@ const SectionHeader = ({ title, onSeeAllPress }) => {
   );
 };
 
-const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress }) => {
+const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress, seller }) => {
   const { t } = useLanguage();
   return (
     <TouchableOpacity style={styles.storeCard} onPress={onPress} activeOpacity={0.85}>
@@ -159,6 +160,9 @@ const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress 
         <View style={styles.ratingBadgeFull}>
           <Text style={styles.ratingBadgeText}>⭐ {Rating}</Text>
         </View>
+        <View style={styles.outletStatusBadgeWrap}>
+         <OutletStatusBadge seller={seller} />
+       </View>
       </View>
       <Text style={styles.storeName} numberOfLines={2}>
         {StoreName}{storeKelurahan ? ` - ${storeKelurahan}` : ''}
@@ -277,6 +281,9 @@ const checkOverdueOrders = useCallback(async () => {
             Logo: s.logo ? { uri: s.logo } : storeIcon,
             Rating: s.rating ? s.rating.toString() : "-",
             Distance: s.distance !== null ? s.distance.toString() : "-",
+            openTime: s.openTime || null,
+            closeTime: s.closeTime || null,
+            isManuallyClosed: s.isManuallyClosed || false,
           }))
         );
       } else {
@@ -311,6 +318,9 @@ const checkOverdueOrders = useCallback(async () => {
             Rating: s.rating ? s.rating.toString() : "-",
             Distance: s.distance !== null ? s.distance.toString() : "-",
             rantanganPackages: s.rantanganPackages || [],
+            openTime: s.openTime || null,
+            closeTime: s.closeTime || null,
+            isManuallyClosed: s.isManuallyClosed || false,
           }))
         );
       } else {
@@ -449,6 +459,7 @@ const checkOverdueOrders = useCallback(async () => {
                   Logo={store.Logo}
                   Rating={store.Rating}
                   Distance={store.Distance}
+                  seller={store}
                   onPress={() => {
                     router.push({
                       pathname: "buyer/CateringDetail",
@@ -497,6 +508,7 @@ const checkOverdueOrders = useCallback(async () => {
                   Logo={store.Logo}
                   Rating={store.Rating}
                   Distance={store.Distance}
+                  seller={store}
                   onPress={() => {
                     router.push({
                       pathname: "buyer/RantanganDetail",
@@ -716,6 +728,12 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 11,
+  },
+  outletStatusBadgeWrap: {
+   position: 'absolute',
+   top: 8,
+   left: 8,
+   zIndex: 2,
   },
   storeName: {
     fontSize: 14,

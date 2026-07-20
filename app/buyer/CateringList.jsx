@@ -17,6 +17,8 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { StoreCardSkeleton } from "../../components/SkeletonLoader";
+import OutletStatusBadge from "../../components/OutletStatusBadge";
+import { getOutletStatus } from "../services/OutletStatusService";
 import COLORS from "../constants/color";
 import config from "../constants/config";
 import storeIcon from "../../assets/images/store.png";
@@ -114,6 +116,9 @@ const CateringList = () => {
             Distance: distance,
             kelurahan: seller.kelurahan || "",
             categories: seller.categories || [],
+            openTime: seller.openTime || null,
+            closeTime: seller.closeTime || null,
+            isManuallyClosed: seller.isManuallyClosed || false,
           };
         });
 
@@ -204,7 +209,7 @@ const CateringList = () => {
   };
 
   // Store card component
-  const StoreCard = ({ StoreName, Rating, Distance, Logo, storeId }) => {
+  const StoreCard = ({ StoreName, Rating, Distance, Logo, storeId, seller }) => {
     const handlePress = () => {
       // Navigate to catering detail page
       router.push(`/buyer/CateringDetail?sellerid=${storeId}`);
@@ -216,6 +221,9 @@ const CateringList = () => {
           <Image source={Logo} style={styles.storeLogoFull} />
           <View style={styles.ratingBadgeFull}>
             <Text style={styles.ratingBadgeText}>⭐ {Rating}</Text>
+          </View>
+          <View style={styles.outletStatusBadgeWrap}>
+            <OutletStatusBadge seller={seller} />
           </View>
         </View>
         <View style={styles.storeCardContent}>
@@ -353,6 +361,7 @@ const CateringList = () => {
                 Logo={store.Logo}
                 Rating={store.Rating}
                 Distance={store.Distance}
+                seller={store}
               />
             ))}
           </View>
@@ -524,6 +533,12 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 12,
   },
+   outletStatusBadgeWrap: {
+   position: "absolute",
+   top: 8,
+   left: 8,
+   zIndex: 2,
+ },
   storeCardContent: {
     padding: 12,
   },

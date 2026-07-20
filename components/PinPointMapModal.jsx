@@ -14,6 +14,11 @@ import config from '../app/constants/config';
 
 const { width, height } = Dimensions.get('window');
 
+// Deteksi format Plus Code Google (mis. "8Q7X+HM67") supaya tidak ke-save
+// sebagai alamat kalau reverse-geocode tidak nemu alamat presisi di titik itu.
+const looksLikePlusCode = (str) =>
+  /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}/.test(str || '');
+
 const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
   const [region, setRegion] = useState(null);
   const [marker, setMarker] = useState(initialPin || null);
@@ -52,18 +57,22 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
   }, [visible]);
 
   // Fetch address from lat/lng and extract address components
+  // FIX: skip hasil yang cuma Plus Code (mis. "8Q7X+HM67 Medan"), cari hasil
+  // yang beneran punya alamat jalan/tempat. Kalau semua hasil plus_code
+  // (lokasi tanpa alamat presisi), fallback ke hasil pertama seperti biasa.
   const fetchAddress = async (lat, lng) => {
     try {
       const res = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${config.GOOGLE_MAPS_API_KEY}`
       );
       const data = await res.json();
-      if (data.results && data.results[0]) {
-        const result = data.results[0];
-        // Store the full result for address component extraction
+      if (data.results && data.results.length > 0) {
+        const properResult =
+          data.results.find((r) => !(r.types || []).includes('plus_code')) ||
+          data.results[0];
         setAddress({
-          formatted: result.formatted_address,
-          components: result.address_components || []
+          formatted: properResult.formatted_address,
+          components: properResult.address_components || [],
         });
       } else {
         setAddress({ formatted: '', components: [] });
@@ -74,6 +83,7 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
   };
 
   // Search address
+  // FIX: sama, skip hasil Plus Code kalau ada alternatif yang lebih baik
   const handleSearch = async () => {
     if (!search) return;
     setLoading(true);
@@ -82,8 +92,11 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(search)}&key=${config.GOOGLE_MAPS_API_KEY}`
       );
       const data = await res.json();
-      if (data.results && data.results[0]) {
-        const loc = data.results[0].geometry.location;
+      if (data.results && data.results.length > 0) {
+        const properResult =
+          data.results.find((r) => !(r.types || []).includes('plus_code')) ||
+          data.results[0];
+        const loc = properResult.geometry.location;
         setRegion({
           latitude: loc.lat,
           longitude: loc.lng,
@@ -92,8 +105,8 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
         });
         setMarker({ latitude: loc.lat, longitude: loc.lng });
         setAddress({
-          formatted: data.results[0].formatted_address,
-          components: data.results[0].address_components || []
+          formatted: properResult.formatted_address,
+          components: properResult.address_components || [],
         });
         if (mapRef.current) {
           mapRef.current.animateToRegion({
@@ -122,7 +135,6 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
       return addressData;
     }
 
-    // Build street address from street components
     let streetNumber = '';
     let route = '';
 
@@ -130,32 +142,24 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
       const types = component.types || [];
       const longName = component.long_name;
 
-      // Street components
       if (types.includes('street_number')) {
         streetNumber = longName;
       } else if (types.includes('route')) {
         route = longName;
-      } 
-      // Administrative levels for Indonesian structure
+      }
       else if (types.includes('administrative_area_level_4') || types.includes('sublocality_level_1')) {
-        // Kelurahan/Village
         addressData.kelurahan = longName;
       } else if (types.includes('administrative_area_level_3') || types.includes('locality')) {
-        // Kecamatan/District  
         addressData.kecamatan = longName;
       } else if (types.includes('administrative_area_level_2')) {
-        // Kabupaten/Kota - could be used as fallback for kecamatan
         if (!addressData.kecamatan) {
           addressData.kecamatan = longName;
         }
       } else if (types.includes('administrative_area_level_1')) {
-        // Provinsi/State
         addressData.provinsi = longName;
       } else if (types.includes('postal_code')) {
-        // Kode Pos
         addressData.kodepos = longName;
       }
-      // Additional fallbacks for Indonesian locations
       else if (types.includes('sublocality_level_2') && !addressData.kelurahan) {
         addressData.kelurahan = longName;
       } else if (types.includes('sublocality') && !addressData.kecamatan) {
@@ -163,7 +167,6 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
       }
     }
 
-    // Construct full street address
     if (streetNumber && route) {
       addressData.address = `${route} ${streetNumber}`;
     } else if (route) {
@@ -172,11 +175,14 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
       addressData.address = streetNumber;
     }
 
-    // If no specific street address found, use the first part of formatted address
+    // FIX: kalau fallback ke formatted_address, cek dulu apakah potongan
+    // pertamanya Plus Code — kalau iya, jangan dipakai (biarkan kosong,
+    // biar user isi manual lewat modal edit alamat).
     if (!addressData.address && address.formatted) {
       const parts = address.formatted.split(',');
       if (parts.length > 0) {
-        addressData.address = parts[0].trim();
+        const firstPart = parts[0].trim();
+        addressData.address = looksLikePlusCode(firstPart) ? '' : firstPart;
       }
     }
 
@@ -201,38 +207,25 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
   const getCurrentLocation = async () => {
     try {
       setLocationLoading(true);
-      
-      // Request permissions
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        console.log('Location permission denied');
         alert('Permission to access location was denied');
         return;
       }
-
-      // Get current position with better options
       let location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.High,
         timeout: 15000,
         maximumAge: 10000,
       });
-      
       const { latitude, longitude } = location.coords;
-      console.log('Got location:', latitude, longitude);
-      
       const newRegion = { latitude, longitude, latitudeDelta: 0.01, longitudeDelta: 0.01 };
-      
       setRegion(newRegion);
       setMarker({ latitude, longitude });
       fetchAddress(latitude, longitude);
-      
-      // Animate to new location
       if (mapRef.current) {
         mapRef.current.animateToRegion(newRegion, 1000);
       }
-      
     } catch (error) {
-      console.error('Error getting current location:', error);
       alert('Unable to get current location. Please try again.');
     } finally {
       setLocationLoading(false);
@@ -260,8 +253,8 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
           <TouchableOpacity style={styles.searchBtn} onPress={handleSearch}>
             <MaterialIcons name="search" size={22} color="#fff" />
           </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.locBtn, locationLoading && styles.locBtnDisabled]} 
+          <TouchableOpacity
+            style={[styles.locBtn, locationLoading && styles.locBtnDisabled]}
             onPress={getCurrentLocation}
             disabled={locationLoading}
           >
@@ -282,7 +275,7 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
               onRegionChangeComplete={setRegion}
               showsUserLocation
               showsMyLocationButton={false}
-              onPress={onMapPress} // <-- Add this line
+              onPress={onMapPress}
             >
               {marker && (
                 <Marker
@@ -305,8 +298,8 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
           onPress={() => {
             if (marker) {
               const addressComponents = extractAddressComponents(address.components || []);
-              onSelect({ 
-                ...marker, 
+              onSelect({
+                ...marker,
                 address: address.formatted,
                 addressComponents: addressComponents
               });

@@ -1,5 +1,5 @@
 import { useFocusEffect } from "@react-navigation/native";
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Image,
   StyleSheet,
@@ -576,6 +576,24 @@ const CardStatus = ({
   );
 };
 
+// Kecepatan asumsi buat estimasi waktu tempuh (motor, jalan kota) — dipakai
+// karena live tracking ini pakai estimasi jarak garis lurus, bukan rute
+// jalan asli (biar tidak perlu panggil Directions API tiap update lokasi).
+const ASSUMED_SPEED_KMH = 25;
+
+// Haversine — sama persis rumus yang dipakai di backend (buyer/orders/route.js)
+const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+  if (!lat1 || !lon1 || !lat2 || !lon2) return null;
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c;
+};
 const StatusOrder = () => {
   const { t, language } = useLanguage();
   const dateLocale = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' }[language] || 'id-ID';
@@ -592,6 +610,7 @@ const StatusOrder = () => {
   const [activeFilter, setActiveFilter] = useState("semua");
   const router = useRouter();
   const { showError, showSuccess } = useToast();
+  const trackingIntervalRef = useRef(null);
 
   // Fetch buyer profile on mount
   useEffect(() => {
@@ -688,50 +707,77 @@ const StatusOrder = () => {
   };
 
   const handleTrackDelivery = async (order) => {
-    try {
-      setMapLoading(true);
+  try {
+    setMapLoading(true);
 
-      const token = await AsyncStorage.getItem("buyerToken");
-      const orderResponse = await fetch(
-        `${config.API_URL}/seller/orders/${order.id}`,
-        token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
-      );
+    const token = await AsyncStorage.getItem("buyerToken");
+    const orderResponse = await fetch(
+      `${config.API_URL}/seller/orders/${order.id}`,
+      token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
+    );
 
-      if (orderResponse.ok) {
-        const orderData = await orderResponse.json();
-        const orderDetails = orderData.order;
+    if (orderResponse.ok) {
+      const orderData = await orderResponse.json();
+      const orderDetails = orderData.order;
 
-        if (orderDetails.buyerLat && orderDetails.buyerLng && orderDetails.sellerLat && orderDetails.sellerLng) {
-          setSelectedOrder(orderDetails);
+      if (orderDetails.buyerLat && orderDetails.buyerLng && orderDetails.sellerLat && orderDetails.sellerLng) {
+        setSelectedOrder(orderDetails);
 
-          const directionsResponse = await fetch(
-            `https://maps.googleapis.com/maps/api/directions/json?origin=${orderDetails.sellerLat},${orderDetails.sellerLng}&destination=${orderDetails.buyerLat},${orderDetails.buyerLng}&key=${config.GOOGLE_MAPS_API_KEY}`
-          );
+        const directionsResponse = await fetch(
+          `https://maps.googleapis.com/maps/api/directions/json?origin=${orderDetails.sellerLat},${orderDetails.sellerLng}&destination=${orderDetails.buyerLat},${orderDetails.buyerLng}&key=${config.GOOGLE_MAPS_API_KEY}`
+        );
 
-          if (directionsResponse.ok) {
-            const directionsData = await directionsResponse.json();
-            if (directionsData.routes && directionsData.routes.length > 0) {
-              const points = decodePolyline(directionsData.routes[0].overview_polyline.points);
-              setRouteCoordinates(points);
-            }
+        if (directionsResponse.ok) {
+          const directionsData = await directionsResponse.json();
+          if (directionsData.routes && directionsData.routes.length > 0) {
+            const points = decodePolyline(directionsData.routes[0].overview_polyline.points);
+            setRouteCoordinates(points);
           }
-
-          setMapLoading(false);
-          setTrackingModalVisible(true);
-        } else {
-          showError(t('buyerStatusOrder.toast.noCoordinates'));
-          setMapLoading(false);
         }
+
+        setMapLoading(false);
+        setTrackingModalVisible(true);
+
+        // Mulai polling posisi live seller — refresh tiap 15 detik selama
+        // modal ini terbuka, supaya marker posisi terkininya ikut bergerak.
+        if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
+        trackingIntervalRef.current = setInterval(async () => {
+          try {
+            const pollToken = await AsyncStorage.getItem("buyerToken");
+            const pollRes = await fetch(
+              `${config.API_URL}/seller/orders/${order.id}`,
+              pollToken ? { headers: { Authorization: `Bearer ${pollToken}` } } : undefined
+            );
+            if (pollRes.ok) {
+              const pollData = await pollRes.json();
+              setSelectedOrder(pollData.order);
+            }
+          } catch (e) {
+            // Gagal 1 kali polling bukan hal fatal — coba lagi di interval berikutnya
+          }
+        }, 15000);
       } else {
-        showError(t('buyerStatusOrder.toast.fetchOrderDetailFailed'));
+        showError(t('buyerStatusOrder.toast.noCoordinates'));
         setMapLoading(false);
       }
-    } catch (error) {
-      console.error('Error fetching tracking data:', error);
-      showError(t('buyerStatusOrder.toast.fetchTrackingFailed'));
+    } else {
+      showError(t('buyerStatusOrder.toast.fetchOrderDetailFailed'));
       setMapLoading(false);
     }
+  } catch (error) {
+    console.error('Error fetching tracking data:', error);
+    showError(t('buyerStatusOrder.toast.fetchTrackingFailed'));
+    setMapLoading(false);
+  }
+};
+
+// Stop polling begitu komponen di-unmount, jaga-jaga kalau modal ditutup
+// dengan cara lain selain tombol close (misal navigasi keluar halaman).
+useEffect(() => {
+  return () => {
+    if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
   };
+}, []);
 
   const decodePolyline = (encoded) => {
     const points = [];
@@ -866,14 +912,6 @@ const StatusOrder = () => {
                     params: { orderId: order.id },
                   });
                 }}
-                onLongPress={() => {
-                  if (order.statusProgress === 'delivery') {
-                    router.push({
-                      pathname: '/buyer/OrderTrackingScreen',
-                      params: { orderId: order.id }
-                    });
-                  }
-                }}
               >
                 <CardStatus
                   date={order.createdAt || order.orderDate}
@@ -913,6 +951,7 @@ const StatusOrder = () => {
         animationType="slide"
         presentationStyle="pageSheet"
         onRequestClose={() => {
+          if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
           setTrackingModalVisible(false);
           setSelectedOrder(null);
           setRouteCoordinates([]);
@@ -923,6 +962,7 @@ const StatusOrder = () => {
             <TouchableOpacity
               style={styles.closeButton}
               onPress={() => {
+                if (trackingIntervalRef.current) clearInterval(trackingIntervalRef.current);
                 setTrackingModalVisible(false);
                 setSelectedOrder(null);
                 setRouteCoordinates([]);
@@ -962,7 +1002,35 @@ const StatusOrder = () => {
                     {t('buyerStatusOrder.modal.statusInDelivery')}
                   </Text>
                 </View>
-                {selectedOrder.distance && (
+
+                {/* Jarak & estimasi live — dihitung dari posisi seller terkini (currentLat/currentLng),
+                    bukan dari titik toko statis. Fallback ke jarak awal (dihitung sekali waktu order
+                    dibuat) kalau seller belum pernah kirim update lokasi sama sekali. */}
+                {selectedOrder.currentLat && selectedOrder.currentLng && selectedOrder.buyerLat && selectedOrder.buyerLng ? (
+                  (() => {
+                    const liveDistanceKm = calculateDistanceKm(
+                      selectedOrder.currentLat, selectedOrder.currentLng,
+                      selectedOrder.buyerLat, selectedOrder.buyerLng
+                    );
+                    const etaMinutes = liveDistanceKm != null ? Math.max(1, Math.round((liveDistanceKm / ASSUMED_SPEED_KMH) * 60)) : null;
+                    return (
+                      <>
+                        <View style={styles.infoRow}>
+                          <MaterialIcons name="straighten" size={20} color="#666" />
+                          <Text style={styles.infoText}>
+                            {liveDistanceKm.toFixed(1)} km lagi
+                          </Text>
+                        </View>
+                        <View style={styles.infoRow}>
+                          <MaterialIcons name="schedule" size={20} color="#1976D2" />
+                          <Text style={styles.infoText}>
+                            Estimasi tiba sekitar {etaMinutes} menit
+                          </Text>
+                        </View>
+                      </>
+                    );
+                  })()
+                ) : selectedOrder.distance && (
                   <View style={styles.infoRow}>
                     <MaterialIcons name="straighten" size={20} color="#666" />
                     <Text style={styles.infoText}>

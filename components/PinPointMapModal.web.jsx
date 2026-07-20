@@ -6,6 +6,11 @@ import config from '../app/constants/config';
 
 const { width, height } = Dimensions.get('window');
 
+// Deteksi format Plus Code Google (mis. "8Q7X+HM67") supaya tidak ke-save
+// sebagai alamat kalau reverse-geocode tidak nemu alamat presisi di titik itu.
+const looksLikePlusCode = (str) =>
+  /^[23456789CFGHJMPQRVWX]{4,8}\+[23456789CFGHJMPQRVWX]{2,3}/.test(str || '');
+
 const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: config.GOOGLE_MAPS_API_KEY,
@@ -23,15 +28,23 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
   const [locationLoading, setLocationLoading] = useState(false);
   const mapRef = useRef(null);
 
+  // FIX: skip hasil yang cuma Plus Code (mis. "8Q7X+HM67 Medan"), cari hasil
+  // yang beneran punya alamat jalan/tempat. Kalau semua hasil plus_code
+  // (lokasi tanpa alamat presisi), fallback ke hasil pertama seperti biasa.
   const fetchAddress = async (lat, lng) => {
     try {
       const res = await fetch(
         `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${config.GOOGLE_MAPS_API_KEY}`
       );
       const data = await res.json();
-      if (data.results && data.results[0]) {
-        const result = data.results[0];
-        setAddress({ formatted: result.formatted_address, components: result.address_components || [] });
+      if (data.results && data.results.length > 0) {
+        const properResult =
+          data.results.find((r) => !(r.types || []).includes('plus_code')) ||
+          data.results[0];
+        setAddress({
+          formatted: properResult.formatted_address,
+          components: properResult.address_components || [],
+        });
       } else {
         setAddress({ formatted: '', components: [] });
       }
@@ -58,6 +71,7 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
     }
   }, [visible]);
 
+  // FIX: sama, skip hasil Plus Code kalau ada alternatif yang lebih baik
   const handleSearch = async () => {
     if (!search) return;
     setLoading(true);
@@ -66,11 +80,17 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
         `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(search)}&key=${config.GOOGLE_MAPS_API_KEY}`
       );
       const data = await res.json();
-      if (data.results && data.results[0]) {
-        const loc = data.results[0].geometry.location;
+      if (data.results && data.results.length > 0) {
+        const properResult =
+          data.results.find((r) => !(r.types || []).includes('plus_code')) ||
+          data.results[0];
+        const loc = properResult.geometry.location;
         setCenter({ lat: loc.lat, lng: loc.lng });
         setMarker({ lat: loc.lat, lng: loc.lng });
-        setAddress({ formatted: data.results[0].formatted_address, components: data.results[0].address_components || [] });
+        setAddress({
+          formatted: properResult.formatted_address,
+          components: properResult.address_components || [],
+        });
         mapRef.current?.panTo({ lat: loc.lat, lng: loc.lng });
       }
     } catch {}
@@ -98,9 +118,16 @@ const PinPointMapModal = ({ visible, onClose, onSelect, initialPin }) => {
     if (streetNumber && route) addressData.address = `${route} ${streetNumber}`;
     else if (route) addressData.address = route;
     else if (streetNumber) addressData.address = streetNumber;
+
+    // FIX: kalau fallback ke formatted_address, cek dulu apakah potongan
+    // pertamanya Plus Code — kalau iya, jangan dipakai (biarkan kosong,
+    // biar user isi manual lewat modal edit alamat).
     if (!addressData.address && address.formatted) {
       const parts = address.formatted.split(',');
-      if (parts.length > 0) addressData.address = parts[0].trim();
+      if (parts.length > 0) {
+        const firstPart = parts[0].trim();
+        addressData.address = looksLikePlusCode(firstPart) ? '' : firstPart;
+      }
     }
     return addressData;
   };

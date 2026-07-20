@@ -5,7 +5,7 @@ import {
   ScrollView,
   TouchableOpacity,
   StyleSheet,
-  Linking,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -20,61 +20,67 @@ const GiziProSeller = () => {
   const features = [
     {
       icon: 'assessment',
-      title: 'Analisis Nutrisi',
-      description: 'Analisis detail kandungan gizi setiap menu makanan',
+      title: 'Analisis Nutrisi Otomatis',
+      description: 'Hitung kandungan gizi tiap menu dari daftar bahan',
       color: COLORS.PRIMARY,
       bg: '#F7EAEF',
+      route: '/seller/gizipro-analisis',
+      ready: true,
     },
     {
-      icon: 'restaurant-menu',
-      title: 'Menu Sehat',
-      description: 'Rekomendasi menu dengan kandungan gizi seimbang',
+      icon: 'label',
+      title: 'Label Diet Otomatis',
+      description: 'Menu otomatis dapat tag Rendah Kalori, Tinggi Protein, dsb',
       color: '#2E7D32',
       bg: '#E8F5E9',
+      route: '/gizipro/label-diet',
+      ready: false,
     },
     {
-      icon: 'local-hospital',
-      title: 'Konsultasi Ahli',
-      description: 'Konsultasi dengan ahli gizi profesional',
-      color: '#B26A00',
-      bg: '#FFF3E0',
-    },
-    {
-      icon: 'trending-up',
-      title: 'Laporan Gizi',
-      description: 'Laporan perkembangan nilai gizi menu Anda',
+      icon: 'lightbulb',
+      title: 'Insight & Tips Menu',
+      description: 'Saran perbaikan resep dari hasil analisis gizi',
       color: '#6A1B9A',
       bg: '#F3E5F5',
+      route: '/gizipro/insight',
+      ready: false,
+    },
+    {
+      icon: 'travel-explore',
+      title: 'Cek Manual',
+      description: 'Cari nilai gizi bahan secara manual lewat AhligiziID',
+      color: '#00695C',
+      bg: '#E0F2F1',
+      route: '/seller/gizipro-cek-manual',
+      ready: true,
     },
   ];
 
-  const benefits = [
-    'Meningkatkan kredibilitas warung dengan sertifikat gizi',
-    'Menarik lebih banyak pelanggan yang peduli kesehatan',
-    'Optimasi harga berdasarkan nilai gizi',
-    'Panduan menu sehat untuk berbagai kalangan',
-  ];
-
-  const handleContactGiziPro = () => {
-    // WhatsApp contact untuk GiziPro
-    const phoneNumber = '6281234567890';
-    const message = 'Halo, saya tertarik dengan layanan GiziPro untuk warung saya';
-    const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
-
-    Linking.openURL(url).catch(() => {
-      // Fallback jika WhatsApp tidak terinstall
-      Linking.openURL(`https://wa.me/${phoneNumber}?text=${encodeURIComponent(message)}`);
-    });
+  const handleFeaturePress = (feature) => {
+    if (!feature.ready) {
+      Alert.alert('Segera Hadir', `Fitur "${feature.title}" masih dalam pengembangan.`);
+      return;
+    }
+    router.push(feature.route);
   };
 
-  const FeatureCard = ({ icon, title, description, color, bg }) => (
-    <View style={[styles.featureCard, styles.shadow]}>
-      <View style={[styles.featureIcon, { backgroundColor: bg }]}>
-        <MaterialIcons name={icon} size={24} color={color} />
+  const FeatureCard = ({ feature }) => (
+    <TouchableOpacity
+      style={[styles.featureCard, styles.shadow]}
+      onPress={() => handleFeaturePress(feature)}
+      activeOpacity={0.7}
+    >
+      {!feature.ready && (
+        <View style={styles.comingSoonBadge}>
+          <Text style={styles.comingSoonText}>Segera Hadir</Text>
+        </View>
+      )}
+      <View style={[styles.featureIcon, { backgroundColor: feature.bg }]}>
+        <MaterialIcons name={feature.icon} size={24} color={feature.color} />
       </View>
-      <Text style={styles.featureTitle}>{title}</Text>
-      <Text style={styles.featureDescription}>{description}</Text>
-    </View>
+      <Text style={styles.featureTitle}>{feature.title}</Text>
+      <Text style={styles.featureDescription}>{feature.description}</Text>
+    </TouchableOpacity>
   );
 
   return (
@@ -89,60 +95,23 @@ const GiziProSeller = () => {
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={{ paddingBottom: 24 }}>
-        {/* Header Section */}
+        {/* Header Section - deskripsi singkat, bukan pitch jualan */}
         <View style={[styles.intro, styles.shadow]}>
           <View style={styles.logoContainer}>
             <MaterialIcons name="eco" size={38} color={COLORS.PRIMARY} />
           </View>
-          <Text style={styles.title}>GiziPro untuk Warung</Text>
+          <Text style={styles.title}>GiziPro</Text>
           <Text style={styles.subtitle}>
-            Tingkatkan kualitas dan nilai jual menu Anda dengan analisis gizi profesional
+            Kelola informasi gizi menu kamu dari sini
           </Text>
         </View>
 
-        {/* Features Grid */}
-        <Text style={styles.sectionTitle}>Fitur Unggulan</Text>
+        {/* Features Grid - kartu fungsional, tekan buat masuk ke fitur */}
+        <Text style={styles.sectionTitle}>Fitur</Text>
         <View style={styles.featuresGrid}>
           {features.map((feature, index) => (
-            <FeatureCard
-              key={index}
-              icon={feature.icon}
-              title={feature.title}
-              description={feature.description}
-              color={feature.color}
-              bg={feature.bg}
-            />
+            <FeatureCard key={index} feature={feature} />
           ))}
-        </View>
-
-        {/* Benefits Section */}
-        <Text style={styles.sectionTitle}>Manfaat untuk Warung Anda</Text>
-        <View style={[styles.benefitsCard, styles.shadow]}>
-          {benefits.map((benefit, index) => (
-            <View
-              key={index}
-              style={[styles.benefitItem, index === benefits.length - 1 && { borderBottomWidth: 0 }]}
-            >
-              <MaterialIcons name="check-circle" size={18} color="#2E7D32" />
-              <Text style={styles.benefitText}>{benefit}</Text>
-            </View>
-          ))}
-        </View>
-
-        {/* CTA Section */}
-        <View style={styles.ctaSection}>
-          <TouchableOpacity
-            style={styles.ctaButton}
-            onPress={handleContactGiziPro}
-            activeOpacity={0.8}
-          >
-            <MaterialIcons name="chat" size={20} color="white" />
-            <Text style={styles.ctaButtonText}>Hubungi Konsultan</Text>
-          </TouchableOpacity>
-
-          <Text style={styles.ctaDescription}>
-            Dapatkan konsultasi gratis untuk mengetahui kebutuhan gizi warung Anda
-          </Text>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -156,19 +125,18 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F5F6FA',
   },
-  // Header
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    backgroundColor: "#fff",
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
     paddingHorizontal: 16,
     paddingVertical: 14,
     borderBottomLeftRadius: 20,
     borderBottomRightRadius: 20,
   },
   backBtn: { width: 26 },
-  headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
 
   shadow: {
     shadowColor: '#000',
@@ -185,7 +153,7 @@ const styles = StyleSheet.create({
   intro: {
     backgroundColor: 'white',
     alignItems: 'center',
-    paddingVertical: 26,
+    paddingVertical: 22,
     paddingHorizontal: 20,
     borderRadius: 14,
     marginTop: 16,
@@ -194,19 +162,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F7EAEF',
     borderRadius: 20,
     padding: 10,
-    marginBottom: 14,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '700',
     color: '#23272f',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13.5,
+    fontSize: 13,
     color: '#888',
     textAlign: 'center',
-    lineHeight: 20,
   },
   sectionTitle: {
     fontSize: 15,
@@ -227,6 +194,21 @@ const styles = StyleSheet.create({
     width: '48%',
     marginBottom: 10,
     alignItems: 'center',
+    position: 'relative',
+  },
+  comingSoonBadge: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    backgroundColor: '#EEE',
+    borderRadius: 8,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  comingSoonText: {
+    fontSize: 9,
+    color: '#999',
+    fontWeight: '600',
   },
   featureIcon: {
     width: 46,
@@ -248,55 +230,5 @@ const styles = StyleSheet.create({
     color: '#888',
     textAlign: 'center',
     lineHeight: 15,
-  },
-  benefitsCard: {
-    backgroundColor: 'white',
-    borderRadius: 14,
-    paddingHorizontal: 14,
-  },
-  benefitItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
-  },
-  benefitText: {
-    fontSize: 13,
-    color: '#444',
-    flex: 1,
-    lineHeight: 18,
-  },
-  ctaSection: {
-    alignItems: 'center',
-    marginTop: 20,
-  },
-  ctaButton: {
-    backgroundColor: '#25D366',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 30,
-    marginBottom: 12,
-    gap: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  ctaButtonText: {
-    color: 'white',
-    fontSize: 14.5,
-    fontWeight: '700',
-  },
-  ctaDescription: {
-    fontSize: 11.5,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 16,
-    paddingHorizontal: 30,
   },
 });

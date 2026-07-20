@@ -5,6 +5,8 @@ import { useRouter } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { StoreCardSkeleton } from '../../components/SkeletonLoader';
+import OutletStatusBadge from '../../components/OutletStatusBadge';
+import { getOutletStatus } from '../services/OutletStatusService';
 import COLORS from '../constants/color';
 import config from '../constants/config';
 import storeIcon from "../../assets/images/store.png";
@@ -93,6 +95,9 @@ const RantanganList = () => {
             Distance: distance,
             kelurahan: seller.kelurahan || "",
             rantanganPackages: seller.rantanganPackages || [],
+            openTime: seller.openTime || null,
+            closeTime: seller.closeTime || null,
+            isManuallyClosed: seller.isManuallyClosed || false,
           };
         });
 
@@ -176,7 +181,7 @@ const RantanganList = () => {
   };
 
   // Store card component
-  const StoreCard = ({ StoreName, Rating, Distance, Logo, storeId }) => {
+ const StoreCard = ({ StoreName, Rating, Distance, Logo, storeId, seller }) => {
     const handlePress = () => {
       // Navigate to rantangan detail page
       router.push(`/buyer/RantanganDetail?sellerid=${storeId}`);
@@ -189,6 +194,9 @@ const RantanganList = () => {
           <View style={styles.ratingBadgeFull}>
             <Text style={styles.ratingBadgeText}>⭐ {Rating}</Text>
           </View>
+          <View style={styles.outletStatusBadgeWrap}>
+          <OutletStatusBadge seller={seller} />
+        </View>
         </View>
         <View style={styles.storeCardContent}>
           <Text style={styles.storeName} numberOfLines={2}>{StoreName}</Text>
@@ -305,6 +313,7 @@ const RantanganList = () => {
                 Logo={store.Logo}
                 Rating={store.Rating}
                 Distance={store.Distance}
+                seller={store}
               />
             ))}
           </View>

@@ -202,10 +202,12 @@ const profile = () => {
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
       {/* Header selaras dengan halaman profil penjual */}
       <View style={styles.header}>
-        <View style={{ width: 26 }} />
-        <Text style={styles.headerTitle}>{("profile.title")}</Text>
-        <View style={{ width: 26 }} />
-      </View>
+      <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('profile.header.accessibility.back')}>
+        <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
+      <Text style={styles.headerTitle}>{t("profile.title")}</Text>
+      <View style={{ width: 26 }} />
+    </View>
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>
         {/* ---------------- Informasi Personal ---------------- */}
@@ -598,6 +600,11 @@ const styles = StyleSheet.create({
     gap: 10,
     marginTop: 18,
   },
+  backBtn: {
+  width: 26,
+  alignItems: "flex-start",
+  justifyContent: "center",
+},
 });
 
 export default profile;

@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   Image,
+  Platform,
+  Switch,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -19,6 +21,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
 import * as Linking from 'expo-linking';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import PinPointMapModal from '../../../components/PinPointMapModal';
 import MapPreview from '../../../components/MapPreview'; //Map Preview
 import { useLanguage } from '../../contexts/LanguageContext';
@@ -58,6 +61,23 @@ const AddressField = ({ label, value, editable, onChangeText, keyboardType, mult
   </View>
 );
 
+// ---------------------------------------------------------------------------
+// Helper: konversi antara string "HH:mm" (yang disimpan/dikirim ke backend)
+// dan objek Date (yang dibutuhkan DateTimePicker)
+// ---------------------------------------------------------------------------
+const timeStringToDate = (timeStr) => {
+  const [h, m] = (timeStr || "08:00").split(":").map(Number);
+  const d = new Date();
+  d.setHours(h, m, 0, 0);
+  return d;
+};
+
+const formatTimeHHmm = (date) => {
+  const h = date.getHours().toString().padStart(2, "0");
+  const m = date.getMinutes().toString().padStart(2, "0");
+  return `${h}:${m}`;
+};
+
 const profile = () => {
   const { t } = useLanguage();
   const router = useRouter();
@@ -79,6 +99,12 @@ const profile = () => {
   const [error, setError] = useState("");
   const [pinPoint, setPinPoint] = useState({ lat: null, lng: null });
   const [showPinModal, setShowPinModal] = useState(false);
+
+  // Jam operasional outlet — 1 range jam yang berlaku tiap hari (bukan per-hari beda-beda)
+  const [openTime, setOpenTime] = useState("08:00");
+  const [closeTime, setCloseTime] = useState("20:00");
+  const [showTimePicker, setShowTimePicker] = useState(null); // 'open' | 'close' | null
+  const [isManuallyClosed, setIsManuallyClosed] = useState(false); // toggle "tutup sementara" (libur, dll)
 
   // Instantly upload after picking, but ensure state is updated before upload
   useEffect(() => {
@@ -131,6 +157,9 @@ const profile = () => {
         lat: response.data.pinLat ? parseFloat(response.data.pinLat) : null,
         lng: response.data.pinLng ? parseFloat(response.data.pinLng) : null,
       }); // Load pin point
+      setOpenTime(response.data.openTime || "08:00");
+      setCloseTime(response.data.closeTime || "20:00");
+      setIsManuallyClosed(response.data.isManuallyClosed || false);
       setLoading(false);
       setIsEditing(false); // Ensure editing mode is off after fetch
     } catch (err) {
@@ -198,6 +227,9 @@ const profile = () => {
       if (pinPoint.address) {
         formData.append("pinAddress", pinPoint.address);
       }
+      formData.append("openTime", openTime);
+      formData.append("closeTime", closeTime);
+      formData.append("isManuallyClosed", isManuallyClosed);
 
       if (storeIcon && typeof storeIcon !== "string") {
         formData.append("storeIcon", {
@@ -225,7 +257,7 @@ const profile = () => {
           },
         }
       );
-
+        console.log("RESPONSE DARI BACKEND:", JSON.stringify(response.data));
       if (response.data.success) {
         setIsEditing(false); // Exit edit mode immediately
         await fetchProfileData(); // Then refetch profile data
@@ -301,6 +333,17 @@ const profile = () => {
     setShowPinModal(true);
   };
 
+  // Handler untuk hasil pilih waktu dari DateTimePicker (jam buka / jam tutup)
+  const handleTimeChange = (event, selectedDate) => {
+    const field = showTimePicker;
+    setShowTimePicker(null);
+    if (event.type === "set" && selectedDate && field) {
+      const formatted = formatTimeHHmm(selectedDate);
+      if (field === "open") setOpenTime(formatted);
+      else setCloseTime(formatted);
+    }
+  };
+
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
       {/* Header selaras dengan halaman lain (Pesanan, Pesan) */}
@@ -349,6 +392,72 @@ const profile = () => {
           <InfoRow icon="mail-outline" label={t("profil.info.email")} value={userData.email} />
           <InfoRow icon="phone" label={t("profil.info.phone")} value={userData.phone} isLast />
         </View>
+
+        {/* ---------------- Jam Operasional ---------------- */}
+        <Text style={styles.sectionTitle}>Jam Operasional</Text>
+        <View style={[styles.card, styles.shadow]}>
+          <TouchableOpacity
+            style={styles.infoRow}
+            onPress={() => isEditing && setShowTimePicker("open")}
+            disabled={!isEditing}
+            activeOpacity={isEditing ? 0.6 : 1}
+          >
+            <View style={styles.infoRowLeft}>
+              <MaterialIcons name="wb-sunny" size={16} color="#999" />
+              <Text style={styles.infoRowLabel}>Jam Buka</Text>
+            </View>
+            <View style={styles.timeValueWrap}>
+              <Text style={styles.timeValueText}>{openTime}</Text>
+              {isEditing && <MaterialIcons name="edit" size={14} color={COLORS.PRIMARY} />}
+            </View>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={styles.infoRow}
+            onPress={() => isEditing && setShowTimePicker("close")}
+            disabled={!isEditing}
+            activeOpacity={isEditing ? 0.6 : 1}
+          >
+            <View style={styles.infoRowLeft}>
+              <MaterialIcons name="nights-stay" size={16} color="#999" />
+              <Text style={styles.infoRowLabel}>Jam Tutup</Text>
+            </View>
+            <View style={styles.timeValueWrap}>
+              <Text style={styles.timeValueText}>{closeTime}</Text>
+              {isEditing && <MaterialIcons name="edit" size={14} color={COLORS.PRIMARY} />}
+            </View>
+          </TouchableOpacity>
+
+          <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
+            <View style={styles.infoRowLeft}>
+              <MaterialIcons name="block" size={16} color="#999" />
+              <Text style={styles.infoRowLabel}>Tutup Sementara</Text>
+            </View>
+            <Switch
+              value={isManuallyClosed}
+              onValueChange={setIsManuallyClosed}
+              disabled={!isEditing}
+              trackColor={{ false: "#ddd", true: COLORS.PRIMARY }}
+              thumbColor="#fff"
+            />
+          </View>
+
+          {isManuallyClosed && (
+            <Text style={styles.closedHint}>
+              Outlet akan tampil "Tutup" ke pembeli, terlepas dari jam operasional di atas. Aktifkan kalau libur (contoh: hari Minggu).
+            </Text>
+          )}
+        </View>
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={timeStringToDate(showTimePicker === "open" ? openTime : closeTime)}
+            mode="time"
+            is24Hour={true}
+            display={Platform.OS === "ios" ? "spinner" : "default"}
+            onChange={handleTimeChange}
+          />
+        )}
 
         {/* ---------------- Detail Alamat ---------------- */}
         <Text style={styles.sectionTitle}>{t("profil.sections.addressDetail")}</Text>
@@ -453,7 +562,10 @@ const profile = () => {
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.pillButton, styles.outlineButton]}
-                onPress={() => setIsEditing(false)}
+                onPress={() => {
+                  fetchProfileData(); // buang perubahan yang belum disimpan, ambil ulang data asli
+                  setIsEditing(false);
+                }}
                 disabled={loading}
               >
                 <Text style={styles.outlineButtonText}>{t("common.cancel")}</Text>
@@ -589,6 +701,26 @@ const styles = StyleSheet.create({
     color: "#23272f",
     maxWidth: "60%",
     textAlign: "right",
+  },
+
+  // Jam Operasional (jam buka/tutup) — jangan pakai infoRowValue karena
+  // maxWidth 60% di situ bikin teks pendek kayak "07:00" ikut wrap ke bawah
+  timeValueWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+  },
+  timeValueText: {
+    fontSize: 15,
+    fontWeight: "700",
+    color: "#23272f",
+  },
+  closedHint: {
+    fontSize: 12,
+    color: "#999",
+    paddingTop: 8,
+    paddingHorizontal: 2,
+    lineHeight: 17,
   },
 
   // Address grid

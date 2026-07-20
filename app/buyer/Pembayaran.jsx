@@ -122,7 +122,11 @@ const Pembayaran = () => {
   });
   const [orderType, setOrderType] = useState('');
   const [buyerLocation, setBuyerLocation] = useState(null);
-
+  const [deliveryOverride, setDeliveryOverride] = useState(null);
+  // Catatan pesanan Catering yang diketik buyer di CateringDetail.jsx
+  // (AsyncStorage key 'cart_notes') — TERPISAH dari catatan alamat profil
+  // (addressFields.catatan). Ini yang jadi field `notes` order kalau ada isinya.
+  const [cartNotes, setCartNotes] = useState('');
   const [stage, setStage] = useState('form');
   const [orderId, setOrderId] = useState(null);
   const [countdown, setCountdown] = useState(CANCEL_WINDOW_SECONDS);
@@ -148,18 +152,49 @@ const Pembayaran = () => {
         setStore(storeData ? JSON.parse(storeData) : null);
         const orderTypeData = await AsyncStorage.getItem('order_type');
         setOrderType(orderTypeData || '');
-        const buyerLocationData = await AsyncStorage.getItem('pinPoint');
-        if (buyerLocationData) {
-          const pinPoint = JSON.parse(buyerLocationData);
-          if (pinPoint.lat && pinPoint.lng) {
-            setBuyerLocation({ lat: pinPoint.lat, lng: pinPoint.lng });
-          }
-        }
+
+        // Catatan pesanan (khusus Catering, diisi di CateringDetail.jsx).
+        const cartNotesData = await AsyncStorage.getItem('cart_notes');
+        setCartNotes(cartNotesData || '');
+
+        // Cek dulu apakah ada lokasi khusus untuk order Catering ini (dipilih di
+        // CateringDetail.jsx). Kalau ada, pakai itu — kalau tidak, fallback ke
+        // pinPoint tersimpan di profil (perilaku lama, tetap dipakai untuk Rantangan).
+        const overrideRaw = await AsyncStorage.getItem('delivery_location_override');
+// PENTING: override cuma valid buat order Catering. Kalau order sekarang
+// Rantangan tapi override masih nyangkut dari sesi Catering sebelumnya,
+// abaikan — pakai pinPoint profil seperti biasa.
+const isCateringOrder = orderTypeData === 'Catering';
+
+if (overrideRaw && isCateringOrder) {
+  const override = JSON.parse(overrideRaw);
+  if (override.lat && override.lng) {
+    setBuyerLocation({ lat: override.lat, lng: override.lng });
+  }
+  if (override.address) {
+    setDeliveryOverride({
+      address: override.address || '',
+      kelurahan: override.addressComponents?.kelurahan || '',
+      kecamatan: override.addressComponents?.kecamatan || '',
+      provinsi: override.addressComponents?.provinsi || '',
+      kodepos: override.addressComponents?.kodepos || '',
+    });
+  }
+} else {
+  const buyerLocationData = await AsyncStorage.getItem('pinPoint');
+  if (buyerLocationData) {
+    const pinPoint = JSON.parse(buyerLocationData);
+    if (pinPoint.lat && pinPoint.lng) {
+      setBuyerLocation({ lat: pinPoint.lat, lng: pinPoint.lng });
+    }
+  }
+}
       } catch (e) {
         setCart([]);
         setStore(null);
         setOrderType('');
         setBuyerLocation(null);
+        setCartNotes('');
       }
     };
     fetchCart();
@@ -272,6 +307,12 @@ const Pembayaran = () => {
       const token = await AsyncStorage.getItem('buyerToken');
       const addressData = await AsyncStorage.getItem('addressFields');
       const addressObj = addressData ? JSON.parse(addressData) : {};
+      const finalAddress = deliveryOverride || addressObj; // pakai override kalau ada
+
+      // Catatan pesanan: prioritaskan catatan yang diketik di keranjang Catering
+      // (cartNotes). Kalau kosong (mis. order Rantangan lama yang gak lewat alur
+      // itu), fallback ke catatan alamat profil seperti perilaku lama.
+      const finalNotes = cartNotes?.trim() ? cartNotes.trim() : (addressObj.catatan || '');
 
       const res = await axios.post(
         `${config.API_URL}/buyer/orders`,
@@ -279,12 +320,12 @@ const Pembayaran = () => {
           sellerId: store.id,
           items: cart,
           totalAmount: total,
-          deliveryAddress: addressObj.address || '',
-          kelurahan: addressObj.kelurahan || '',
-          kecamatan: addressObj.kecamatan || '',
-          provinsi: addressObj.provinsi || '',
-          kodepos: addressObj.kodepos || '',
-          notes: addressObj.catatan || '',
+          deliveryAddress: finalAddress.address || '',
+          kelurahan: finalAddress.kelurahan || '',
+          kecamatan: finalAddress.kecamatan || '',
+          provinsi: finalAddress.provinsi || '',
+          kodepos: finalAddress.kodepos || '',
+          notes: finalNotes,
           orderType: orderType,
           buyerLat: buyerLocation?.lat || null,
           buyerLng: buyerLocation?.lng || null,
@@ -304,6 +345,9 @@ const Pembayaran = () => {
         await AsyncStorage.removeItem('cart_total');
         await AsyncStorage.removeItem('cart_store');
         await AsyncStorage.removeItem('order_type');
+        await AsyncStorage.removeItem('delivery_location_override');
+        await AsyncStorage.removeItem('catering_delivery_location');
+        await AsyncStorage.removeItem('cart_notes');
 
         setCountdown(CANCEL_WINDOW_SECONDS);
         setStage('confirming');
@@ -394,12 +438,16 @@ const Pembayaran = () => {
 
           <View style={{ marginBottom: 16 }}>
             <Text style={styles.label}>Alamat Pengantaran</Text>
-            <Text style={styles.addressMain}>{addressFields.address || '-'}</Text>
-            {!!addressFields.kelurahan && <Text style={styles.addressLine}>Kelurahan: {addressFields.kelurahan}</Text>}
-            {!!addressFields.kecamatan && <Text style={styles.addressLine}>Kecamatan: {addressFields.kecamatan}</Text>}
-            {!!addressFields.provinsi && <Text style={styles.addressLine}>Provinsi: {addressFields.provinsi}</Text>}
-            {!!addressFields.kodepos && <Text style={styles.addressLine}>Kode Pos: {addressFields.kodepos}</Text>}
-            {!!addressFields.catatan && <Text style={styles.addressLine}>Catatan: {addressFields.catatan}</Text>}
+            <Text style={styles.addressMain}>{(deliveryOverride || addressFields).address || '-'}</Text>
+            {!!(deliveryOverride || addressFields).kelurahan && <Text style={styles.addressLine}>Kelurahan: {(deliveryOverride || addressFields).kelurahan}</Text>}
+            {!!(deliveryOverride || addressFields).kecamatan && <Text style={styles.addressLine}>Kecamatan: {(deliveryOverride || addressFields).kecamatan}</Text>}
+            {!!(deliveryOverride || addressFields).provinsi && <Text style={styles.addressLine}>Provinsi: {(deliveryOverride || addressFields).provinsi}</Text>}
+            {!!(deliveryOverride || addressFields).kodepos && <Text style={styles.addressLine}>Kode Pos: {(deliveryOverride || addressFields).kodepos}</Text>}
+            {!!cartNotes ? (
+              <Text style={styles.addressLine}>Catatan: {cartNotes}</Text>
+            ) : (
+              !!addressFields.catatan && <Text style={styles.addressLine}>Catatan: {addressFields.catatan}</Text>
+            )}
             <TouchableOpacity onPress={() => setShowAddressModal(true)} style={{ marginTop: 6 }}>
               <Text style={styles.linkText}>Ubah Alamat</Text>
             </TouchableOpacity>
