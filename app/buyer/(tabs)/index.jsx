@@ -357,15 +357,34 @@ const checkOverdueOrders = useCallback(async () => {
 
   const showBanner = overdueOrders.length > 0 && !bannerDismissed;
 
+  const [promos, setPromos] = useState([]);
+
+  useEffect(() => {
+    const fetchPromos = async () => {
+      try {
+        const res = await axios.get(`${config.API_URL.replace('/api/v1', '')}/api/v1/promos`);
+        if (res.data.success && res.data.data.length > 0) {
+          setPromos(res.data.data);
+        }
+      } catch (e) {
+        // Default banner, silent failure
+      }
+    };
+    fetchPromos();
+  }, []);
+
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <SafeAreaView edges={['top']} style={styles.header}>
           <View style={styles.bannerContainer}>
-            <Image
-              source={banner1}
-              style={styles.bannerImage}
-            />
+            {promos.length > 0 ? (
+              promos.map((promo) => (
+                <Image key={promo.id} source={{ uri: promo.imageUrl }} style={styles.bannerImage} />
+              ))
+            ) : (
+              <Image source={banner1} style={styles.bannerImage} /> // hardcode version fallback
+            )}
           </View>
         </SafeAreaView>
 
