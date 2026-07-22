@@ -73,6 +73,7 @@ const CateringList = () => {
 
       if (response.ok && data.sellers) {
         console.log("Total sellers received:", data.sellers.length);
+        console.log("Seller names:", data.sellers.map(s => ({ name: s.name, id: s.id, categories: s.categories?.length })));
 
         // Filter sellers that have categories data with at least one menu item
         const sellersWithCategories = data.sellers.filter((seller) => {
@@ -86,7 +87,7 @@ const CateringList = () => {
                 Array.isArray(category.items) &&
                 category.items.length > 0
             );
-
+            
           return hasCategories;
         });
 
@@ -94,6 +95,10 @@ const CateringList = () => {
           "Sellers with categories and menu items:",
           sellersWithCategories.length
         );
+        console.log("Filtered out:", data.sellers.filter(s => 
+  !s.categories || s.categories.length === 0 || 
+  !s.categories.some(cat => cat.items && cat.items.length > 0)
+).map(s => s.name));
 
         const formattedStores = sellersWithCategories.map((seller) => {
           // Handle distance formatting
@@ -119,6 +124,7 @@ const CateringList = () => {
             openTime: seller.openTime || null,
             closeTime: seller.closeTime || null,
             isManuallyClosed: seller.isManuallyClosed || false,
+            productHalal: seller.productHalal,
           };
         });
 
@@ -175,6 +181,12 @@ const CateringList = () => {
   // menyentuh data/fetch apapun). Tinggal ditambah case-nya kalau backend sudah
   // mengirim field halal per seller.
   const applySorting = useCallback((storeList, type) => {
+    if (type === "halal") {
+      const filtered = storeList.filter(store => store.productHalal === true);
+      setFilteredStores(filtered);
+      return;
+    }
+
     const sorted = [...storeList].sort((a, b) => {
       if (type === "distance") {
         // Handle distance sorting - put N/A at the end
@@ -205,7 +217,8 @@ const CateringList = () => {
   // Clear search
   const clearSearch = () => {
     setSearchQuery("");
-    applySorting(stores, sortType);
+    setSortType("default")
+    applySorting(stores);
   };
 
   // Store card component

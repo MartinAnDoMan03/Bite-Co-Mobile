@@ -144,6 +144,8 @@ const ExpandableMenu = () => {
     await fetchStats(); // This now includes fetchNotificationCount
     setRefreshing(false);
   };
+  
+  const [isProfileIncomplete, setIsProfileIncomplete] = useState(false);
 
   const fetchProfile = async () => {
     try {
@@ -152,6 +154,15 @@ const ExpandableMenu = () => {
       const response = await axios.get(`${config.API_URL}/seller/profile`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+
+      const data = response.data;
+
+      if (!data.address) {
+        setIsProfileIncomplete(true);
+      } else {
+        setIsProfileIncomplete(false);
+      }
+
       setStoreName(
         response.data.name || response.data.outletName || t("beranda.defaultStoreName")
       );
@@ -351,6 +362,23 @@ const ExpandableMenu = () => {
     },
   ];
 
+  const AddressWarningBanner = ({ onPress }) => (
+    <View style={styles.warningBanner}>
+    <View style={styles.warningIconCircle}>
+      <MaterialIcons name="location-off" size={24} color="#D32F2F" />
+    </View>
+    <View style={styles.warningTextContainer}>
+      <Text style={styles.warningTitle}>Alamat Toko Belum Lengkap!</Text>
+      <Text style={styles.warningSubtitle}>
+        Toko kamu saat ini disembunyikan. Lengkapi alamat dan titik peta agar tokomu bisa dilihat pembeli.
+      </Text>
+    </View>
+    <TouchableOpacity style={styles.warningButton} onPress={onPress} activeOpacity={0.8}>
+      <Text style={styles.warningButtonText}>Lengkapi</Text>
+    </TouchableOpacity>
+  </View>
+  );
+
   return (
     <ScrollView
       style={styles.container}
@@ -398,6 +426,13 @@ const ExpandableMenu = () => {
           </Text>
         </SafeAreaView>
       </View>
+
+      {/* Warning - Jika profil belum lengkap maka akan diarahkan ke halaman profil (secara spesifik alamat) */}
+      {isProfileIncomplete && (
+        <AddressWarningBanner
+        onPress={() => router.push('seller/(tabs)/profile?edit=true')}
+        />
+      )}
 
       {/* Menu Grid — di luar header burgundy, di atas background putih/abu-abu */}
       <View style={styles.menuSection}>
@@ -785,6 +820,54 @@ const styles = StyleSheet.create({
     height: 40,
     backgroundColor: "#e0e0e0",
     marginHorizontal: 10,
+  },
+  warningBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundcolor: '#FFEBEE',
+    marginHorizontal: 16,
+    marginTop: 16,
+    marginBottom: -6,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FFCDD2',
+    zIndex: 10,
+  },
+  warningIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFCDD2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  warningTextContainer: {
+    flex: 1,
+    paddingRight: 8,
+  },
+  warningTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#B71C1C',
+    marginBottom: 4,
+  },
+  warningSubtitle: {
+    fontSize: 12,
+    color: '#C62828',
+    lineHeight: 16,
+  },
+  warningButton: {
+    backgroundColor: '#D32F2F',
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  warningButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });
 

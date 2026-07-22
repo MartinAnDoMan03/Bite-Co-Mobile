@@ -16,7 +16,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import COLORS from "../../constants/color";
 import axios from "axios";
 import config from "../../constants/config";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
@@ -81,6 +81,8 @@ const formatTimeHHmm = (date) => {
 const profile = () => {
   const { t } = useLanguage();
   const router = useRouter();
+  const params = useLocalSearchParams();
+
   const [userData, setUserData] = useState({
     name: "",
     email: "",
@@ -162,6 +164,11 @@ const profile = () => {
       setIsManuallyClosed(response.data.isManuallyClosed || false);
       setLoading(false);
       setIsEditing(false); // Ensure editing mode is off after fetch
+      if (params.edit === 'true') {
+        setIsEditing(true);
+      } else {
+        setIsEditing(false);
+      }
     } catch (err) {
       setError(t("profil.errors.fetchFailed"));
       setLoading(false);
