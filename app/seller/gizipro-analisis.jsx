@@ -46,6 +46,30 @@ const INGREDIENT_DB = {
   'Kecap manis': { energi: 275, karbohidrat: 62, protein: 4, lemak: 0.5, lemak_jenuh: 0, serat: 0, natrium: 2200, gula: 55, kolesterol: 0 },
   'Kecap asin': { energi: 60, karbohidrat: 6, protein: 6, lemak: 0, lemak_jenuh: 0, serat: 0, natrium: 5500, gula: 1, kolesterol: 0 },
   'Gula pasir': { energi: 387, karbohidrat: 100, protein: 0, lemak: 0, lemak_jenuh: 0, serat: 0, natrium: 0, gula: 100, kolesterol: 0 },
+  'Ikan kakap': { energi: 100, karbohidrat: 0, protein: 20, lemak: 1.7, lemak_jenuh: 0.4, serat: 0, natrium: 68, gula: 0, kolesterol: 47 },
+  'Ikan lele': { energi: 105, karbohidrat: 0, protein: 18, lemak: 3.5, lemak_jenuh: 0.8, serat: 0, natrium: 50, gula: 0, kolesterol: 58 },
+  'Ikan nila': { energi: 96, karbohidrat: 0, protein: 20, lemak: 1.7, lemak_jenuh: 0.6, serat: 0, natrium: 52, gula: 0, kolesterol: 50 },
+  'Ikan tongkol': { energi: 109, karbohidrat: 0, protein: 24, lemak: 1, lemak_jenuh: 0.3, serat: 0, natrium: 45, gula: 0, kolesterol: 45 },
+  'Ikan bandeng': { energi: 129, karbohidrat: 0, protein: 20, lemak: 4.8, lemak_jenuh: 1.5, serat: 0, natrium: 65, gula: 0, kolesterol: 55 },
+  'Ikan kembung': { energi: 112, karbohidrat: 0, protein: 22, lemak: 2.3, lemak_jenuh: 0.6, serat: 0, natrium: 60, gula: 0, kolesterol: 55 },
+  'Ikan teri': { energi: 77, karbohidrat: 0, protein: 16, lemak: 1, lemak_jenuh: 0.3, serat: 0, natrium: 292, gula: 0, kolesterol: 60 },
+  'Udang': { energi: 99, karbohidrat: 0.2, protein: 24, lemak: 0.3, lemak_jenuh: 0.1, serat: 0, natrium: 111, gula: 0, kolesterol: 189 },
+  'Cumi': { energi: 92, karbohidrat: 3.1, protein: 15.6, lemak: 1.4, lemak_jenuh: 0.4, serat: 0, natrium: 44, gula: 0, kolesterol: 233 },
+};
+
+// Lookup case-insensitive + trim, biar "kakap", "Kakap", " Kakap " tetap ketemu ke "Ikan kakap" dst
+const NORMALIZED_DB = Object.keys(INGREDIENT_DB).reduce((acc, key) => {
+  acc[key.trim().toLowerCase()] = INGREDIENT_DB[key];
+  return acc;
+}, {});
+
+const findIngredient = (name) => {
+  if (!name) return null;
+  const normalized = name.trim().toLowerCase();
+  if (NORMALIZED_DB[normalized]) return NORMALIZED_DB[normalized];
+  // fallback: cari yang mengandung kata kunci (misal user ketik "kakap" tanpa "ikan")
+  const partial = Object.keys(NORMALIZED_DB).find((key) => key.includes(normalized) || normalized.includes(key));
+  return partial ? NORMALIZED_DB[partial] : null;
 };
 
 // Rule insight - versi inline dari gizipro-tips-library.json, dicocokkan ke hasil per porsi
@@ -97,6 +121,29 @@ const getAutoLabels = (r) => {
   return labels;
 };
 
+// Key AsyncStorage buat nyimpen hasil analisis sementara - nanti diganti field di backend
+const ANALYSIS_STORAGE_KEY = 'gizipro_analysis_results';
+
+const loadStoredResults = async () => {
+  try {
+    const raw = await AsyncStorage.getItem(ANALYSIS_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch (error) {
+    console.error('Error loading stored gizi results:', error);
+    return {};
+  }
+};
+
+const saveStoredResult = async (menuId, menuName, result) => {
+  try {
+    const current = await loadStoredResults();
+    current[menuId] = { menuName, result, updatedAt: new Date().toISOString() };
+    await AsyncStorage.setItem(ANALYSIS_STORAGE_KEY, JSON.stringify(current));
+  } catch (error) {
+    console.error('Error saving gizi result:', error);
+  }
+};
+
 const MenuAnalysisGizi = () => {
   const router = useRouter();
 
@@ -136,7 +183,15 @@ const MenuAnalysisGizi = () => {
         }))
       );
 
-      setMenus(flattened);
+      // Gabungkan sama hasil analisis yang udah pernah disimpan sebelumnya
+      const storedResults = await loadStoredResults();
+      const merged = flattened.map((menu) =>
+        storedResults[menu.id]
+          ? { ...menu, analyzed: true, result: storedResults[menu.id].result }
+          : menu
+      );
+
+      setMenus(merged);
     } catch (error) {
       console.error('Fetch menu gizi error:', error);
       setLoadError(error.message);
@@ -184,7 +239,7 @@ const MenuAnalysisGizi = () => {
     const notFound = [];
 
     rows.forEach((row) => {
-      const data = INGREDIENT_DB[row.name];
+      const data = findIngredient(row.name);
       const grams = parseFloat(row.grams) || 0;
       if (!data) {
         if (row.name.trim()) notFound.push(row.name);
@@ -204,13 +259,24 @@ const MenuAnalysisGizi = () => {
     const matchedInsights = INSIGHT_RULES.filter((rule) => rule.check(perPorsi));
     const labels = getAutoLabels(perPorsi);
 
+    if (notFound.length > 0 && notFound.length === rows.filter((r) => r.name.trim()).length) {
+      Alert.alert(
+        'Bahan Tidak Dikenali',
+        `Semua bahan (${notFound.join(', ')}) belum ada di database gizi, jadi hasilnya kosong. Coba cek ejaan atau pakai nama bahan lain yang lebih umum.`
+      );
+      return;
+    }
+
+    const newResult = { perPorsi, labels, insights: matchedInsights, notFound };
+
     setMenus((prev) =>
       prev.map((m) =>
         m.id === menuId
-          ? { ...m, analyzed: true, servings: totalServings, ingredients: rows, result: { perPorsi, labels, insights: matchedInsights, notFound } }
+          ? { ...m, analyzed: true, servings: totalServings, ingredients: rows, result: newResult }
           : m
       )
     );
+    saveStoredResult(menuId, activeMenu.name, newResult);
     setActiveMenuId(null);
   };
 

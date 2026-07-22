@@ -33,8 +33,8 @@ const GiziProSeller = () => {
       description: 'Menu otomatis dapat tag Rendah Kalori, Tinggi Protein, dsb',
       color: '#2E7D32',
       bg: '#E8F5E9',
-      route: '/gizipro/label-diet',
-      ready: false,
+      route: '/seller/gizipro-label-diet',
+      ready: true,
     },
     {
       icon: 'lightbulb',
@@ -42,8 +42,8 @@ const GiziProSeller = () => {
       description: 'Saran perbaikan resep dari hasil analisis gizi',
       color: '#6A1B9A',
       bg: '#F3E5F5',
-      route: '/gizipro/insight',
-      ready: false,
+      route: '/seller/insighttipsmenu',
+      ready: true,
     },
     {
       icon: 'travel-explore',

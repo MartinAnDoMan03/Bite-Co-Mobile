@@ -199,9 +199,7 @@ const ExpandableMenu = () => {
         (order) => order.statusProgress === "completed"
       );
       const pendingOrders = orders.filter(
-        (order) =>
-          order.statusProgress === "waiting_approval" ||
-          order.statusProgress === "processing"
+        (order) => order.statusProgress === "awaiting_seller_approval"
       );
 
       const monthlyOrders = completedOrders.filter((order) => {
@@ -218,7 +216,7 @@ const ExpandableMenu = () => {
       );
       const subscribers = orders.filter(
         (order) =>
-          order.orderType === "Rantangan" &&
+          order.orderType?.startsWith("Rantangan") &&
           (order.packageType === "Mingguan" || order.packageType === "Bulanan")
       ).length;
 
