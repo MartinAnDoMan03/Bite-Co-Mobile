@@ -42,7 +42,7 @@ const GiziProSeller = () => {
       description: 'Saran perbaikan resep dari hasil analisis gizi',
       color: '#6A1B9A',
       bg: '#F3E5F5',
-      route: '/seller/insighttipsmenu',
+      route: '/seller/gizipro-insight',
       ready: true,
     },
     {
@@ -231,4 +231,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 15,
   },
-});
+}); 
