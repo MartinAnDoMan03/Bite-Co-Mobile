@@ -1,4 +1,4 @@
-import { Image, Text, TextInput, TouchableOpacity, View, ScrollView, StyleSheet, Animated, Easing, Platform, LayoutAnimation, UIManager } from "react-native";
+import { Image, Text, TextInput, TouchableOpacity, View, ScrollView, StyleSheet, Animated, Easing, Platform, LayoutAnimation, UIManager, Dimensions } from "react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -18,6 +18,9 @@ import axios from 'axios';
 import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
 import OutletStatusBadge from '../../../components/OutletStatusBadge';
 import { getOutletStatus } from '../../services/OutletStatusService';
+import { FlatList } from "react-native";
+const { width } = Dimensions.get("window");
+
 // Aktifkan LayoutAnimation di Android (sama seperti di halaman seller)
 if (
   Platform.OS === "android" &&
@@ -360,32 +363,61 @@ const checkOverdueOrders = useCallback(async () => {
   const [promos, setPromos] = useState([]);
 
   useEffect(() => {
-    const fetchPromos = async () => {
-      try {
-        const res = await axios.get(`${config.API_URL.replace('/api/v1', '')}/api/v1/promos`);
-        if (res.data.success && res.data.data.length > 0) {
-          setPromos(res.data.data);
-        }
-      } catch (e) {
-        // Default banner, silent failure
+  const fetchPromos = async () => {
+    try {
+      const res = await fetch(`${config.API_URL.replace('/api/v1', '')}/api/v1/promos?active=true`);
+      const data = await res.json();
+      if (data.success && data.data.length > 0) {
+        setPromos(data.data);
       }
-    };
-    fetchPromos();
+    } catch (e) {}
+  };
+  fetchPromos();
   }, []);
+
+  const flatListRef = useRef(null);
+  const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
 
   return (
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <SafeAreaView edges={['top']} style={styles.header}>
-          <View style={styles.bannerContainer}>
-            {promos.length > 0 ? (
-              promos.map((promo) => (
-                <Image key={promo.id} source={{ uri: promo.imageUrl }} style={styles.bannerImage} />
-              ))
+        <FlatList
+        ref={flatListRef}
+        data={promos.length > 0 ? promos : [{ id: 'default', imageUrl: null }]}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        onMomentumScrollEnd={(e) => {
+          const index = Math.round(e.nativeEvent.contentOffset.x / width);
+          setCurrentBannerIndex(index);
+        }}
+        keyExtractor={(item) => item.id}
+        renderItem={({ item }) => (
+          <TouchableOpacity
+            style={{ width, alignItems: 'center' }}
+            activeOpacity={item.sellerId ? 0.85 : 1}
+            onPress={() => {
+              if (!item.sellerId) return; //Jika bukan Promo Spesifik Seller
+
+              // Promo spesifik kategori catering atau keduanya
+              if (item.promoFor === 'catering' || item.promoFor === 'both') {
+                router.push({ pathname: '/buyer/CateringDetail', params: { sellerid: item.sellerId } });
+              } 
+              // Promo spesifik kategori rantangan
+              else if (item.promoFor === 'rantangan') {
+                router.push({ pathname: '/buyer/RantanganDetail', params: { sellerid: item.sellerId } });
+              }
+            }}
+          >
+            {item.imageUrl ? (
+              <Image source={{ uri: item.imageUrl }} style={styles.bannerImage} />
             ) : (
-              <Image source={banner1} style={styles.bannerImage} /> // hardcode version fallback
+              <Image source={banner1} style={styles.bannerImage} />
             )}
-          </View>
+          </TouchableOpacity>
+        )}
+      />
         </SafeAreaView>
 
         <View style={styles.searchContainer}>
