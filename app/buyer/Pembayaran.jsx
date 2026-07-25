@@ -142,8 +142,38 @@ const Pembayaran = () => {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
+  const [promoDiscount, setPromoDiscount] = useState(null);
 
-  useEffect(() => {
+useEffect(() => {
+  if (!store?.id) return;
+  const fetchPromo = async () => {
+    try {
+      const res = await fetch(`${config.API_URL.replace('/api/v1', '')}/api/v1/promos?active=true`);
+      const data = await res.json();
+      if (data.success) {
+        const now = new Date();
+        const isRantangan = orderType.includes('Rantangan');
+        const match = data.data.find(p =>
+          p.type === 'discount' &&
+          (!p.sellerId || p.sellerId === store.id) &&
+          (!p.promoFor || p.promoFor === 'both' || p.promoFor === (isRantangan ? 'rantangan' : 'catering')) &&
+          (!p.endDate || new Date(p.endDate) >= now)
+        );
+        setPromoDiscount(match || null);
+      }
+    } catch (e) {}
+  };
+  fetchPromo();
+}, [store, orderType]);
+
+const estimatedDiscount = promoDiscount
+  ? (promoDiscount.discountType === 'percentage'
+    ? Math.round(total * (Number(promoDiscount.discountAmount) / 100))
+    : Math.min(Number(promoDiscount.discountAmount), total))
+    : 0;
+    const estimatedFinalTotal = total - estimatedDiscount;
+
+useEffect(() => {
     const fetchCart = async () => {
       try {
         const cartData = await AsyncStorage.getItem('cart');
@@ -501,9 +531,15 @@ if (overrideRaw && isCateringOrder) {
             </View>
           )}
 
+          {promoDiscount && (
+            <View style={styles.totalRow}>
+              <Text style={{ color: '#2E7D32', fontWeight: '600', fontSize: 13 }}>Diskon ({promoDiscount.title})</Text>
+              <Text style={{ color: '#2E7D32', fontWeight: '600', fontSize: 13 }}>- Rp {estimatedDiscount.toLocaleString('id-ID')}</Text>
+            </View>
+          )}
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>Rp {total?.toLocaleString('id-ID')}</Text>
+            <Text style={styles.totalValue}>Rp {estimatedFinalTotal.toLocaleString('id-ID')}</Text>
           </View>
 
           <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.6 }]} onPress={handlePesan} disabled={submitting}>

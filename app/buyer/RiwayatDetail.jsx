@@ -175,8 +175,20 @@ const getStatusMeta = (statusProgress) => {
         {/* Payment Summary */}
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Subtotal</Text>
-          <Text style={styles.summaryValue}>Rp {order.totalAmount?.toLocaleString()}</Text>
+          <Text style={styles.summaryValue}>Rp {(order.subtotal ?? order.totalAmount)?.toLocaleString()}</Text>
         </View>
+
+        {order.discountAmount > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={[styles.summaryLabel, { color: '#2E7D32' }]}>
+              Diskon{order.promoApplied?.title ? ` (${order.promoApplied.title})` : ''}
+            </Text>
+            <Text style={[styles.summaryValue, { color: '#2E7D32' }]}>
+              - Rp {order.discountAmount.toLocaleString()}
+            </Text>
+          </View>
+        )}
+
         <View style={styles.summaryRow}>
           <Text style={styles.summaryLabel}>Ongkir</Text>
           <Text style={styles.summaryValue}>Rp {order.deliveryFee ? order.deliveryFee.toLocaleString() : '0'}</Text>

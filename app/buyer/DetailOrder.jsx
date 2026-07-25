@@ -238,6 +238,24 @@ const DetailOrder = () => {
             ))}
 
             <View style={styles.divider} />
+            {orderData.discountAmount > 0 && (
+              <>
+                <View style={styles.totalRow}>
+                  <Text style={styles.totalLabel}>Subtotal</Text>
+                  <Text style={styles.totalAmount}>
+                    Rp {(orderData.subtotal ?? orderData.totalAmount)?.toLocaleString()}
+                  </Text>
+                </View>
+                <View style={styles.totalRow}>
+                  <Text style={[styles.totalLabel, { color: '#2E7D32' }]}>
+                    Diskon{orderData.promoApplied?.title ? ` (${orderData.promoApplied.title})` : ''}
+                  </Text>
+                  <Text style={{ color: '#2E7D32', fontWeight: '700' }}>
+                    - Rp {orderData.discountAmount.toLocaleString()}
+                  </Text>
+                </View>
+              </>
+            )}
 
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Pembayaran</Text>
