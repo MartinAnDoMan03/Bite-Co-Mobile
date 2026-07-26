@@ -720,8 +720,26 @@ const StatusOrder = () => {
       const orderData = await orderResponse.json();
       const orderDetails = orderData.order;
 
+      // Helper: pastikan semua field koordinat berupa number, bukan string.
+// Firestore kadang nyimpen sellerLat/sellerLng sebagai string tergantung
+// jalur mana yang bikin order-nya — react-native-maps di Android bisa
+// crash total (bukan cuma error JS biasa) kalau coordinate yang dioper
+// ke <Marker> bukan number murni.
+const normalizeOrderCoordinates = (order) => {
+  if (!order) return order;
+  return {
+    ...order,
+    sellerLat: order.sellerLat != null ? parseFloat(order.sellerLat) : null,
+    sellerLng: order.sellerLng != null ? parseFloat(order.sellerLng) : null,
+    buyerLat: order.buyerLat != null ? parseFloat(order.buyerLat) : null,
+    buyerLng: order.buyerLng != null ? parseFloat(order.buyerLng) : null,
+    currentLat: order.currentLat != null ? parseFloat(order.currentLat) : null,
+    currentLng: order.currentLng != null ? parseFloat(order.currentLng) : null,
+  };
+};
+
       if (orderDetails.buyerLat && orderDetails.buyerLng && orderDetails.sellerLat && orderDetails.sellerLng) {
-        setSelectedOrder(orderDetails);
+        setSelectedOrder(normalizeOrderCoordinates(orderDetails)); 
 
         const directionsResponse = await fetch(
           `https://maps.googleapis.com/maps/api/directions/json?origin=${orderDetails.sellerLat},${orderDetails.sellerLng}&destination=${orderDetails.buyerLat},${orderDetails.buyerLng}&key=${config.GOOGLE_MAPS_API_KEY}`
@@ -750,7 +768,7 @@ const StatusOrder = () => {
             );
             if (pollRes.ok) {
               const pollData = await pollRes.json();
-              setSelectedOrder(pollData.order);
+              setSelectedOrder(normalizeOrderCoordinates(pollData.order));
             }
           } catch (e) {
             // Gagal 1 kali polling bukan hal fatal — coba lagi di interval berikutnya
