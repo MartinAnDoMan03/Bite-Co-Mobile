@@ -163,6 +163,11 @@ const JadwalPengantaran = () => {
         orderType: item.orderType || "",
         packageType: item.packageType || "",
         dailyDeliveryLogs: JSON.stringify(item.dailyDeliveryLogs || []),
+        // Koordinat buat halaman peta setelah "Antar Sekarang" diklik
+      sellerLat: item.sellerLat != null ? String(item.sellerLat) : "",
+      sellerLng: item.sellerLng != null ? String(item.sellerLng) : "",
+      buyerLat: item.buyerLat != null ? String(item.buyerLat) : "",
+      buyerLng: item.buyerLng != null ? String(item.buyerLng) : "",
       },
     });
   };

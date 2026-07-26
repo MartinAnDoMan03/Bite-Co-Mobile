@@ -9,6 +9,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import config from '../constants/config';
 import * as Location from 'expo-location';
+import TrackingMap from '../../components/TrackingMap';
 
 // Status -> warna pill (bg tint + teks) - sama seperti di JadwalPengantaran
 const STATUS_STYLES = {
@@ -34,6 +35,15 @@ const isTodayDeliveryCompleted = (dailyDeliveryLogs = []) => {
   return dailyDeliveryLogs.some((log) => log.deliveryDate === today);
 };
 
+// Pastikan koordinat berupa number murni — react-native-maps bisa crash
+// (native crash, bukan error JS biasa) kalau coordinate yang dioper ke
+// <Marker> ternyata string, bukan number.
+const toNum = (v) => {
+  if (v === undefined || v === null || v === '') return null;
+  const n = parseFloat(v);
+  return isNaN(n) ? null : n;
+};
+
 const InfoRow = ({ icon, label, value, isLast, fallback }) => (
   <View style={[styles.infoRow, isLast && { borderBottomWidth: 0 }]}>
     <View style={styles.infoRowLeft}>
@@ -50,10 +60,22 @@ const DetailPengantaran = () => {
   const {
     orderId, name, address, startDate, endDate, statusKey: initialStatusKey,
     orderType, packageType, dailyDeliveryLogs: dailyDeliveryLogsParam,
+    sellerLat: sellerLatParam, sellerLng: sellerLngParam,
+    buyerLat: buyerLatParam, buyerLng: buyerLngParam,
   } = useLocalSearchParams();
 
   const [statusKey, setStatusKey] = useState(initialStatusKey);
   const [submitting, setSubmitting] = useState(false);
+
+  // Posisi live seller sendiri (dari GPS device ini) — dipakai buat marker
+  // biru di peta, sekaligus yang dikirim berkala ke server lewat effect
+  // di bawah supaya buyer juga bisa lihat titik yang sama.
+  const [currentPosition, setCurrentPosition] = useState(null);
+
+  const sellerLat = toNum(sellerLatParam);
+  const sellerLng = toNum(sellerLngParam);
+  const buyerLat = toNum(buyerLatParam);
+  const buyerLng = toNum(buyerLngParam);
 
   // ---------------------------------------------------------------------
   // Live location tracking — kirim posisi seller berkala selama order ini
@@ -81,11 +103,13 @@ const DetailPengantaran = () => {
         },
         async (position) => {
           if (!isActive) return;
+          const { latitude, longitude } = position.coords;
+          setCurrentPosition({ lat: latitude, lng: longitude });
           try {
             const token = await AsyncStorage.getItem('sellerToken');
             await axios.patch(
               `${config.API_URL}/seller/orders/${orderId}/location`,
-              { lat: position.coords.latitude, lng: position.coords.longitude },
+              { lat: latitude, lng: longitude },
               { headers: { Authorization: `Bearer ${token}` } }
             );
           } catch (e) {
@@ -127,8 +151,6 @@ const DetailPengantaran = () => {
     ? `${formatDate(startDate)} – ${formatDate(endDate)}`
     : formatDate(startDate);
 
-  // Update status order lewat endpoint yang sama dengan SellerOrder.jsx —
-  // konsisten, bukan bikin logic terpisah.
   const updateOrderStatus = async (newStatus) => {
     const token = await AsyncStorage.getItem("sellerToken");
     await axios.patch(
@@ -138,9 +160,6 @@ const DetailPengantaran = () => {
     );
   };
 
-  // Untuk Rantangan Mingguan/Bulanan, "selesai" itu menyelesaikan satu hari
-  // (dailyDeliveryLogs), bukan mengubah statusProgress ke "completed" —
-  // order tetap "delivery" sampai seluruh siklus (endDate) selesai.
   const completeDailyDelivery = async () => {
     const token = await AsyncStorage.getItem("sellerToken");
     await axios.post(
@@ -154,7 +173,6 @@ const DetailPengantaran = () => {
   };
 
   const handleStartDelivery = async () => {
-    // Guard: order Rantangan belum boleh diantar sebelum startDate tiba
     if (isRantangan && !orderCanStart) {
       Alert.alert('Belum Masa Pengantaran', 'Tanggal mulai pengantaran untuk pesanan ini belum tiba.');
       return;
@@ -162,8 +180,9 @@ const DetailPengantaran = () => {
     setSubmitting(true);
     try {
       await updateOrderStatus('delivery');
+      // TIDAK router.back() lagi — tetap di halaman ini, tampilan berubah
+      // otomatis ke mode peta karena statusKey sekarang 'delivery'.
       setStatusKey('delivery');
-      router.back();
     } catch (e) {
       Alert.alert('Gagal', 'Terjadi kendala saat memperbarui status pesanan.');
     } finally {
@@ -187,49 +206,78 @@ const DetailPengantaran = () => {
     }
   };
 
-  // Tombol dinamis sesuai status — sinkron dengan renderProgressAction di SellerOrder.jsx
-  const renderActionButton = () => {
-    if (statusKey === 'processing') {
-      const disabled = submitting || (isRantangan && !orderCanStart);
-      const label = isRantangan && !orderCanStart
-        ? 'Belum Masa Pengantaran'
-        : 'Antar Sekarang';
-      return (
-        <TouchableOpacity
-          style={[styles.actionButton, disabled && styles.actionButtonDisabled]}
-          onPress={handleStartDelivery}
-          disabled={disabled}
-        >
-          {submitting ? <ActivityIndicator size="small" color="#fff" /> : (
-            <>
-              <MaterialIcons name="local-shipping" size={18} color="#fff" />
-              <Text style={styles.actionButtonText}>{label}</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      );
-    }
-    if (statusKey === 'delivery') {
-      const disabled = submitting || todayDone;
-      const label = todayDone ? 'Sudah Diantar Hari Ini' : 'Pesanan Selesai';
-      return (
-        <TouchableOpacity
-          style={[styles.actionButton, disabled && styles.actionButtonDisabled]}
-          onPress={handleCompleteDelivery}
-          disabled={disabled}
-        >
-          {submitting ? <ActivityIndicator size="small" color="#fff" /> : (
-            <>
-              <MaterialIcons name="check-circle" size={18} color="#fff" />
-              <Text style={styles.actionButtonText}>{label}</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      );
-    }
-    return null;
-  };
+  // ---------------------------------------------------------------------
+  // Mode peta — begitu status 'delivery', seluruh body halaman berubah
+  // jadi peta di atas + info pembeli & tombol selesai di bawah.
+  // ---------------------------------------------------------------------
+  if (statusKey === 'delivery') {
+    const mapOrderData = {
+      sellerLat,
+      sellerLng,
+      buyerLat,
+      buyerLng,
+      currentLat: currentPosition?.lat ?? null,
+      currentLng: currentPosition?.lng ?? null,
+      sellerName: 'Toko Saya',
+      deliveryAddress: address,
+    };
 
+    const disabled = submitting || todayDone;
+    const completeLabel = todayDone ? 'Sudah Diantar Hari Ini' : 'Pesanan Selesai';
+
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('jadwalPengantaran.accessibility.back')}>
+            <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>Lacak Pengiriman</Text>
+          <View style={{ width: 26 }} />
+        </View>
+
+        <View style={{ flex: 1 }}>
+          {sellerLat && sellerLng && buyerLat && buyerLng ? (
+            <TrackingMap selectedOrder={mapOrderData} routeCoordinates={[]} primaryColor={COLORS.PRIMARY} />
+          ) : (
+            <View style={styles.mapUnavailable}>
+              <MaterialIcons name="location-off" size={40} color="#ccc" />
+              <Text style={styles.mapUnavailableText}>Koordinat pesanan tidak tersedia</Text>
+            </View>
+          )}
+
+          <View style={styles.bottomPanel}>
+            <View style={styles.avatarRow}>
+              <View style={styles.avatar}>
+                <MaterialIcons name="person" size={22} color="#fff" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.customerName} numberOfLines={1}>{name || t('jadwalPengantaran.fallbackValue')}</Text>
+                <Text style={styles.bottomAddress} numberOfLines={2}>{address || t('jadwalPengantaran.fallbackValue')}</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={[styles.actionButton, disabled && styles.actionButtonDisabled]}
+              onPress={handleCompleteDelivery}
+              disabled={disabled}
+            >
+              {submitting ? <ActivityIndicator size="small" color="#fff" /> : (
+                <>
+                  <MaterialIcons name="check-circle" size={18} color="#fff" />
+                  <Text style={styles.actionButtonText}>{completeLabel}</Text>
+                </>
+              )}
+            </TouchableOpacity>
+          </View>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  // ---------------------------------------------------------------------
+  // Mode biasa (status 'processing' atau lainnya) — tampilan lama, cuma
+  // card info + tombol "Antar Sekarang"
+  // ---------------------------------------------------------------------
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -260,7 +308,22 @@ const DetailPengantaran = () => {
           <InfoRow icon="event" label={t('jadwalPengantaran.detail.deliveryDate')} value={dateDisplay} isLast fallback={t('jadwalPengantaran.fallbackValue')} />
         </View>
 
-        {renderActionButton()}
+        {statusKey === 'processing' && (
+          <TouchableOpacity
+            style={[styles.actionButton, (submitting || (isRantangan && !orderCanStart)) && styles.actionButtonDisabled]}
+            onPress={handleStartDelivery}
+            disabled={submitting || (isRantangan && !orderCanStart)}
+          >
+            {submitting ? <ActivityIndicator size="small" color="#fff" /> : (
+              <>
+                <MaterialIcons name="local-shipping" size={18} color="#fff" />
+                <Text style={styles.actionButtonText}>
+                  {isRantangan && !orderCanStart ? 'Belum Masa Pengantaran' : 'Antar Sekarang'}
+                </Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -307,4 +370,20 @@ const styles = StyleSheet.create({
   },
   actionButtonDisabled: { opacity: 0.5 },
   actionButtonText: { color: "#fff", fontSize: 14.5, fontWeight: "700" },
+
+  // ---------------- Mode peta ----------------
+  mapUnavailable: { flex: 1, justifyContent: "center", alignItems: "center", gap: 10 },
+  mapUnavailableText: { fontSize: 13, color: "#999" },
+  bottomPanel: {
+    backgroundColor: "#fff",
+    padding: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 6,
+    elevation: 6,
+  },
+  bottomAddress: { fontSize: 12.5, color: "#777", marginTop: 2 },
 });
