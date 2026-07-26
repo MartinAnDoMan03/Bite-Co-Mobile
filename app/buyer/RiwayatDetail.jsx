@@ -189,16 +189,11 @@ const getStatusMeta = (statusProgress) => {
           </View>
         )}
 
-        <View style={styles.summaryRow}>
-          <Text style={styles.summaryLabel}>Ongkir</Text>
-          <Text style={styles.summaryValue}>Rp {order.deliveryFee ? order.deliveryFee.toLocaleString() : '0'}</Text>
-        </View>
-
         <View style={styles.divider} />
 
         <View style={styles.summaryRow}>
           <Text style={styles.totalLabel}>Total Bayar</Text>
-          <Text style={styles.totalValue}>Rp {(order.totalAmount + (order.deliveryFee || 0)).toLocaleString()}</Text>
+          <Text style={styles.totalValue}>Rp {order.totalAmount?.toLocaleString()}</Text>
         </View>
       </ScrollView>
     </SafeAreaView>
