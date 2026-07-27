@@ -3,10 +3,12 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 
 let notificationAvailable = false;
+let NotificationsModule = null;
 
-if (Device.isDevice && Platform.OS !== 'android') {
+if (Platform.OS !== 'web' && Device.isDevice && Platform.OS !== 'android') {
   notificationAvailable = true;
-  import ('expo-notifications').then(Notifications => {
+  import('expo-notifications').then(Notifications => {
+    NotificationsModule = Notifications;
     Notifications.setNotificationHandler({
       handleNotification: async () => ({
         shouldShowAlert: true,
@@ -19,17 +21,17 @@ if (Device.isDevice && Platform.OS !== 'android') {
 
 // Function to get expo push token
 export const getExpoPushToken = async () => {
-  if(!notificationAvailable) return null;
+  if (!notificationAvailable || !NotificationsModule) return null;
   if (!Device.isDevice) {
-    console.log ('Must use physical device for push notifications');
+    console.log('Must use physical device for push notifications');
     return null;
   }
 
-  const { status: existingStatus } = await Notifications.getPermissionsAsync();
+  const { status: existingStatus } = await NotificationsModule.getPermissionsAsync();
   let finalStatus = existingStatus;
 
   if (existingStatus !== 'granted') {
-    const { status } = await Notifications.requestPermissionsAsync();
+    const { status } = await NotificationsModule.requestPermissionsAsync();
     finalStatus = status;
   }
 
@@ -38,7 +40,7 @@ export const getExpoPushToken = async () => {
     return null;
   }
 
-  const token = (await Notifications.getExpoPushTokenAsync()).data;
+  const token = (await NotificationsModule.getExpoPushTokenAsync()).data;
   await AsyncStorage.setItem('expoPushToken', token);
   return token;
 }
@@ -79,8 +81,8 @@ const registerPushToken = async (userType, userId, token = null) => {
 
 // function for setting up listeners
 const setupListeners = (onNotificationReceived) => {
-  if (!notificationAvailable) return null;
-  const subscription = Notifications.addNotificationReceivedListener((response) => {
+  if (!notificationAvailable || !NotificationsModule) return null;
+  const subscription = NotificationsModule.addNotificationReceivedListener((response) => {
     onNotificationReceived?.(response.notification);
   });
   return subscription;
