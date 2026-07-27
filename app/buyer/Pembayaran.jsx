@@ -620,6 +620,17 @@ if (overrideRaw && isCateringOrder) {
         />
       )}
 
+      {showDatePicker && Platform.OS === 'web' && (
+        <input
+          type="date"
+          min={new Date().toISOString().split('T')[0]}
+          max={maxDate.toISOString().split('T')[0]}
+          onChange={(e) => { if (e.target.value) confirmDateSelection(new Date(e.target.value)); setShowDatePicker(false); }}
+          style={{ position: 'absolute', top: 200, left: '50%', transform: 'translateX(-50%)', zIndex: 999, padding: 12, fontSize: 16, borderRadius: 8 }}
+          autoFocus
+        />
+      )}
+
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal visible={showDatePicker} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
           <View style={styles.centerModalOverlay}>

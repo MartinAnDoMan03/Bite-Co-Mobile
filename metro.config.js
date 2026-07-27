@@ -6,7 +6,10 @@ const defaultResolveRequest = config.resolver.resolveRequest;
 
 config.resolver.resolveRequest = (context, moduleName, platform) => {
   if (platform === 'web' && moduleName === 'react-native-maps') {
-    return { type: 'empty' };
+    return {
+      type: 'sourceFile',
+      filePath: require.resolve('./web-mocks/maps.js'),
+    };
   }
   return defaultResolveRequest
     ? defaultResolveRequest(context, moduleName, platform)

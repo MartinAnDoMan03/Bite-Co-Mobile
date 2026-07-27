@@ -12,7 +12,7 @@ import storeIcon from "../../../assets/images/store.png";
 import { useRouter } from "expo-router";
 import config from "../../constants/config";
 import { useFocusEffect } from '@react-navigation/native';
-import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
+import { MaterialIcons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
