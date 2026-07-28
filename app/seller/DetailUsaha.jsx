@@ -486,60 +486,71 @@ const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfie
   const [cameraPermissionGranted, setCameraPermissionGranted] = useState(false);
 
 const openCameraFor = async (isKtp) => {
-  let result = await ImagePicker.launchCameraAsync({
-    mediaTypes: ['images'],
-    allowsEditing: true,
-    aspect: [4, 3],
-    quality: 0.5,
-  });
+  try {
+    let result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 0.5,
+    });
 
-  if (!result.canceled) {
-    if (isKtp) {
-      // Validate KTP before accepting
-      setLoading(true); // you'll need to pass setLoading down to Identitas
-      const isValidKTP = await validateKTP(result.assets[0].uri);
-      setLoading(false);
-      
-      if (isValidKTP === false) {
-        Alert.alert(
-          t('detailUsaha.identitas.alerts.invalidPhoto.title'),
-          t('detailUsaha.identitas.alerts.invalidPhoto.message'),
-          [{ text: t('detailUsaha.identitas.alerts.invalidPhoto.retryButton'), style: 'default' }]
-        );
-        return;
-      }
-      // isValidKTP === null artinya API gagal
-      setKtpImage(result.assets[0]);
-    } else {
-     setLoading(true);
-      const validation = await validateSelfieWithKTP(result.assets[0].uri);
-      setLoading(false);
+    if (!result.canceled) {
+      if (isKtp) {
+        // Validate KTP before accepting
+        setLoading(true); // you'll need to pass setLoading down to Identitas
+        const isValidKTP = await validateKTP(result.assets[0].uri);
+        setLoading(false);
 
-      if (validation === null) {
+        if (isValidKTP === false) {
+          Alert.alert(
+            t('detailUsaha.identitas.alerts.invalidPhoto.title'),
+            t('detailUsaha.identitas.alerts.invalidPhoto.message'),
+            [{ text: t('detailUsaha.identitas.alerts.invalidPhoto.retryButton'), style: 'default' }]
+          );
+          return;
+        }
+        // isValidKTP === null artinya API gagal
+        setKtpImage(result.assets[0]);
+      } else {
+        setLoading(true);
+        const validation = await validateSelfieWithKTP(result.assets[0].uri);
+        setLoading(false);
+
+        if (validation === null) {
+          setSelfieImage(result.assets[0]);
+          return;
+        }
+
+        if (!validation.hasFace) {
+          Alert.alert(
+            'Wajah Tidak Terdeteksi',
+            'Pastikan wajah terlihat jelas dalam foto. Pastikan:\n\n• Wajah menghadap kamera\n• Pencahayaan cukup\n• Tidak ada objek lain yang menutupi wajah\n\nSilahkan coba kembali',
+            [{ text: 'Coba Lagi', style: 'default' }]
+          );
+          return;
+        }
+
+        if (!validation.hasKTPText) {
+          Alert.alert(
+            'KTP Tidak Terdeteksi',
+            'Pastikan KTP terlihat jelas dalam foto. Pastikan:\n\n• KTP menghadap kamera\n• Pencahayaan cukup\n• Tidak ada objek lain yang menutupi KTP\n\nSilahkan coba kembali',
+            [{ text: 'Coba Lagi', style: 'default' }]
+          );
+          return;
+        }
+
         setSelfieImage(result.assets[0]);
-        return;
       }
-
-      if (!validation.hasFace) {
-        Alert.alert(
-          'Wajah Tidak Terdeteksi',
-          'Pastikan wajah terlihat jelas dalam foto. Pastikan:\n\n• Wajah menghadap kamera\n• Pencahayaan cukup\n• Tidak ada objek lain yang menutupi wajah\n\nSilahkan coba kembali',
-          [{ text: 'Coba Lagi', style: 'default' }]
-        );
-        return;
-      }
-
-      if (!validation.hasKTPText) {
-        Alert.alert(
-          'KTP Tidak Terdeteksi',
-          'Pastikan KTP terlihat jelas dalam foto. Pastikan:\n\n• KTP menghadap kamera\n• Pencahayaan cukup\n• Tidak ada objek lain yang menutupi KTP\n\nSilahkan coba kembali',
-          [{ text: 'Coba Lagi', style: 'default' }]
-        );
-        return;
-      }
-
-      setSelfieImage(result.assets[0]);
     }
+  } catch (error) {
+    console.error('Error opening camera:', error);
+    setLoading(false);
+    Alert.alert(
+      'Tidak Bisa Membuka Kamera',
+      Platform.OS === 'web'
+        ? 'Browser gagal membuka kamera. Pastikan kamu memberi izin akses kamera di browser, lalu coba lagi. Jika masih gagal, coba gunakan browser lain (Chrome/Safari terbaru).'
+        : 'Terjadi kesalahan saat membuka kamera. Silahkan coba lagi.'
+    );
   }
 };
 
@@ -596,31 +607,62 @@ const validateSelfieWithKTP = async (imageUri) => {
 };
 
   const requestPickImage = async (isKtp) => {
-    const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
-    if (currentStatus === "granted" || cameraPermissionGranted) {
-      openCameraFor(isKtp);
-      return;
+    try {
+      const { status: currentStatus } = await ImagePicker.getCameraPermissionsAsync();
+      if (currentStatus === "granted" || cameraPermissionGranted) {
+        openCameraFor(isKtp);
+        return;
+      }
+      setPendingIsKtp(isKtp);
+      setShowPermissionModal(true);
+    } catch (error) {
+      console.error('Error checking camera permission:', error);
+      // Fall back to showing the permission modal so the user isn't stuck with no feedback
+      setPendingIsKtp(isKtp);
+      setShowPermissionModal(true);
     }
-    setPendingIsKtp(isKtp);
-    setShowPermissionModal(true);
   };
 
   const confirmAndPickImage = () => {
     setShowPermissionModal(false);
 
-    setTimeout(async () => {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== "granted") {
-        Alert.alert(
-          t('detailUsaha.identitas.alerts.permissionDenied.title'),
-          t('detailUsaha.identitas.alerts.permissionDenied.message')
-        );
-        return;
-      }
+    const runPermissionFlow = async () => {
+      try {
+        const { status } = await ImagePicker.requestCameraPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            t('detailUsaha.identitas.alerts.permissionDenied.title'),
+            t('detailUsaha.identitas.alerts.permissionDenied.message')
+          );
+          return;
+        }
 
-      setCameraPermissionGranted(true);
-      openCameraFor(pendingIsKtp);
-    }, Platform.OS === "android" ? 500 : 0);
+        setCameraPermissionGranted(true);
+        openCameraFor(pendingIsKtp);
+      } catch (error) {
+        console.error('Error requesting camera permission:', error);
+        Alert.alert(
+          'Tidak Bisa Mengakses Kamera',
+          Platform.OS === 'web'
+            ? 'Browser menolak permintaan izin kamera. Ini biasa terjadi kalau browsernya tidak mendukung, atau izin kamera sudah pernah diblokir sebelumnya — coba cek pengaturan situs di browser (ikon gembok di address bar) lalu izinkan kamera.'
+            : 'Terjadi kesalahan saat meminta izin kamera. Silahkan coba lagi.'
+        );
+      }
+    };
+
+    // IMPORTANT (web): getUserMedia-based permission prompts must be requested
+    // synchronously within the same user-gesture call stack as the tap that
+    // triggered them, or the browser silently refuses to show the prompt at
+    // all (no error, no callback — it just does nothing). setTimeout, even at
+    // 0ms, breaks that chain on web. Native platforms don't have this
+    // restriction, so we keep the small Android delay there (it exists to let
+    // the modal fully dismiss before the permission dialog appears) and skip
+    // it entirely on web.
+    if (Platform.OS === "web") {
+      runPermissionFlow();
+    } else {
+      setTimeout(runPermissionFlow, Platform.OS === "android" ? 500 : 0);
+    }
   };
 
   const handleContinue = () => {
