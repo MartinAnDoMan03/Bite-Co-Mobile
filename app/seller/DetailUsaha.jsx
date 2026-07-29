@@ -22,6 +22,7 @@ import config from '../constants/config';
 import { Ionicons } from "@expo/vector-icons";
 import * as FileSystem from 'expo-file-system/legacy';
 import { useLanguage } from '../contexts/LanguageContext';
+import * as ImageManipulator from 'expo-image-manipulator';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const BURGUNDY = "#711330";
@@ -138,7 +139,7 @@ const appendImageToFormData = async (formData, fieldName, image, fileName) => {
       const response = await axios.post(
         `${config.API_URL}/seller/register`,
         data,
-        { headers: { "Content-Type": "multipart/form-data" }, timeout: config.TIMEOUT }
+        { timeout: config.TIMEOUT }
       );
 
       if (response.data.success) {
@@ -505,10 +506,22 @@ const openCameraFor = async (isKtp) => {
     });
 
     if (!result.canceled) {
+      let compressedAsset = result.assets[0];
+      try {
+        const manipResult = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 1000 } }],
+          { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        compressedAsset = { ...result.assets[0], uri: manipResult.uri };
+      } catch (err) {
+        console.error('Image compression failed, using original:', err);
+      }
+
       if (isKtp) {
         // Validate KTP before accepting
         setLoading(true); // you'll need to pass setLoading down to Identitas
-        const isValidKTP = await validateKTP(result.assets[0].uri);
+        const isValidKTP = await validateKTP(compressedAsset.uri);
         setLoading(false);
 
         if (isValidKTP === false) {
@@ -520,14 +533,14 @@ const openCameraFor = async (isKtp) => {
           return;
         }
         // isValidKTP === null artinya API gagal
-        setKtpImage(result.assets[0]);
+        setKtpImage(compressedAsset);
       } else {
         setLoading(true);
-        const validation = await validateSelfieWithKTP(result.assets[0].uri);
+        const validation = await validateSelfieWithKTP(compressedAsset.uri);
         setLoading(false);
 
         if (validation === null) {
-          setSelfieImage(result.assets[0]);
+          setSelfieImage(compressedAsset);
           return;
         }
 
@@ -549,7 +562,7 @@ const openCameraFor = async (isKtp) => {
           return;
         }
 
-        setSelfieImage(result.assets[0]);
+        setSelfieImage(compressedAsset);
       }
     }
   } catch (error) {
