@@ -100,6 +100,16 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
 
   const termsList = t('detailUsaha.syarat.termsList');
 
+const appendImageToFormData = async (formData, fieldName, image, fileName) => {
+  if (Platform.OS === 'web') {
+    const response = await fetch(image.uri);
+    const blob = await response.blob();
+    formData.append(fieldName, blob, fileName);
+  } else {
+    formData.append(fieldName, { uri: image.uri, type: 'image/jpeg', name: fileName });
+  }
+};
+
   const handleFinish = async () => {
     if (!agreedTerms) {
       Alert.alert(
@@ -113,8 +123,8 @@ const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, s
 
     try {
       const data = new FormData();
-      data.append("ktp", { uri: ktpImage.uri, type: "image/jpeg", name: "ktp.jpg" });
-      data.append("selfie", { uri: selfieImage.uri, type: "image/jpeg", name: "selfie.jpg" });
+      await appendImageToFormData(data, "ktp", ktpImage, "ktp.jpg");
+      await appendImageToFormData(data, "selfie", selfieImage, "selfie.jpg");
       data.append("outletName", formData.outletName);
       data.append("outletPhone", formData.outletPhone);
       data.append("outletEmail", formData.outletEmail);
