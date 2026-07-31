@@ -239,19 +239,22 @@ const profile = () => {
       formData.append("isManuallyClosed", isManuallyClosed);
 
       if (storeIcon && typeof storeIcon !== "string") {
-        formData.append("storeIcon", {
-          uri: storeIcon.uri,
-          name: "storeIcon.jpg", // Or use a more descriptive name
-          type: "image/jpeg", // Adjust the type based on the actual image type
-        });
+        if (Platform.OS === 'web') {
+          const imgResponse = await fetch(storeIcon.uri);
+          const blob = await imgResponse.blob();
+          formData.append("storeIcon", blob, "storeIcon.jpg");
+        } else {
+          formData.append("storeIcon", { uri: storeIcon.uri, name: "storeIcon.jpg", type: "image/jpeg" });
+        }
       }
-
       if (storeBanner && typeof storeBanner !== "string") {
-        formData.append("storeBanner", {
-          uri: storeBanner.uri,
-          name: "storeBanner.jpg", // Or use a more descriptive name
-          type: "image/jpeg", // Adjust the type based on the actual image type
-        });
+        if (Platform.OS === 'web') {
+          const imgResponse = await fetch(storeBanner.uri);
+          const blob = await imgResponse.blob();
+          formData.append("storeBanner", blob, "storeBanner.jpg");
+        } else {
+          formData.append("storeBanner", { uri: storeBanner.uri, name: "storeBanner.jpg", type: "image/jpeg" });
+        }
       }
 
       const response = await axios.put(
@@ -260,7 +263,6 @@ const profile = () => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data", // Important for sending files
           },
         }
       );

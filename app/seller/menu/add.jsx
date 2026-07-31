@@ -181,18 +181,19 @@ const AddMenuPage = () => {
       formData.append('category_id', selectedCategory.id);
 
       if (image) {
-        formData.append('image', {
-          uri: image,
-          type: 'image/jpeg',
-          name: 'menu-image.jpg',
-        });
+        if (Platform.OS === 'web') {
+          const imgResponse = await fetch(image);
+          const blob = await imgResponse.blob();
+          formData.append('image', blob, 'menu-image.jpg');
+        } else {
+          formData.append('image', { uri: image, type: 'image/jpeg', name: 'menu-image.jpg' });
+        }
       }
 
       const response = await fetch(`${config.API_URL}/seller/menu`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
         },
         body: formData,
       });

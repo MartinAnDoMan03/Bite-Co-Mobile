@@ -159,19 +159,20 @@ const AddBiteEcoItem = () => {
 
       // Add image file
       if (image) {
-        const imageUri = Platform.OS === 'ios' ? image.replace('file://', '') : image;
-        formData.append('image', {
-          uri: imageUri,
-          type: 'image/jpeg',
-          name: 'waste_item.jpg',
-        });
+        if (Platform.OS === 'web') {
+          const imgResponse = await fetch(image);
+          const blob = await imgResponse.blob();
+          formData.append('image', blob, 'waste_item.jpg');
+        } else {
+          const imageUri = Platform.OS === 'ios' ? image.replace('file://', '') : image;
+          formData.append('image', { uri: imageUri, type: 'image/jpeg', name: 'waste_item.jpg' });
+        }
       }
 
       const response = await fetch(`${config.API_URL}/seller/bite-eco`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
-          'Content-Type': 'multipart/form-data',
         },
         body: formData,
       });
