@@ -159,13 +159,14 @@ const ScreenTambahMenu = ({
       formData.append("category_id", selectedCategory.id);
 
       if (image) {
-        formData.append("image", {
-          uri: image,
-          type: "image/jpeg",
-          name: "menu.jpg",
-        });
+        if (Platform.OS === 'web') {
+          const imgResponse = await fetch(image);
+          const blob = await imgResponse.blob();
+          formData.append("image", blob, "menu.jpg");
+        } else {
+          formData.append("image", { uri: image, type: "image/jpeg", name: "menu.jpg" });
+        }
       }
-
       const response = await fetch(`${config.API_URL}/seller/menu`, {
         method: "POST",
         body: formData,

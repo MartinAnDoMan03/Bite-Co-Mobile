@@ -226,13 +226,17 @@ const EditBiteEcoItem = () => {
       formData.append('description', description.trim());
 
       // Add image file if it's a new image (local URI)
-      if (image && image.startsWith('file://')) {
-        const imageUri = Platform.OS === 'ios' ? image.replace('file://', '') : image;
-        formData.append('image', {
-          uri: imageUri,
-          type: 'image/jpeg',
-          name: 'waste_item.jpg',
-        });
+      const isNewLocalImage = image && !image.startsWith('http://') && !image.startsWith('https://');
+
+      if (isNewLocalImage) {
+        if (Platform.OS === 'web') {
+          const imgResponse = await fetch(image);
+          const blob = await imgResponse.blob();
+          formData.append('image', blob, 'waste_item.jpg');
+        } else {
+          const imageUri = Platform.OS === 'ios' ? image.replace('file://', '') : image;
+          formData.append('image', { uri: imageUri, type: 'image/jpeg', name: 'waste_item.jpg' });
+        }
       }
 
       const response = await fetch(`${config.API_URL}/seller/bite-eco`, {
