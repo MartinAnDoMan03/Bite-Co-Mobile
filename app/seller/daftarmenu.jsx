@@ -872,11 +872,13 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
       formData.append("menu_id", editingItem.id);
 
       if (editImage && editImage !== editingItem.image) {
-        formData.append("image", {
-          uri: editImage,
-          type: "image/jpeg",
-          name: "menu.jpg",
-        });
+        if (Platform.OS === 'web') {
+          const imgResponse = await fetch(editImage);
+          const blob = await imgResponse.blob();
+          formData.append("image", blob, "menu.jpg");
+        } else {
+          formData.append("image", { uri: editImage, type: "image/jpeg", name: "menu.jpg" });
+        }
       }
 
       const response = await fetch(`${config.API_URL}/seller/menu`, {
@@ -1086,6 +1088,16 @@ const Daftarmenu = () => {
   useEffect(() => {
     fetchCategories();
   }, []);
+
+  //Sinkronisasi setelah edit
+  useEffect(() => {
+    if (selectedCategory) {
+      const updatedCategory = KategoriList.find(cat => cat.id === selectedCategory.id);
+      if (updatedCategory) {
+        setSelectedCategory(updatedCategory);
+      }
+    }
+  }, [KategoriList]);
 
   if (isLoading && state === "kategori") {
     return (

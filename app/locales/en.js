@@ -1428,6 +1428,7 @@ buyerStatusOrder: {
   filters: { all: 'All', processing: 'Processing', delivery: 'Delivery', completed: 'Completed' },
   statusLabels: {
     waitingApproval: 'Awaiting Approval',
+    awaitingPayment: 'Awaiting Payment',
     processing: 'Processing',
     delivery: 'Delivery',
     recurring: 'Active Delivery Cycle',
