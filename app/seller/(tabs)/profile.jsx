@@ -10,6 +10,7 @@ import {
   Image,
   Platform,
   Switch,
+  Modal,
 } from "react-native";
 import React, { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -76,6 +77,79 @@ const formatTimeHHmm = (date) => {
   const h = date.getHours().toString().padStart(2, "0");
   const m = date.getMinutes().toString().padStart(2, "0");
   return `${h}:${m}`;
+};
+
+// ---------------------------------------------------------------------------
+// Web-only time picker.
+// @react-native-community/datetimepicker only wraps native platform views
+// (UIDatePicker on iOS, DatePickerDialog/TimePickerDialog on Android) — it has
+// no web backend at all. On a web export, rendering <DateTimePicker /> does
+// nothing visible: no error, no dialog, just silence, which is exactly why
+// tapping "Jam Buka"/"Jam Tutup" looked like a dead button. This component is
+// the web-only replacement, built on the browser's native <input type="time">
+// control (which gives a real OS-style time picker UI for free).
+// ---------------------------------------------------------------------------
+const WebTimePickerModal = ({ visible, initialValue, title, onCancel, onConfirm }) => {
+  const { t } = useLanguage();
+  const [value, setValue] = useState(initialValue);
+
+  useEffect(() => {
+    if (visible) setValue(initialValue);
+  }, [visible, initialValue]);
+
+  if (!visible) return null;
+
+  return (
+    <Modal transparent animationType="fade" visible={visible} onRequestClose={onCancel}>
+      <View style={styles.webTimeOverlay}>
+        {/* Kita gunakan style card dan shadow bawaan aplikasimu */}
+        <View style={[styles.card, styles.shadow, styles.webTimeCard]}>
+          <Text style={styles.webTimeTitle}>{title}</Text>
+          
+          <input
+            type="time"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            autoFocus
+            style={{
+              fontSize: 22,
+              padding: "12px 16px",
+              borderRadius: 12,
+              border: "1px solid #e5e5e5",
+              marginBottom: 24,
+              width: "100%",
+              boxSizing: "border-box",
+              textAlign: "center",
+              fontFamily: "inherit",
+              color: "#23272f",
+              fontWeight: "700",
+              outline: "none", 
+            }}
+          />
+          
+          <View style={styles.webTimeBtnRow}>
+            {/* Menggunakan tombol outline bawaan aplikasi */}
+            <TouchableOpacity 
+              style={[styles.pillButton, styles.outlineButton, { flex: 1, paddingVertical: 10 }]} 
+              onPress={onCancel} 
+              activeOpacity={0.85}
+            >
+              <Text style={styles.outlineButtonText}>{t("common.cancel") || "Batal"}</Text>
+            </TouchableOpacity>
+            
+            {/* Menggunakan tombol solid primary bawaan aplikasi */}
+            <TouchableOpacity
+              style={[styles.pillButton, styles.solidButton, { flex: 1, paddingVertical: 10 }]}
+              onPress={() => onConfirm(value)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.solidButtonText}>Simpan</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
 };
 
 const profile = () => {
@@ -458,7 +532,23 @@ const profile = () => {
           )}
         </View>
 
-        {showTimePicker && (
+        {/* Render WebTimePickerModal HANYA jika di Web */}
+        {Platform.OS === "web" && (
+          <WebTimePickerModal
+            visible={!!showTimePicker}
+            initialValue={showTimePicker === "open" ? openTime : closeTime}
+            title={showTimePicker === "open" ? "Pilih Jam Buka" : "Pilih Jam Tutup"}
+            onCancel={() => setShowTimePicker(null)}
+            onConfirm={(val) => {
+              if (showTimePicker === "open") setOpenTime(val);
+              else setCloseTime(val);
+              setShowTimePicker(null);
+            }}
+          />
+        )}
+
+        {/* Render DateTimePicker HANYA jika di HP (iOS/Android) */}
+        {Platform.OS !== "web" && showTimePicker && (
           <DateTimePicker
             value={timeStringToDate(showTimePicker === "open" ? openTime : closeTime)}
             mode="time"
@@ -833,6 +923,33 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: "center",
     marginBottom: 20,
+  },
+
+  //  Popup Web Picker 
+  webTimeOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0, 0, 0, 0.5)", // Latar belakang gelap transparan
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 20,
+  },
+  webTimeCard: {
+    width: "100%",
+    maxWidth: 320,
+    alignItems: "center",
+    padding: 24,
+    borderRadius: 20, // Sudut lebih bulat
+  },
+  webTimeTitle: {
+    fontSize: 17,
+    fontWeight: "700",
+    color: COLORS.PRIMARY, // Warna teks mengikuti primary color app
+    marginBottom: 16,
+  },
+  webTimeBtnRow: {
+    flexDirection: "row",
+    width: "100%",
+    gap: 12,
   },
 });
 

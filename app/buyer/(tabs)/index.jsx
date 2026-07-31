@@ -382,42 +382,44 @@ const checkOverdueOrders = useCallback(async () => {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <SafeAreaView edges={['top']} style={styles.header}>
-        <FlatList
-        ref={flatListRef}
-        data={promos.length > 0 ? promos : [{ id: 'default', imageUrl: null }]}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        onMomentumScrollEnd={(e) => {
-          const index = Math.round(e.nativeEvent.contentOffset.x / width);
-          setCurrentBannerIndex(index);
-        }}
-        keyExtractor={(item) => item.id}
-        renderItem={({ item }) => (
-          <TouchableOpacity
-            style={{ width, alignItems: 'center' }}
-            activeOpacity={item.sellerId ? 0.85 : 1}
-            onPress={() => {
-              if (!item.sellerId) return; //Jika bukan Promo Spesifik Seller
+          {promos.length > 0 ? (
+            <FlatList
+              ref={flatListRef}
+              data={promos} // <-- Langsung pakai data promos saja
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const index = Math.round(e.nativeEvent.contentOffset.x / width);
+                setCurrentBannerIndex(index);
+              }}
+              keyExtractor={(item) => item.id}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={{ width, alignItems: 'center', paddingVertical: 10 }}
+                  activeOpacity={item.sellerId ? 0.85 : 1}
+                  onPress={() => {
+                    if (!item.sellerId) return;
 
-              // Promo spesifik kategori catering atau keduanya
-              if (item.promoFor === 'catering' || item.promoFor === 'both') {
-                router.push({ pathname: '/buyer/CateringDetail', params: { sellerid: item.sellerId } });
-              } 
-              // Promo spesifik kategori rantangan
-              else if (item.promoFor === 'rantangan') {
-                router.push({ pathname: '/buyer/RantanganDetail', params: { sellerid: item.sellerId } });
-              }
-            }}
-          >
-            {item.imageUrl ? (
-              <Image source={{ uri: item.imageUrl }} style={styles.bannerImage} />
-            ) : (
-              <Image source={banner1} style={styles.bannerImage} />
-            )}
-          </TouchableOpacity>
-        )}
-      />
+                    if (item.promoFor === 'catering' || item.promoFor === 'both') {
+                      router.push({ pathname: '/buyer/CateringDetail', params: { sellerid: item.sellerId } });
+                    } else if (item.promoFor === 'rantangan') {
+                      router.push({ pathname: '/buyer/RantanganDetail', params: { sellerid: item.sellerId } });
+                    }
+                  }}
+                >
+                  {/* Karena data pasti ada isinya, langsung render gambarnya */}
+                  <Image source={{ uri: item.imageUrl }} style={styles.bannerImage} />
+                </TouchableOpacity>
+              )}
+            />
+          ) : (
+            /* --- TAMPILAN JIKA TIDAK ADA PROMO --- */
+            <View style={styles.emptyHeaderPlaceholder}>
+              <Text style={styles.headerGreetingTitle}>Bite & Co</Text>
+              <Text style={styles.headerGreetingSubtitle}>Cari katering sehat & lezat hari ini!</Text>
+            </View>
+          )}
         </SafeAreaView>
 
         <View style={styles.searchContainer}>
@@ -884,6 +886,22 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  emptyHeaderPlaceholder: {
+    paddingHorizontal: 24,
+    paddingTop: 16,
+    paddingBottom: 28,
+  },
+  headerGreetingTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#fff',
+    letterSpacing: 0.5,
+  },
+  headerGreetingSubtitle: {
+    fontSize: 14,
+    color: 'rgba(255, 255, 255, 0.85)', 
+    marginTop: 4,
   },
 });
 

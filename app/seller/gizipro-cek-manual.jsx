@@ -5,6 +5,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import COLORS from '../constants/color';
+import { Platform } from 'react-native';
 
 const GiziProCekManual = () => {
   const router = useRouter();
@@ -24,31 +25,39 @@ const GiziProCekManual = () => {
         Cari nilai gizi bahan di sini, lalu masukkan manual ke form Analisis Nutrisi
       </Text>
 
-      <WebView
-        source={{ uri: 'https://nilaigizi.com/publicshare/ctnpage' }}
-        style={styles.webview}
-        startInLoadingState={true}
-        renderLoading={() => (
-          <View style={styles.loadingContainer}>
-            <Text style={styles.loadingText}>Memuat...</Text>
-          </View>
-        )}
-        onError={(syntheticEvent) => {
-          const { nativeEvent } = syntheticEvent;
-          console.error('WebView error: ', nativeEvent);
-        }}
-        onHttpError={(syntheticEvent) => {
-          const { nativeEvent } = syntheticEvent;
-          console.error('WebView HTTP error: ', nativeEvent);
-        }}
-        javaScriptEnabled={true}
-        domStorageEnabled={true}
-        allowsInlineMediaPlayback={true}
-        mediaPlaybackRequiresUserAction={false}
-        mixedContentMode="compatibility"
-        thirdPartyCookiesEnabled={true}
-        userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
-      />
+      {Platform.OS === 'web' ? (
+        <iframe
+          src="https://nilaigizi.com/publicshare/ctnpage"
+          style={{ flex: 1, border: 'none', width: '100%', height: '100%' }}
+          title="Gizi Pro"
+        />
+      ) : (
+        <WebView
+          source={{ uri: 'https://nilaigizi.com/publicshare/ctnpage' }}
+          style={styles.webview}
+          startInLoadingState={true}
+          renderLoading={() => (
+            <View style={styles.loadingContainer}>
+              <Text style={styles.loadingText}>Loading Gizi Pro...</Text>
+            </View>
+          )}
+          onError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.error('WebView error: ', nativeEvent);
+          }}
+          onHttpError={(syntheticEvent) => {
+            const { nativeEvent } = syntheticEvent;
+            console.error('WebView HTTP error: ', nativeEvent);
+          }}
+          javaScriptEnabled={true}
+          domStorageEnabled={true}
+          allowsInlineMediaPlayback={true}
+          mediaPlaybackRequiresUserAction={false}
+          mixedContentMode="compatibility"
+          thirdPartyCookiesEnabled={true}
+          userAgent="Mozilla/5.0 (iPhone; CPU iPhone OS 14_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/14.0 Mobile/15E148 Safari/604.1"
+        />
+      )}
     </SafeAreaView>
   );
 };
