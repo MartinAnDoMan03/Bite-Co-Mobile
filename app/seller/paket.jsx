@@ -265,7 +265,7 @@ const TabRantangan = ({ showAlert, t }) => {
     setShowEditModal(true);
   };
 
-  const handleUpdatePackage = async () => {
+const handleUpdatePackage = async () => {
     if (!editName.trim() || !editDescription.trim() || !editPrice.trim() || isNaN(Number(editPrice)) || Number(editPrice) <= 0) {
       showAlert(t('common.error'), t('paket.rantangan.validationError'), [{ text: t('common.ok') }], "error");
       return;
@@ -273,7 +273,7 @@ const TabRantangan = ({ showAlert, t }) => {
 
     setIsLoading(true);
     try {
-      const response = await fetch(`${config.API_URL}/seller/rantangan/${editingPackage.id}`, {
+      const response = await fetch(`${config.API_URL}/seller/rantangan?id=${editingPackage.id}`, {
         method: "PUT",
         headers: {
           "Content-Type": "application/json",
@@ -285,6 +285,7 @@ const TabRantangan = ({ showAlert, t }) => {
           price: Number(editPrice),
         }),
       });
+      
       const resJson = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(resJson.message || "Gagal memperbarui paket");
 
