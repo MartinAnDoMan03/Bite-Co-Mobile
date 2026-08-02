@@ -822,7 +822,7 @@ const styles = StyleSheet.create({
   warningBanner: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundcolor: '#FFEBEE',
+    backgroundColor: '#FFEBEE',
     marginHorizontal: 16,
     marginTop: 16,
     marginBottom: -6,
