@@ -99,7 +99,27 @@ const TrackingMapWeb = ({ selectedOrder, routeCoordinates, primaryColor }) => {
   const liveMarkerParam = hasLiveLocation
     ? `&markers=color:blue%7C${selectedOrder.currentLat},${selectedOrder.currentLng}`
     : '';
-  const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center.lat},${center.lng}&zoom=14&size=600x600&markers=color:red%7C${selectedOrder.sellerLat},${selectedOrder.sellerLng}${liveMarkerParam}&markers=color:green%7C${selectedOrder.buyerLat},${selectedOrder.buyerLng}&key=${config.GOOGLE_MAPS_API_KEY}`;
+
+  // Static Maps draws the route line via a separate "path" param — it isn't
+  // automatic like react-native-maps' <Polyline>. Static Maps URLs also have
+  // an ~8192-char practical limit, so for long routes we thin the points out
+  // rather than sending every single coordinate.
+
+  let pathParam = '';
+  if (routeCoordinates.length > 1) {
+    const MAX_POINTS = 100;
+    const step = Math.max(1, Math.ceil(routeCoordinates.length / MAX_POINTS));
+    const sampled = routeCoordinates.filter((_, i) => i % step === 0);
+    // primaryColor is a hex like "#711330" — Static Maps wants 0xRRGGBBAA
+    const hex = (primaryColor || '#711330').replace('#', '');
+    const pathColor = `0x${hex}ff`;
+    const pointsStr = sampled
+      .map((c) => `${c.latitude},${c.longitude}`)
+      .join('|');
+    pathParam = `&path=color:${pathColor}|weight:4|${pointsStr}`;
+  }
+
+  const mapUrl = `https://maps.googleapis.com/maps/api/staticmap?center=${center.lat},${center.lng}&zoom=14&size=600x600&markers=color:red%7C${selectedOrder.sellerLat},${selectedOrder.sellerLng}${liveMarkerParam}&markers=color:green%7C${selectedOrder.buyerLat},${selectedOrder.buyerLng}${pathParam}&key=${config.GOOGLE_MAPS_API_KEY}`;
 
   const { View, Image } = require('react-native');
   return (
