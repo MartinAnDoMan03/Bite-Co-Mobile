@@ -10,7 +10,7 @@ import {
   Platform
 } from "react-native";
 import React, { useState, useEffect, useRef } from "react";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView,useSafeAreaInsets } from "react-native-safe-area-context";
 import COLORS from '../../constants/color';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { getFirestore, collection, query, where, onSnapshot, orderBy, addDoc, serverTimestamp } from "firebase/firestore";
@@ -92,6 +92,7 @@ const MessageBubble = ({ message, isOwn, showAvatar, buyerIcon, buyerName }) => 
 // ---------------------------------------------------------------------------
 const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
   const { t } = useLanguage();
+  const insets = useSafeAreaInsets();
   const [inputText, setInputText] = useState("");
   const router = useRouter();
   const flatListRef = useRef(null);
@@ -196,7 +197,12 @@ const ChatScreen = ({ selectedChat, onBack, messages, onSendMessage }) => {
           }
         />
 
-        <View style={[styles.inputContainer, { position: 'absolute', left: 0, right: 0, bottom: -30, backgroundColor: '#fff' }]}>
+        <View style={[
+          styles.inputContainer, 
+          { 
+            paddingBottom: Platform.OS === 'web' ? 12 : Math.max(insets.bottom, 12), 
+          }
+        ]}>
           <TextInput
             style={styles.textInput}
             placeholder={t('chat.typeMessage')}
@@ -514,10 +520,11 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff",
     marginHorizontal: 24,
     marginTop: 16,
-    marginBottom: 10,
+    marginBottom: 12, // Dikasih jarak bawah dikit biar lega
     paddingHorizontal: 18,
-    paddingVertical: 2,
-    borderRadius: 30,
+    paddingVertical: Platform.OS === 'ios' ? 12 : 8,
+    minHeight: 46, 
+    borderRadius: 25, 
     shadowColor: '#000',
     shadowOpacity: 0.06,
     shadowRadius: 8,
@@ -530,7 +537,9 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14.5,
-    color: '#555',
+    color: '#333',
+    paddingVertical: 0, 
+    ...(Platform.OS === 'web' && { outlineStyle: 'none' }) 
   },
   chatList: {
     flex: 1,
@@ -814,41 +823,45 @@ const styles = StyleSheet.create({
   otherMessageTime: {
     marginLeft: 4,
   },
-  inputContainer: {
-    flexDirection: "row",
-    alignItems: "flex-end",
-    backgroundColor: "#fff",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderTopWidth: 1,
-    borderTopColor: "#F0F0F0",
-  },
-  textInput: {
-    flex: 1,
-    borderWidth: 1,
-    borderColor: "#EEE",
-    borderRadius: 22,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 10,
-    maxHeight: 100,
-    fontSize: 14,
-    backgroundColor: '#F7F7F7',
-    color: "#1A1A1A",
-  },
-  sendButton: {
-    backgroundColor: COLORS.PRIMARY,
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    justifyContent: "center",
-    alignItems: "center",
-    shadowColor: COLORS.PRIMARY,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 3,
-  },
+inputContainer: {
+  flexDirection: "row",
+  alignItems: "center",        
+  backgroundColor: "#fff",
+  paddingHorizontal: 14,
+  paddingVertical: 8,          
+  borderTopWidth: 1,
+  borderTopColor: "#F0F0F0",
+},
+textInput: {
+  flex: 1,
+  borderWidth: 1,
+  borderColor: "#EEE",
+  borderRadius: 20,            
+  paddingHorizontal: 16,
+  paddingVertical: 8,         
+  marginRight: 10,
+  maxHeight: 100,
+  minHeight: 38,               
+  fontSize: 14,
+  lineHeight: 18,              
+  textAlignVertical: "center", 
+  backgroundColor: '#F7F7F7',
+  color: "#1A1A1A",
+},
+sendButton: {
+  backgroundColor: COLORS.PRIMARY,
+  width: 38,                  
+  height: 38,
+  borderRadius: 19,
+  justifyContent: "center",
+  alignItems: "center",
+  paddingLeft: 2,               
+  shadowColor: COLORS.PRIMARY,
+  shadowOffset: { width: 0, height: 3 },
+  shadowOpacity: 0.3,
+  shadowRadius: 6,
+  elevation: 3,
+},
   sendButtonDisabled: {
     backgroundColor: "#D5D5D5",
     shadowOpacity: 0,
