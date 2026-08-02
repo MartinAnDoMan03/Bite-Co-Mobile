@@ -59,6 +59,29 @@ const matchesFilter = (statusProgress, filterKey) => {
   return true;
 };
 
+// Filter periode waktu — supaya riwayat tidak menumpuk jadi satu daftar
+// panjang tanpa akhir. Default "30 Hari Terakhir": cukup buat lihat riwayat
+// baru-baru ini, tapi nggak langsung nge-load/nampilin semua pesanan dari
+// awal akun dibuat.
+const PERIOD_OPTIONS = [
+  { key: '7hari', label: '7 Hari', days: 7 },
+  { key: '30hari', label: '30 Hari', days: 30 },
+  { key: '3bulan', label: '3 Bulan', days: 90 },
+  { key: 'semua', label: 'Semua', days: null },
+];
+
+const DEFAULT_PERIOD = '30hari';
+
+const matchesPeriod = (createdAt, periodKey) => {
+  const option = PERIOD_OPTIONS.find((p) => p.key === periodKey);
+  if (!option || option.days === null) return true; // "Semua" → tidak difilter
+  if (!createdAt) return false;
+  const createdTs = new Date(createdAt).getTime();
+  if (isNaN(createdTs)) return false;
+  const cutoff = Date.now() - option.days * 24 * 60 * 60 * 1000;
+  return createdTs >= cutoff;
+};
+
 // Cek apakah order masih awaiting_seller_approval DAN sudah lewat batas waktu
 // (default 30 menit) sejak dibuat. `nowTs` dioper dari luar (bukan panggil
 // Date.now() langsung di sini) supaya semua card di-refresh serentak lewat
@@ -70,6 +93,21 @@ const isApprovalOverdue = (order, nowTs) => {
   if (isNaN(createdTs)) return false;
   const elapsedMinutes = (nowTs - createdTs) / (1000 * 60);
   return elapsedMinutes >= APPROVAL_TIMEOUT_MINUTES;
+};
+
+// Sesi Snap Midtrans default kadaluarsa 24 jam sejak dibuat, kecuali backend
+// override lewat custom_expiry saat generate transaksi (cek payment/route.js
+// kalau devisi ini beda). Ini fallback client-side kalau webhook expire dari
+// Midtrans telat/gagal mengubah statusProgress.
+const PAYMENT_EXPIRY_HOURS = 24;
+
+const isPaymentExpired = (order, nowTs) => {
+  if (order.statusProgress !== 'approved_awaiting_payment') return false;
+  if (!order.createdAt) return false;
+  const createdTs = new Date(order.createdAt).getTime();
+  if (isNaN(createdTs)) return false;
+  const elapsedHours = (nowTs - createdTs) / (1000 * 60 * 60);
+  return elapsedHours >= PAYMENT_EXPIRY_HOURS;
 };
 
 const Riwayat = () => {
@@ -84,6 +122,7 @@ const Riwayat = () => {
   const [activeFilter, setActiveFilter] = useState('semua');
   const [now, setNow] = useState(Date.now());
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
+  const [activePeriod, setActivePeriod] = useState(DEFAULT_PERIOD);
   const router = useRouter();
 
   const dateLocale = LOCALE_MAP[language] || 'id-ID';
@@ -183,7 +222,11 @@ const Riwayat = () => {
   // Daftar order yang sudah disaring sesuai tab filter aktif. Ditaruh setelah
   // semua fungsi penting (fetchOrders, openPaymentWebView, initiatePayment)
   // supaya tidak mengubah urutan logic yang sudah ada, cuma nambah di akhir.
-  const filteredOrders = orders.filter((order) => matchesFilter(order.statusProgress, activeFilter));
+  const filteredOrders = orders.filter(
+  (order) =>
+    matchesFilter(order.statusProgress, activeFilter) &&
+    matchesPeriod(order.createdAt, activePeriod)
+);
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
@@ -223,6 +266,29 @@ const Riwayat = () => {
         })}
       </ScrollView>
 
+        {/* Filter periode waktu — selaras dengan halaman Status Order */}
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.filterBar}
+        contentContainerStyle={styles.filterBarContent}
+      >
+        {PERIOD_OPTIONS.map((p) => {
+          const active = activePeriod === p.key;
+          return (
+            <TouchableOpacity
+              key={p.key}
+              onPress={() => setActivePeriod(p.key)}
+              style={[styles.filterChip, styles.periodChip, active && styles.filterChipActive]}
+            >
+              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                {p.label}
+              </Text>
+            </TouchableOpacity>
+          );
+        })}
+      </ScrollView>
+
       {loading ? (
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
           <View style={styles.content}>
@@ -250,7 +316,7 @@ const Riwayat = () => {
           </View>
           <Text style={styles.emptyTitle}>{t('buyerRiwayat.emptyFilter.title', 'Belum ada pesanan')}</Text>
           <Text style={styles.emptyDescription}>
-            {t('buyerRiwayat.emptyFilter.description', 'Tidak ada pesanan pada kategori ini.')}
+            {t('buyerRiwayat.emptyFilter.description', 'Tidak ada pesanan yang cocok dengan filter ini.')}
           </Text>
         </View>
       ) : (
@@ -329,19 +395,30 @@ const Riwayat = () => {
                     </View>
                   )}
 
-                  {!overdue && order.statusProgress === 'approved_awaiting_payment' && (
-                    <TouchableOpacity
-                      onPress={() =>
-                        order.snapUrl ? openPaymentWebView(order) : initiatePayment(order)
-                      }
-                      style={[styles.payButton, { opacity: paymentCheckLoading ? 0.6 : 1 }]}
-                      disabled={paymentCheckLoading}
-                    >
-                      <MaterialIcons name="payment" size={16} color="#fff" />
-                      <Text style={styles.payButtonText}>
-                        {paymentCheckLoading ? t('buyerRiwayat.payButton.checking') : t('buyerRiwayat.payButton.continuePayment')}
-                      </Text>
-                    </TouchableOpacity>
+                  {!overdue &&
+                    order.statusProgress === 'approved_awaiting_payment' &&
+                    !isPaymentExpired(order, now) && (
+                      <TouchableOpacity
+                        onPress={() => (order.snapUrl ? openPaymentWebView(order) : initiatePayment(order))}
+                        style={[styles.payButton, { opacity: paymentCheckLoading ? 0.6 : 1 }]}
+                        disabled={paymentCheckLoading}
+                      >
+                        <MaterialIcons name="payment" size={16} color="#fff" />
+                        <Text style={styles.payButtonText}>
+                          {paymentCheckLoading ? t('buyerRiwayat.payButton.checking') : t('buyerRiwayat.payButton.continuePayment')}
+                        </Text>
+                      </TouchableOpacity>
+                    )}
+
+                  {!overdue && isPaymentExpired(order, now) && (
+                    <View style={styles.overdueBox}>
+                      <View style={styles.overdueRow}>
+                        <MaterialIcons name="error-outline" size={18} color="#B26A00" />
+                        <Text style={styles.overdueText}>
+                          Sesi pembayaran untuk pesanan ini sudah kadaluarsa.
+                        </Text>
+                      </View>
+                    </View>
                   )}
                 </TouchableOpacity>
               );
@@ -562,6 +639,9 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     lineHeight: 19,
+  },
+  periodChip: {
+    minWidth: 70,
   },
 });
 

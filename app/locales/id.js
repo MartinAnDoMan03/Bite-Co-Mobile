@@ -1442,6 +1442,7 @@ buyerStatusOrder: {
   filters: { all: 'Semua', processing: 'Diproses', delivery: 'Pengiriman', completed: 'Selesai' },
   statusLabels: {
     waitingApproval: 'Menunggu Persetujuan',
+    awaitingPayment: 'Menunggu Pembayaran',
     processing: 'Dalam Proses',
     delivery: 'Pengiriman',
     recurring: 'Siklus Pengiriman Aktif',

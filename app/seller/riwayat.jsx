@@ -21,6 +21,8 @@ const RiwayatSeller = () => {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [activePeriod, setActivePeriod] = useState(DEFAULT_PERIOD);
+  const filteredOrders = orders.filter((order) => matchesPeriod(order.createdAt, activePeriod));
   const router = useRouter();
 
   const fetchOrderHistory = async () => {
@@ -47,6 +49,29 @@ const RiwayatSeller = () => {
       setRefreshing(false);
     }
   };
+
+  // Filter periode waktu — supaya riwayat tidak menumpuk jadi satu daftar
+// panjang tanpa akhir. Default "30 Hari Terakhir": cukup buat lihat riwayat
+// baru-baru ini, tapi nggak langsung nge-load/nampilin semua pesanan dari
+// awal akun dibuat.
+const PERIOD_OPTIONS = [
+  { key: '7hari', label: '7 Hari', days: 7 },
+  { key: '30hari', label: '30 Hari', days: 30 },
+  { key: '3bulan', label: '3 Bulan', days: 90 },
+  { key: 'semua', label: 'Semua', days: null },
+];
+
+const DEFAULT_PERIOD = '30hari';
+
+const matchesPeriod = (createdAt, periodKey) => {
+  const option = PERIOD_OPTIONS.find((p) => p.key === periodKey);
+  if (!option || option.days === null) return true; // "Semua" → tidak difilter
+  if (!createdAt) return false;
+  const createdTs = new Date(createdAt).getTime();
+  if (isNaN(createdTs)) return false;
+  const cutoff = Date.now() - option.days * 24 * 60 * 60 * 1000;
+  return createdTs >= cutoff;
+};
 
   useEffect(() => {
     fetchOrderHistory();
@@ -148,18 +173,26 @@ const RiwayatSeller = () => {
             />
           }
         >
-          {orders.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <View style={styles.content}>
-              <Text style={styles.sectionTitle}>
-                {t('riwayat.sectionTitle', { count: orders.length })}
-              </Text>
-              {orders.map((order, index) => (
-                <OrderHistoryCard key={order.id || index} order={order} />
-              ))}
+        {orders.length === 0 ? (
+          <EmptyState />
+        ) : filteredOrders.length === 0 ? (
+          <View style={styles.emptyState}>
+            <View style={styles.emptyIconCircle}>
+              <MaterialIcons name="filter-list-off" size={40} color="#bbb" />
             </View>
-          )}
+            <Text style={styles.emptyTitle}>Tidak ada pesanan</Text>
+            <Text style={styles.emptyDescription}>Tidak ada pesanan selesai pada periode ini.</Text>
+          </View>
+        ) : (
+          <View style={styles.content}>
+            <Text style={styles.sectionTitle}>
+              {t('riwayat.sectionTitle', { count: filteredOrders.length })}
+            </Text>
+            {filteredOrders.map((order, index) => (
+              <OrderHistoryCard key={order.id || index} order={order} />
+            ))}
+          </View>
+        )}
         </ScrollView>
       )}
     </SafeAreaView>
