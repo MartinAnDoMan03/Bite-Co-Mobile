@@ -56,6 +56,31 @@ const CateringList = () => {
     loadBuyerLocation();
   }, []);
 
+  // Apply sorting to stores
+  const applySorting = useCallback((storeList, type) => {
+    if (type === "halal") {
+      const filtered = storeList.filter(store => store.productHalal === true);
+      setFilteredStores(filtered);
+      return;
+    }
+
+    const sorted = [...storeList].sort((a, b) => {
+      if (type === "distance") {
+        // Handle distance sorting - put N/A at the end
+        if (a.Distance === "N/A" && b.Distance === "N/A") return 0;
+        if (a.Distance === "N/A") return 1;
+        if (b.Distance === "N/A") return -1;
+        return parseFloat(a.Distance) - parseFloat(b.Distance);
+      } else if (type === "rating") {
+        // Handle rating sorting - highest first
+        return parseFloat(b.Rating) - parseFloat(a.Rating);
+      }
+      return 0;
+    });
+    setFilteredStores(sorted);
+  }, []);
+
+
   // Fetch sellers with categories from API
   const fetchSellers = useCallback(async () => {
     try {
@@ -175,34 +200,7 @@ const CateringList = () => {
     [stores, sortType, applySorting]
   );
 
-  // Apply sorting to stores
-  // NOTE: "halal" belum ada logic-nya karena data seller belum punya field halal
-  // dari API. Untuk sementara dipilih tapi tidak mengubah urutan (aman, tidak
-  // menyentuh data/fetch apapun). Tinggal ditambah case-nya kalau backend sudah
-  // mengirim field halal per seller.
-  const applySorting = useCallback((storeList, type) => {
-    if (type === "halal") {
-      const filtered = storeList.filter(store => store.productHalal === true);
-      setFilteredStores(filtered);
-      return;
-    }
-
-    const sorted = [...storeList].sort((a, b) => {
-      if (type === "distance") {
-        // Handle distance sorting - put N/A at the end
-        if (a.Distance === "N/A" && b.Distance === "N/A") return 0;
-        if (a.Distance === "N/A") return 1;
-        if (b.Distance === "N/A") return -1;
-        return parseFloat(a.Distance) - parseFloat(b.Distance);
-      } else if (type === "rating") {
-        // Handle rating sorting - highest first
-        return parseFloat(b.Rating) - parseFloat(a.Rating);
-      }
-      return 0;
-    });
-    setFilteredStores(sorted);
-  }, []);
-
+  
   // Handle sort type change
   const handleSortChange = useCallback(
     (newSortType) => {
