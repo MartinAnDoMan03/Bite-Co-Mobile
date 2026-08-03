@@ -9,6 +9,8 @@ import {
   TouchableOpacity,
   Image,
   RefreshControl,
+  Modal,
+  TouchableWithoutFeedback
 } from "react-native";
 import HeaderTitle from '../../../components/HeaderTitle';
 import COLORS from '../../constants/color';
@@ -19,9 +21,26 @@ import { MaterialIcons, Ionicons } from "@expo/vector-icons";
 import axios from "axios";
 import { useLanguage } from '../../contexts/LanguageContext';
 
+// FILTER PERIODE CONFIGURATION
+const PERIOD_OPTIONS = [
+  { key: '1hari', label: '1 Hari', days: 1 },
+  { key: '7hari', label: '7 Hari', days: 7 },
+  { key: '30hari', label: '30 Hari', days: 30 },
+  { key: 'semua', label: 'Semua', days: null },
+];
+const DEFAULT_PERIOD = '30hari'; // Default riwayat 30 hari agar tidak berat
+
+const matchesPeriod = (dateStr, periodKey) => {
+  const option = PERIOD_OPTIONS.find((p) => p.key === periodKey);
+  if (!option || option.days === null) return true; // "Semua" = true
+  if (!dateStr) return false;
+  const ts = new Date(dateStr).getTime();
+  if (isNaN(ts)) return false;
+  return ts >= Date.now() - option.days * 24 * 60 * 60 * 1000;
+};
+
 // ---------------------------------------------------------------------------
 // Status -> badge config (label, color, icon) shown on each order card
-// Dibungkus jadi fungsi supaya label-nya bisa pakai t() dari komponen pemanggil
 // ---------------------------------------------------------------------------
 const getStatusBadgeConfig = (t) => ({
   awaiting_seller_approval: { label: t('pesanan.status.awaitingApproval'), color: "#B26A00", bg: "#FFF3E0", icon: "hourglass-empty" },
@@ -72,7 +91,7 @@ const isTodayDeliveryCompleted = (dailyDeliveryLogs = []) => {
   return dailyDeliveryLogs.some((log) => log.deliveryDate === today);
 };
 
-// Days remaining in a Rantangan Mingguan/Bulanan cycle, based on completed delivery logs
+// Days remaining in a Rantangan Mingguan/Bulanan cycle
 const calculateDaysRemaining = (startDate, endDate, dailyDeliveryLogs = []) => {
   if (!startDate || !endDate) return 0;
   const start = new Date(startDate);
@@ -105,8 +124,7 @@ const StatusBadge = ({ statusProgress }) => {
 };
 
 // ---------------------------------------------------------------------------
-// Rantangan info: start/end date, days remaining, daily delivery log list
-// Only rendered for Rantangan orders — kept compact to match the card design
+// Rantangan info
 // ---------------------------------------------------------------------------
 const RantanganInfo = ({ startDate, endDate, packageType, dailyDeliveryLogs = [] }) => {
   const { t } = useLanguage();
@@ -207,10 +225,8 @@ const CardStatus = ({
   const isRecurring = packageType === 'Mingguan' || packageType === 'Bulanan';
   const orderCanStart = canStartToday(startDate);
 
-  // Show Terima/Tolak only while the order is awaiting the seller's approval
   const showAcceptReject = statusProgress === "awaiting_seller_approval";
 
-  // Show a single progress action (e.g. "Kirim Pesanan") for in-flight states
   const renderProgressAction = () => {
     if (statusProgress === "processing") {
       const disabled = actionLoading || (isRantangan && !orderCanStart);
@@ -332,7 +348,16 @@ const SellerOrder = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [buyerMap, setBuyerMap] = useState({});
   const [sellerProfile, setSellerProfile] = useState(null);
+  
+  // State untuk tab filter
   const [activeFilter, setActiveFilter] = useState("semua");
+
+  const [activePeriod, setActivePeriod] = useState(DEFAULT_PERIOD);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [tempPeriod, setTempPeriod] = useState(DEFAULT_PERIOD);
+
+
+
   const router = useRouter();
 
   useEffect(() => {
@@ -440,12 +465,18 @@ const SellerOrder = () => {
     } catch (e) {}
   };
 
-  // The backend always sets statusProgress (awaiting_seller_approval, approved_awaiting_payment,
-  // processing, delivery, completed, cancelled). order.status ("pending"/"success") is just the
-  // payment flag, not the order stage — don't use it to override statusProgress.
   const resolveStatus = (order) => order.statusProgress || order.status;
 
-  const visibleOrders = orders.filter((order) => matchesFilter(resolveStatus(order), activeFilter));
+// Filter gabungan: Tab Filter + Period Filter (Berlaku untuk semua tab)
+  const visibleOrders = orders.filter((order) => {
+    // 1. Cek kecocokan Tab (Semua, Diproses, dsb)
+    const matchesTab = matchesFilter(resolveStatus(order), activeFilter);
+    if (!matchesTab) return false;
+
+    // 2. Cek kecocokan rentang hari (selalu dicek)
+    const dateToCheck = order.completedAt || order.createdAt || order.orderDate;
+    return matchesPeriod(dateToCheck, activePeriod);
+  });
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
@@ -457,28 +488,55 @@ const SellerOrder = () => {
         <View style={{ width: 26 }} />
       </View>
 
-      <View style={styles.filterBar}>
-        {FILTERS.map((f) => {
-          const active = activeFilter === f.key;
-          return (
-            <TouchableOpacity
-              key={f.key}
-              onPress={() => setActiveFilter(f.key)}
-              style={[styles.filterChip, active && styles.filterChipActive]}
-            >
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                {t(f.labelKey)}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
+    {/* FILTER SECTION */}
+      <View style={styles.filtersContainer}>
+        {/* Full-width scrollable chips di sebelah kiri */}
+        <ScrollView 
+          horizontal 
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }} // Agar ScrollView mengambil sisa ruang kiri
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {FILTERS.map((f) => {
+            const active = activeFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                onPress={() => setActiveFilter(f.key)}
+                style={[styles.filterChip, active && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  {t(f.labelKey)}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* Tombol Periode */}
+        <View style={styles.iconFilterWrapper}>
+          <TouchableOpacity
+            // Jika filter bukan "semua", tombol berubah warna jadi PRIMARY menandakan filter sedang aktif
+            style={[styles.iconFilterBtn, activePeriod !== 'semua' && styles.iconFilterBtnActive]}
+            onPress={() => {
+              setTempPeriod(activePeriod);
+              setShowPeriodModal(true);
+            }}
+          >
+            <MaterialIcons 
+              name="tune" 
+              size={20} 
+              color={activePeriod !== 'semua' ? "#fff" : COLORS.PRIMARY} 
+            />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {loading ? (
         <ActivityIndicator size="large" color={COLORS.PRIMARY} style={{ marginTop: 40 }} />
       ) : (
         <ScrollView
-          contentContainerStyle={{ paddingVertical: 12, paddingBottom: 24 }}
+          contentContainerStyle={{ paddingVertical: 4, paddingBottom: 24 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -539,6 +597,52 @@ const SellerOrder = () => {
           )}
         </ScrollView>
       )}
+
+      {/* MODAL FILTER PERIODE */}
+      <Modal
+        visible={showPeriodModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPeriodModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowPeriodModal(false)}>
+          <View style={styles.sheetOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.sheetCard}>
+                <View style={styles.sheetHandle} />
+                <Text style={styles.sheetTitle}>Filter Periode</Text>
+
+                {PERIOD_OPTIONS.map((p) => {
+                  const isSelected = tempPeriod === p.key;
+                  return (
+                    <TouchableOpacity
+                      key={p.key}
+                      style={styles.sheetOption}
+                      onPress={() => setTempPeriod(p.key)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                        {isSelected && <View style={styles.radioDot} />}
+                      </View>
+                      <Text style={styles.sheetOptionLabel}>{p.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={styles.sheetApplyBtn}
+                  onPress={() => {
+                    setActivePeriod(tempPeriod);
+                    setShowPeriodModal(false);
+                  }}
+                >
+                  <Text style={styles.sheetApplyBtnText}>Terapkan</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -560,12 +664,17 @@ const styles = StyleSheet.create({
   backBtn: { width: 26 },
   headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
 
-  // Filter tabs
-  filterBar: {
+  // Filter Section
+  filtersContainer: {
+    flexDirection: "row", 
+    alignItems: "center", 
+    paddingVertical: 12,
+  },
+  filterScrollContent: {
     flexDirection: "row",
     gap: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+    paddingLeft: 16,
+    paddingRight: 8, 
   },
   filterChip: {
     paddingHorizontal: 14,
@@ -582,6 +691,110 @@ const styles = StyleSheet.create({
   filterChipText: { fontSize: 13, color: "#888", fontWeight: "600" },
   filterChipTextActive: { color: "#fff" },
 
+  // Period Trigger Btn (under chips)
+  periodContainer: {
+    flexDirection: "row",
+    paddingHorizontal: 16,
+    marginTop: 10,
+  },
+  periodTriggerBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: COLORS.PRIMARY,
+  },
+  periodTriggerText: { 
+    fontSize: 12.5, 
+    color: COLORS.PRIMARY, 
+    fontWeight: "600" 
+  },
+
+  // Modal / Bottom Sheet
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "flex-end",
+  },
+  sheetCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 28,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#e0e0e0",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#23272f",
+    marginBottom: 12,
+  },
+  sheetOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#d9c3cc",
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioCircleSelected: { borderColor: COLORS.PRIMARY },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.PRIMARY,
+  },
+  sheetOptionLabel: { fontSize: 14.5, color: "#23272f", fontWeight: "500" },
+  sheetApplyBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 18,
+  },
+  sheetApplyBtnText: { color: "#fff", fontWeight: "700", fontSize: 14.5 },
+  
+  iconFilterWrapper: {
+    marginLeft: 12, 
+    paddingRight: 16, 
+  },
+  iconFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18, 
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#EAEAEA",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconFilterBtnActive: {
+    backgroundColor: COLORS.PRIMARY,
+    borderColor: COLORS.PRIMARY,
+  },
+
   // Card
   cardShadow: {
     shadowColor: "#000",
@@ -590,7 +803,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
     marginBottom: 12,
-    marginHorizontal: 14,
+    marginHorizontal: 16, // Mengikuti margin horizontal default
   },
   card: {
     backgroundColor: "#fff",
@@ -625,7 +838,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 8,
     marginTop: 12,
-  },  acceptBtn: {
+  }, 
+  acceptBtn: {
     flex: 1,
     backgroundColor: COLORS.PRIMARY,
     paddingVertical: 10,

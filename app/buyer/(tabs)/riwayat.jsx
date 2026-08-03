@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator, Platform } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator, Platform, Modal, TouchableWithoutFeedback } from 'react-native'
 import React, { useEffect, useState, useCallback } from 'react'
 import config from '../../constants/config';
 import { useRouter } from 'expo-router';
@@ -124,6 +124,8 @@ const Riwayat = () => {
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [activePeriod, setActivePeriod] = useState(DEFAULT_PERIOD);
   const router = useRouter();
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [tempPeriod, setTempPeriod] = useState(DEFAULT_PERIOD);
 
   const dateLocale = LOCALE_MAP[language] || 'id-ID';
 
@@ -257,55 +259,52 @@ const initiatePayment = async (order) => {
         <View style={{ width: 26 }} />
       </View>
 
-      {/* Filter tabs — chip, selaras dengan halaman Status Order */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterBar}
-        contentContainerStyle={styles.filterBarContent}
-      >
-        {getFilters(t).map((f) => {
-          const active = activeFilter === f.key;
-          return (
-            <TouchableOpacity
-              key={f.key}
-              onPress={() => setActiveFilter(f.key)}
-              style={[styles.filterChip, active && styles.filterChipActive]}
-            >
-              <Text
-                style={[styles.filterChipText, active && styles.filterChipTextActive]}
-                numberOfLines={1}
-                ellipsizeMode="tail"
+      {/* FILTER SECTION */}
+      <View style={styles.filtersContainer}>
+        {/* Status Filter Chips */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={{ flex: 1 }}
+          contentContainerStyle={styles.filterScrollContent}
+        >
+          {getFilters(t).map((f) => {
+            const active = activeFilter === f.key;
+            return (
+              <TouchableOpacity
+                key={f.key}
+                onPress={() => setActiveFilter(f.key)}
+                style={[styles.filterChip, active && styles.filterChipActive]}
               >
-                {f.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+                <Text
+                  style={[styles.filterChipText, active && styles.filterChipTextActive]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {f.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
 
-        {/* Filter periode waktu — selaras dengan halaman Status Order */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.filterBar}
-        contentContainerStyle={styles.filterBarContent}
-      >
-        {PERIOD_OPTIONS.map((p) => {
-          const active = activePeriod === p.key;
-          return (
-            <TouchableOpacity
-              key={p.key}
-              onPress={() => setActivePeriod(p.key)}
-              style={[styles.filterChip, styles.periodChip, active && styles.filterChipActive]}
-            >
-              <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
-                {p.label}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+      {/* Tombol Icon Filter Periode */}
+        <View style={styles.iconFilterWrapper}>
+          <TouchableOpacity
+            style={[styles.iconFilterBtn, activePeriod !== DEFAULT_PERIOD && styles.iconFilterBtnActive]}
+            onPress={() => {
+              setTempPeriod(activePeriod);
+              setShowPeriodModal(true);
+            }}
+          >
+            <MaterialIcons 
+              name="tune" 
+              size={20} 
+              color={activePeriod !== DEFAULT_PERIOD ? "#fff" : COLORS.PRIMARY} 
+            />
+          </TouchableOpacity>
+        </View>
+      </View>
 
       {loading ? (
         <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -455,6 +454,51 @@ const initiatePayment = async (order) => {
           />
         </ScrollView>
       )}
+      {/* MODAL FILTER PERIODE */}
+      <Modal
+        visible={showPeriodModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPeriodModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowPeriodModal(false)}>
+          <View style={styles.sheetOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.sheetCard}>
+                <View style={styles.sheetHandle} />
+                <Text style={styles.sheetTitle}>Filter Periode</Text>
+
+                {PERIOD_OPTIONS.map((p) => {
+                  const isSelected = tempPeriod === p.key;
+                  return (
+                    <TouchableOpacity
+                      key={p.key}
+                      style={styles.sheetOption}
+                      onPress={() => setTempPeriod(p.key)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                        {isSelected && <View style={styles.radioDot} />}
+                      </View>
+                      <Text style={styles.sheetOptionLabel}>{p.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={styles.sheetApplyBtn}
+                  onPress={() => {
+                    setActivePeriod(tempPeriod);
+                    setShowPeriodModal(false);
+                  }}
+                >
+                  <Text style={styles.sheetApplyBtnText}>Terapkan</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -476,16 +520,96 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 26 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
-
-  filterBar: {
-    flexGrow: 0,
-    marginTop: 12,
+  
+  filtersContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
   },
-  filterBarContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
+  filterScrollContent: {
+    flexDirection: "row",
     gap: 8,
+    paddingLeft: 16,
+    paddingRight: 8,
   },
+  iconFilterWrapper: {
+    marginLeft: 12,
+    paddingRight: 16,
+  },
+  iconFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#fff",
+    borderWidth: 1,
+    borderColor: "#EAEAEA",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  iconFilterBtnActive: {
+    backgroundColor: COLORS.PRIMARY,
+    borderColor: COLORS.PRIMARY,
+  },
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "flex-end",
+  },
+  sheetCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 28,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#e0e0e0",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#23272f",
+    marginBottom: 12,
+  },
+  sheetOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#d9c3cc",
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioCircleSelected: { borderColor: COLORS.PRIMARY },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.PRIMARY,
+  },
+  sheetOptionLabel: { fontSize: 14.5, color: "#23272f", fontWeight: "500" },
+  sheetApplyBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 18,
+  },
+  sheetApplyBtnText: { color: "#fff", fontWeight: "700", fontSize: 14.5 },
   filterChip: {
     flexShrink: 0,
     minWidth: 90,
@@ -657,9 +781,6 @@ const styles = StyleSheet.create({
     color: '#999',
     textAlign: 'center',
     lineHeight: 19,
-  },
-  periodChip: {
-    minWidth: 70,
   },
 });
 

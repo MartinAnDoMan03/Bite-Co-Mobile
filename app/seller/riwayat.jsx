@@ -7,6 +7,8 @@ import {
   StyleSheet,
   ActivityIndicator,
   RefreshControl,
+  Modal,
+  TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -16,12 +18,36 @@ import config from '../constants/config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useLanguage } from '../contexts/LanguageContext';
 
+// FILTER PERIODE CONFIGURATION
+const PERIOD_OPTIONS = [
+  { key: '7hari', label: '7 Hari', days: 7 },
+  { key: '30hari', label: '30 Hari', days: 30 },
+  { key: '3bulan', label: '3 Bulan', days: 90 },
+  { key: 'semua', label: 'Semua', days: null },
+];
+const DEFAULT_PERIOD = '30hari';
+
+const matchesPeriod = (createdAt, periodKey) => {
+  const option = PERIOD_OPTIONS.find((p) => p.key === periodKey);
+  if (!option || option.days === null) return true; // "Semua" → tidak difilter
+  if (!createdAt) return false;
+  const createdTs = new Date(createdAt).getTime();
+  if (isNaN(createdTs)) return false;
+  const cutoff = Date.now() - option.days * 24 * 60 * 60 * 1000;
+  return createdTs >= cutoff;
+};
+
 const RiwayatSeller = () => {
   const { t } = useLanguage();
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  
+  // State untuk Filter Modal
   const [activePeriod, setActivePeriod] = useState(DEFAULT_PERIOD);
+  const [showPeriodModal, setShowPeriodModal] = useState(false);
+  const [tempPeriod, setTempPeriod] = useState(DEFAULT_PERIOD);
+
   const filteredOrders = orders.filter((order) => matchesPeriod(order.createdAt, activePeriod));
   const router = useRouter();
 
@@ -49,29 +75,6 @@ const RiwayatSeller = () => {
       setRefreshing(false);
     }
   };
-
-  // Filter periode waktu — supaya riwayat tidak menumpuk jadi satu daftar
-// panjang tanpa akhir. Default "30 Hari Terakhir": cukup buat lihat riwayat
-// baru-baru ini, tapi nggak langsung nge-load/nampilin semua pesanan dari
-// awal akun dibuat.
-const PERIOD_OPTIONS = [
-  { key: '7hari', label: '7 Hari', days: 7 },
-  { key: '30hari', label: '30 Hari', days: 30 },
-  { key: '3bulan', label: '3 Bulan', days: 90 },
-  { key: 'semua', label: 'Semua', days: null },
-];
-
-const DEFAULT_PERIOD = '30hari';
-
-const matchesPeriod = (createdAt, periodKey) => {
-  const option = PERIOD_OPTIONS.find((p) => p.key === periodKey);
-  if (!option || option.days === null) return true; // "Semua" → tidak difilter
-  if (!createdAt) return false;
-  const createdTs = new Date(createdAt).getTime();
-  if (isNaN(createdTs)) return false;
-  const cutoff = Date.now() - option.days * 24 * 60 * 60 * 1000;
-  return createdTs >= cutoff;
-};
 
   useEffect(() => {
     fetchOrderHistory();
@@ -156,6 +159,26 @@ const matchesPeriod = (createdAt, periodKey) => {
         <View style={{ width: 26 }} />
       </View>
 
+      {/* FILTER BAR SECTION */}
+      <View style={styles.filtersContainer}>
+        <Text style={styles.activePeriodText}>
+          Periode: <Text style={{ fontWeight: '700', color: COLORS.PRIMARY }}>
+            {PERIOD_OPTIONS.find(p => p.key === activePeriod)?.label}
+          </Text>
+        </Text>
+        <View style={styles.iconFilterWrapper}>
+          <TouchableOpacity
+            style={styles.iconFilterBtn}
+            onPress={() => {
+              setTempPeriod(activePeriod);
+              setShowPeriodModal(true);
+            }}
+          >
+            <MaterialIcons name="tune" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      </View>
+
       {loading ? (
         <ActivityIndicator
           size="large"
@@ -165,6 +188,7 @@ const matchesPeriod = (createdAt, periodKey) => {
       ) : (
         <ScrollView
           style={styles.scrollView}
+          contentContainerStyle={{ paddingBottom: 24 }}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -195,6 +219,52 @@ const matchesPeriod = (createdAt, periodKey) => {
         )}
         </ScrollView>
       )}
+
+      {/* MODAL FILTER PERIODE */}
+      <Modal
+        visible={showPeriodModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPeriodModal(false)}
+      >
+        <TouchableWithoutFeedback onPress={() => setShowPeriodModal(false)}>
+          <View style={styles.sheetOverlay}>
+            <TouchableWithoutFeedback>
+              <View style={styles.sheetCard}>
+                <View style={styles.sheetHandle} />
+                <Text style={styles.sheetTitle}>Filter Periode</Text>
+
+                {PERIOD_OPTIONS.map((p) => {
+                  const isSelected = tempPeriod === p.key;
+                  return (
+                    <TouchableOpacity
+                      key={p.key}
+                      style={styles.sheetOption}
+                      onPress={() => setTempPeriod(p.key)}
+                      activeOpacity={0.7}
+                    >
+                      <View style={[styles.radioCircle, isSelected && styles.radioCircleSelected]}>
+                        {isSelected && <View style={styles.radioDot} />}
+                      </View>
+                      <Text style={styles.sheetOptionLabel}>{p.label}</Text>
+                    </TouchableOpacity>
+                  );
+                })}
+
+                <TouchableOpacity
+                  style={styles.sheetApplyBtn}
+                  onPress={() => {
+                    setActivePeriod(tempPeriod);
+                    setShowPeriodModal(false);
+                  }}
+                >
+                  <Text style={styles.sheetApplyBtnText}>Terapkan</Text>
+                </TouchableOpacity>
+              </View>
+            </TouchableWithoutFeedback>
+          </View>
+        </TouchableWithoutFeedback>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -220,6 +290,93 @@ const styles = StyleSheet.create({
   backBtn: { width: 26 },
   headerTitle: { fontSize: 18, fontWeight: "700", color: COLORS.PRIMARY },
 
+  // Filter Bar Styles
+  filtersContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+  },
+  activePeriodText: {
+    fontSize: 14,
+    color: "#666",
+    fontWeight: "500",
+  },
+  iconFilterWrapper: {
+    // Tidak butuh margin berlebihan karena diposisikan dengan 'space-between'
+  },
+  iconFilterBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: COLORS.PRIMARY,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+
+  // Modal / Bottom Sheet Styles
+  sheetOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.3)",
+    justifyContent: "flex-end",
+  },
+  sheetCard: {
+    backgroundColor: "#fff",
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 20,
+    paddingTop: 10,
+    paddingBottom: 28,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: "#e0e0e0",
+    alignSelf: "center",
+    marginBottom: 16,
+  },
+  sheetTitle: {
+    fontSize: 16,
+    fontWeight: "700",
+    color: "#23272f",
+    marginBottom: 12,
+  },
+  sheetOption: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 13,
+    borderBottomWidth: 1,
+    borderBottomColor: "#f0f0f0",
+  },
+  radioCircle: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: "#d9c3cc",
+    marginRight: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  radioCircleSelected: { borderColor: COLORS.PRIMARY },
+  radioDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.PRIMARY,
+  },
+  sheetOptionLabel: { fontSize: 14.5, color: "#23272f", fontWeight: "500" },
+  sheetApplyBtn: {
+    backgroundColor: COLORS.PRIMARY,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+    marginTop: 18,
+  },
+  sheetApplyBtnText: { color: "#fff", fontWeight: "700", fontSize: 14.5 },
+
   shadow: {
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -227,12 +384,12 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-
   scrollView: {
     flex: 1,
   },
   content: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 4,
   },
   loader: {
     marginTop: 60,
