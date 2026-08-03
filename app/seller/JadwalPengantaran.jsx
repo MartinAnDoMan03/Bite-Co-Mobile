@@ -59,9 +59,18 @@ const isTodayDeliveryCompleted = (dailyDeliveryLogs = []) => {
 // pakai startDate, dan untuk Rantangan Mingguan/Bulanan ditampilkan bersama
 // endDate biar seller tahu ini order berulang, bukan sekali antar.
 const formatScheduleDate = (order) => {
-  if (order.statusProgress === 'completed' && order.completedAt) {
-  return `Selesai ${new Date(order.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}`;
+  const status = order.statusProgress || order.status;
+
+  if (status === 'completed' && order.completedAt) {
+    return `Selesai ${new Date(order.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}`;
   }
+  if (status === 'delivery' && order.deliveryAt) {
+    return `Diantar sejak ${new Date(order.deliveryAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}`;
+  }
+  if (status === 'processing' && order.processingAt) {
+    return `Diproses sejak ${new Date(order.processingAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}`;
+  }
+
   if (!order.startDate) return "-";
   const start = new Date(order.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' });
   const isRecurring = order.packageType === 'Mingguan' || order.packageType === 'Bulanan';
@@ -236,6 +245,31 @@ const filteredData = orders.filter((o) => {
             );
           })}
         </View>
+
+        {/* Period filter — Khusus tab "Selesai" */}
+      {activeFilter === "completed" && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          style={styles.periodBar}
+          contentContainerStyle={styles.periodBarContent}
+        >
+          {PERIOD_OPTIONS.map((p) => {
+            const active = activePeriod === p.key;
+            return (
+              <TouchableOpacity
+                key={p.key}
+                onPress={() => setActivePeriod(p.key)}
+                style={[styles.filterChip, styles.periodChip, active && styles.filterChipActive]}
+              >
+                <Text style={[styles.filterChipText, active && styles.filterChipTextActive]}>
+                  {p.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+      )}
 
         {loading ? (
           <ActivityIndicator size="large" color={COLORS.PRIMARY} style={{ marginTop: 40 }} />

@@ -11,6 +11,7 @@
     RefreshControl,
     Modal,
     Dimensions,
+    Platform,
   } from "react-native";
   import { SafeAreaView } from "react-native-safe-area-context";
   import COLORS from '../constants/color';
@@ -741,6 +742,7 @@
         if (orderDetails.buyerLat && orderDetails.buyerLng && orderDetails.sellerLat && orderDetails.sellerLng) {
           setSelectedOrder(normalizeOrderCoordinates(orderDetails)); 
 
+        if (Platform.OS !== 'web') {
           const directionsResponse = await fetch(
             `https://maps.googleapis.com/maps/api/directions/json?origin=${orderDetails.sellerLat},${orderDetails.sellerLng}&destination=${orderDetails.buyerLat},${orderDetails.buyerLng}&key=${config.GOOGLE_MAPS_API_KEY}`
           );
@@ -752,6 +754,7 @@
               setRouteCoordinates(points);
             }
           }
+        }
 
           setMapLoading(false);
           setTrackingModalVisible(true);

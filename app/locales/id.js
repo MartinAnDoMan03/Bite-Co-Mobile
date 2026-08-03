@@ -474,6 +474,7 @@ termsBuyerContent: {
     },
      status: {
       processing: 'Sedang Proses',
+      delivery: 'Dalam Pengiriman',
       completed: 'Selesai',
       cancelled: 'Dibatalkan',
     },

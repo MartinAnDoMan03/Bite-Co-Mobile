@@ -473,6 +473,7 @@ termsBuyerContent: {
     },
     status: {
       processing: 'Processing',
+      delivery: 'Delivering',
       completed: 'Completed',
       cancelled: 'Cancelled',
     },

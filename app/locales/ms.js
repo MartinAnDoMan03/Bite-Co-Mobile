@@ -473,6 +473,7 @@ termsBuyerContent: {
     },
     status: {
       processing: 'Sedang Diproses',
+      delivery: 'Dalam Penghantaran',
       completed: 'Selesai',
       cancelled: 'Dibatalkan',
     },
