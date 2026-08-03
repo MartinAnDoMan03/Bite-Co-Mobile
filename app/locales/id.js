@@ -928,6 +928,7 @@ daftarMenu: {
     menuNamePlaceholder: 'Nama Menu',
     descriptionPlaceholder: 'Deskripsi',
     pricePlaceholder: 'Harga',
+    deleteMenuButton: 'Hapus Menu', 
   },
   quickAdd: {
     header: 'Tambah Menu',

@@ -5,17 +5,15 @@ import {
   View,
   Modal,
   TouchableWithoutFeedback,
-  Animated,
   TextInput,
   FlatList,
   Image,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  PanResponder,
   ActivityIndicator,
 } from "react-native";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import AntDesign from "@expo/vector-icons/AntDesign";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -115,6 +113,12 @@ const HeaderTitleBackCustom = ({ title, state, setState, t }) => {
   );
 };
 
+// Validasi harga dipakai bersama form tambah & edit menu
+const isValidPrice = (value) => {
+  const num = Number(value);
+  return value !== "" && !isNaN(num) && num > 0;
+};
+
 const ScreenTambahMenu = ({
   state,
   setState,
@@ -145,6 +149,11 @@ const ScreenTambahMenu = ({
   const handleAddMenu = async () => {
     if (!menuName || !description || !price) {
       showAlert(t('common.error'), t('daftarMenu.alerts.incompleteFields'), [{ text: t('common.ok') }], "error");
+      return;
+    }
+
+    if (!isValidPrice(price)) {
+      showAlert(t('common.error'), t('daftarMenu.alerts.invalidPrice'), [{ text: t('common.ok') }], "error");
       return;
     }
 
@@ -280,223 +289,69 @@ const ScreenTambahMenu = ({
   );
 };
 
-const DaftarKetegori = ({
-  nama,
-  amount,
-  onPress,
-  onEdit,
-  onDelete,
-}) => {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [isRevealed, setIsRevealed] = useState(false);
-
-  const actionWidth = -80;
-
-  const panResponder = PanResponder.create({
-    onMoveShouldSetPanResponder: (evt, gestureState) => {
-      return (
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
-        Math.abs(gestureState.dx) > 10
-      );
-    },
-    onPanResponderMove: (evt, gestureState) => {
-      if (gestureState.dx < 0) {
-        translateX.setValue(Math.max(gestureState.dx, actionWidth));
-      } else if (isRevealed) {
-        translateX.setValue(Math.min(gestureState.dx + actionWidth, 0));
-      }
-    },
-    onPanResponderRelease: (evt, gestureState) => {
-      if (gestureState.dx < -40 && !isRevealed) {
-        // Swipe left to reveal
-        Animated.spring(translateX, {
-          toValue: actionWidth,
-          useNativeDriver: false,
-        }).start();
-        setIsRevealed(true);
-      } else if (gestureState.dx > 40 && isRevealed) {
-        // Swipe right to hide
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: false,
-        }).start();
-        setIsRevealed(false);
-      } else {
-        // Snap back to current state
-        Animated.spring(translateX, {
-          toValue: isRevealed ? actionWidth : 0,
-          useNativeDriver: false,
-        }).start();
-      }
-    },
-  });
-
-  const handlePress = () => {
-    if (isRevealed) {
-      // Hide actions first
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: false,
-      }).start();
-      setIsRevealed(false);
-    } else {
-      // If not revealed, navigate to show items inside category
-      onPress();
-    }
-  };
-
+// Baris kategori: tap konten -> masuk daftar menunya.
+// Tombol edit (pensil) di kanan langsung buka modal edit kategori,
+// tombol hapus ada DI DALAM modal edit itu (bukan popup terpisah lagi).
+// Cocok juga dipakai di web: cukup TouchableOpacity biasa, gak butuh gesture.
+const DaftarKetegori = ({ nama, amount, onPress, onEdit, t }) => {
   return (
     <View style={styles.categoryContainer}>
-      <View style={styles.categoryWrapper}>
-        <Animated.View
-          style={[
-            styles.categoryContent,
-            {
-              transform: [{ translateX }],
-            },
-          ]}
-          {...panResponder.panHandlers}
+      <View style={styles.categoryRowWrapper}>
+        <TouchableOpacity
+          style={styles.categoryTouchable}
+          onPress={onPress}
+          activeOpacity={0.7}
         >
-          <TouchableOpacity
-            style={styles.categoryTouchable}
-            onPress={handlePress}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.categoryName}>{nama}</Text>
-            <View style={styles.categoryRight}>
-              <View style={styles.amountBadge}>
-                <Text style={styles.amountText}>{amount}</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#c9c9c9" />
+          <Text style={styles.categoryName} numberOfLines={1}>{nama}</Text>
+          <View style={styles.categoryRight}>
+            <View style={styles.amountBadge}>
+              <Text style={styles.amountText}>{amount}</Text>
             </View>
-          </TouchableOpacity>
-        </Animated.View>
+            <MaterialIcons name="chevron-right" size={22} color="#c9c9c9" />
+          </View>
+        </TouchableOpacity>
 
-        <View style={styles.categoryActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            onPress={onEdit}
-          >
-            <AntDesign name="edit" size={16} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={onDelete}
-          >
-            <AntDesign name="delete" size={16} color="white" />
-          </TouchableOpacity>
-        </View>
+        <TouchableOpacity
+          style={styles.moreBtn}
+          onPress={onEdit}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          accessibilityLabel={t('daftarMenu.accessibility.categoryOptions')}
+        >
+          <AntDesign name="edit" size={17} color={COLORS.PRIMARY} />
+        </TouchableOpacity>
       </View>
     </View>
   );
 };
 
-const MenuItem = ({ item, onEdit, onDelete, t }) => {
-  const translateX = useRef(new Animated.Value(0)).current;
-  const [isRevealed, setIsRevealed] = useState(false);
-
-  const panResponder = PanResponder.create({
-    onMoveShouldSetPanResponder: (evt, gestureState) => {
-      return (
-        Math.abs(gestureState.dx) > Math.abs(gestureState.dy) &&
-        Math.abs(gestureState.dx) > 10
-      );
-    },
-    onPanResponderMove: (evt, gestureState) => {
-      if (gestureState.dx < 0) {
-        translateX.setValue(Math.max(gestureState.dx, -80));
-      } else if (isRevealed) {
-        translateX.setValue(Math.min(gestureState.dx - 80, 0));
-      }
-    },
-    onPanResponderRelease: (evt, gestureState) => {
-      if (gestureState.dx < -40 && !isRevealed) {
-        // Swipe left to reveal
-        Animated.spring(translateX, {
-          toValue: -80,
-          useNativeDriver: false,
-        }).start();
-        setIsRevealed(true);
-      } else if (gestureState.dx > 40 && isRevealed) {
-        // Swipe right to hide
-        Animated.spring(translateX, {
-          toValue: 0,
-          useNativeDriver: false,
-        }).start();
-        setIsRevealed(false);
-      } else {
-        // Snap back to current state
-        Animated.spring(translateX, {
-          toValue: isRevealed ? -80 : 0,
-          useNativeDriver: false,
-        }).start();
-      }
-    },
-  });
-
-  const handleItemPress = () => {
-    if (isRevealed) {
-      // Hide actions first
-      Animated.spring(translateX, {
-        toValue: 0,
-        useNativeDriver: false,
-      }).start();
-      setIsRevealed(false);
-    } else {
-      // If not revealed, directly edit the item
-      onEdit(item);
-    }
-  };
-
+// Baris item menu: seluruh card langsung tappable ke form edit.
+// Hapus ada di dalam modal edit (lihat ScreenMenu -> Edit Menu Modal).
+const MenuItem = ({ item, onEdit, t }) => {
   return (
-    <View style={styles.menuItemContainer}>
+    <TouchableOpacity
+      style={styles.menuItemContainer}
+      onPress={() => onEdit(item)}
+      activeOpacity={0.7}
+    >
       <View style={styles.menuItemWrapper}>
-        <Animated.View
-          style={[
-            styles.menuItemContent,
-            {
-              transform: [{ translateX }],
-            },
-          ]}
-          {...panResponder.panHandlers}
-        >
-          <TouchableOpacity 
-            style={styles.menuItemTouchable}
-            onPress={handleItemPress}
-            activeOpacity={0.7}
-          >
-            {item.image && (
-              <Image
-                source={{ uri: item.image }}
-                style={styles.menuItemImage}
-              />
-            )}
-            <View style={styles.menuItemDetails}>
-              <Text style={styles.menuItemName}>{item.name}</Text>
-              <Text style={styles.menuItemDescription}>{item.description}</Text>
-              <Text style={styles.menuItemPrice}>
-                {t('daftarMenu.priceFormat', { price: item.price.toLocaleString() })}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        </Animated.View>
-
-        <View style={styles.menuItemActions}>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.editButton]}
-            onPress={() => onEdit(item)}
-          >
-            <AntDesign name="edit" size={16} color="white" />
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.actionButton, styles.deleteButton]}
-            onPress={() => onDelete(item)}
-          >
-            <AntDesign name="delete" size={16} color="white" />
-          </TouchableOpacity>
+        <View style={styles.menuItemTouchable}>
+          {item.image && (
+            <Image
+              source={{ uri: item.image }}
+              style={styles.menuItemImage}
+            />
+          )}
+          <View style={styles.menuItemDetails}>
+            <Text style={styles.menuItemName} numberOfLines={1}>{item.name}</Text>
+            <Text style={styles.menuItemDescription} numberOfLines={2}>{item.description}</Text>
+            <Text style={styles.menuItemPrice}>
+              {t('daftarMenu.priceFormat', { price: item.price.toLocaleString() })}
+            </Text>
+          </View>
+          <MaterialIcons name="chevron-right" size={20} color="#c9c9c9" />
         </View>
       </View>
-    </View>
+    </TouchableOpacity>
   );
 };
 
@@ -516,6 +371,18 @@ const ScreenKategori = ({
   const [editingCategory, setEditingCategory] = useState(null);
   const [editCategoryName, setEditCategoryName] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const closeAddCategoryModal = () => {
+    setShowAddCategoryModal(false);
+    setNewCategoryName("");
+  };
+
+  const closeEditCategoryModal = () => {
+    setShowEditCategoryModal(false);
+    setEditingCategory(null);
+    setEditCategoryName("");
+  };
 
   const handleAddCategory = async () => {
     if (newCategoryName.trim() === "") return;
@@ -542,8 +409,7 @@ const ScreenKategori = ({
       const result = await response.json();
       const newCategory = result.category;
       setKategoriList([...KategoriList, newCategory]);
-      setNewCategoryName("");
-      setShowAddCategoryModal(false);
+      closeAddCategoryModal();
     } catch (error) {
       console.error(error);
       showAlert(t('common.error'), t('daftarMenu.alerts.addCategoryFailed'), [{ text: t('common.ok') }], "error");
@@ -568,6 +434,7 @@ const ScreenKategori = ({
           text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
+            setIsDeleting(true);
             try {
               const response = await fetch(
                 `${config.API_URL}/seller/categories/${category.id}`,
@@ -589,6 +456,8 @@ const ScreenKategori = ({
             } catch (error) {
               console.error(error);
               showAlert(t('common.error'), t('daftarMenu.alerts.deleteCategoryFailed'), [{ text: t('common.ok') }], "error");
+            } finally {
+              setIsDeleting(false);
             }
           },
         },
@@ -625,7 +494,7 @@ const ScreenKategori = ({
       }
 
       showAlert(t('common.success'), t('daftarMenu.alerts.updateCategorySuccess'), [{ text: t('common.ok') }], "success");
-      setShowEditCategoryModal(false);
+      closeEditCategoryModal();
       fetchCategories();
     } catch (error) {
       console.error(error);
@@ -659,7 +528,7 @@ const ScreenKategori = ({
               amount={item.items?.length || 0}
               onPress={() => handleCategoryPress(item)}
               onEdit={() => handleEditCategory(item)}
-              onDelete={() => handleDeleteCategory(item)}
+              t={t}
             />
           ))
         )}
@@ -680,11 +549,9 @@ const ScreenKategori = ({
         transparent={true}
         visible={showAddCategoryModal}
         animationType="fade"
-        onRequestClose={() => setShowAddCategoryModal(false)}
+        onRequestClose={closeAddCategoryModal}
       >
-        <TouchableWithoutFeedback
-          onPress={() => setShowAddCategoryModal(false)}
-        >
+        <TouchableWithoutFeedback onPress={closeAddCategoryModal}>
           <View style={styles.modalOverlay} />
         </TouchableWithoutFeedback>
 
@@ -710,7 +577,7 @@ const ScreenKategori = ({
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowAddCategoryModal(false)}
+                onPress={closeAddCategoryModal}
               >
                 <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
               </TouchableOpacity>
@@ -734,10 +601,10 @@ const ScreenKategori = ({
         transparent={true}
         visible={showEditCategoryModal}
         animationType="fade"
-        onRequestClose={() => setShowEditCategoryModal(false)}
+        onRequestClose={closeEditCategoryModal}
       >
         <TouchableWithoutFeedback
-          onPress={() => setShowEditCategoryModal(false)}
+          onPress={closeEditCategoryModal}
         >
           <View style={styles.modalOverlay} />
         </TouchableWithoutFeedback>
@@ -764,7 +631,7 @@ const ScreenKategori = ({
             <View style={[styles.modalButtonContainer, { marginTop: 14 }]}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowEditCategoryModal(false)}
+                onPress={closeEditCategoryModal}
               >
                 <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
               </TouchableOpacity>
@@ -781,14 +648,19 @@ const ScreenKategori = ({
             </View>
 
             <TouchableOpacity
-              style={[styles.deleteButtonModal, { marginTop: 16 }]}
+              style={[styles.deleteButtonModal, { marginTop: 16 }, isDeleting && { opacity: 0.6 }]}
               onPress={() => {
-                setShowEditCategoryModal(false);
+                closeEditCategoryModal();
                 handleDeleteCategory(editingCategory);
               }}
+              disabled={isDeleting}
               activeOpacity={0.85}
             >
-              <Text style={styles.deleteButtonModalText}>{t('daftarMenu.modal.deleteCategoryButton')}</Text>
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#C62828" />
+              ) : (
+                <Text style={styles.deleteButtonModalText}>{t('daftarMenu.modal.deleteCategoryButton')}</Text>
+              )}
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
@@ -805,6 +677,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
   const [editPrice, setEditPrice] = useState("");
   const [editImage, setEditImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const handleEditMenu = (item) => {
     setEditingItem(item);
@@ -813,6 +686,15 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
     setEditPrice(item.price.toString());
     setEditImage(item.image);
     setShowEditModal(true);
+  };
+
+  const closeEditModal = () => {
+    setShowEditModal(false);
+    setEditingItem(null);
+    setEditName("");
+    setEditDescription("");
+    setEditPrice("");
+    setEditImage(null);
   };
 
   const handleDeleteMenu = async (item) => {
@@ -825,6 +707,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
           text: t('common.delete'),
           style: "destructive",
           onPress: async () => {
+            setIsDeleting(true);
             try {
               const response = await fetch(`${config.API_URL}/seller/menu`, {
                 method: "DELETE",
@@ -847,6 +730,8 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
             } catch (error) {
               console.error(error);
               showAlert(t('common.error'), t('daftarMenu.alerts.deleteMenuFailed'), [{ text: t('common.ok') }], "error");
+            } finally {
+              setIsDeleting(false);
             }
           },
         },
@@ -858,6 +743,11 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
   const handleUpdateMenu = async () => {
     if (!editName || !editDescription || !editPrice) {
       showAlert(t('common.error'), t('daftarMenu.alerts.incompleteFields'), [{ text: t('common.ok') }], "error");
+      return;
+    }
+
+    if (!isValidPrice(editPrice)) {
+      showAlert(t('common.error'), t('daftarMenu.alerts.invalidPrice'), [{ text: t('common.ok') }], "error");
       return;
     }
 
@@ -895,7 +785,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
       }
 
       showAlert(t('common.success'), t('daftarMenu.alerts.updateMenuSuccess'), [{ text: t('common.ok') }], "success");
-      setShowEditModal(false);
+      closeEditModal();
       fetchCategories();
     } catch (error) {
       console.error(error);
@@ -927,19 +817,26 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
           setState={setState}
           t={t}
         />
-        <FlatList
-          data={selectedCategory.items || []}
-          renderItem={({ item }) => (
-            <MenuItem
-              item={item}
-              onEdit={() => handleEditMenu(item)}
-              onDelete={() => handleDeleteMenu(item)}
-              t={t}
-            />
-          )}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={styles.menuList}
-        />
+        {(selectedCategory.items || []).length === 0 ? (
+          <View style={styles.emptyState}>
+            <Text style={styles.emptyStateText}>
+              {t('daftarMenu.emptyMenu')}
+            </Text>
+          </View>
+        ) : (
+          <FlatList
+            data={selectedCategory.items || []}
+            renderItem={({ item }) => (
+              <MenuItem
+                item={item}
+                onEdit={() => handleEditMenu(item)}
+                t={t}
+              />
+            )}
+            keyExtractor={(item) => item.id.toString()}
+            contentContainerStyle={styles.menuList}
+          />
+        )}
       </View>
 
       {/* Edit Menu Modal */}
@@ -947,9 +844,9 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
         transparent={true}
         visible={showEditModal}
         animationType="fade"
-        onRequestClose={() => setShowEditModal(false)}
+        onRequestClose={closeEditModal}
       >
-        <TouchableWithoutFeedback onPress={() => setShowEditModal(false)}>
+        <TouchableWithoutFeedback onPress={closeEditModal}>
           <View style={styles.modalOverlay} />
         </TouchableWithoutFeedback>
 
@@ -1011,7 +908,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity
                 style={[styles.modalButton, styles.cancelButton]}
-                onPress={() => setShowEditModal(false)}
+                onPress={closeEditModal}
               >
                 <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
               </TouchableOpacity>
@@ -1026,6 +923,22 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
                 </Text>
               </TouchableOpacity>
             </View>
+
+            <TouchableOpacity
+              style={[styles.deleteButtonModal, { marginTop: 16 }, isDeleting && { opacity: 0.6 }]}
+              onPress={() => {
+                closeEditModal();
+                handleDeleteMenu(editingItem);
+              }}
+              disabled={isDeleting}
+              activeOpacity={0.85}
+            >
+              {isDeleting ? (
+                <ActivityIndicator size="small" color="#C62828" />
+              ) : (
+                <Text style={styles.deleteButtonModalText}>{t('daftarMenu.modal.deleteMenuButton')}</Text>
+              )}
+            </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
       </Modal>
@@ -1191,6 +1104,8 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+    // di web, cursor pointer bikin jelas area overlay ini bisa diklik buat nutup modal
+    ...(Platform.OS === 'web' ? { cursor: 'default' } : {}),
   },
   contentContainer: {
     flex: 1,
@@ -1230,6 +1145,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     backgroundColor: "#F5F6FA",
     overflow: "hidden",
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   imagePickerPreview: {
     width: "100%",
@@ -1252,6 +1168,7 @@ const styles = StyleSheet.create({
     marginBottom: 14,
     fontSize: 14,
     color: "#23272f",
+    ...(Platform.OS === 'web' ? { outlineStyle: 'none' } : {}),
   },
   textArea: {
     height: 100,
@@ -1264,6 +1181,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     marginTop: 18,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   primaryButtonText: {
     color: "#fff",
@@ -1271,15 +1189,14 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 
-  // Category styles
+  // Category row
   categoryContainer: {
-    overflow: "hidden",
     marginHorizontal: 16,
     marginBottom: 10,
-    borderRadius: 14,
   },
-  categoryWrapper: {
-    position: "relative",
+  categoryRowWrapper: {
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 14,
     shadowColor: "#000",
@@ -1288,22 +1205,22 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  categoryContent: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    zIndex: 1,
-  },
   categoryTouchable: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingLeft: 16,
+    paddingRight: 4,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   categoryName: {
+    flex: 1,
     fontSize: 15,
     fontWeight: "700",
     color: "#23272f",
+    marginRight: 10,
   },
   categoryRight: {
     flexDirection: "row",
@@ -1321,15 +1238,13 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 12.5,
   },
-  categoryActions: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    flexDirection: "row",
+  moreBtn: {
+    width: 38,
+    height: 44,
+    justifyContent: "center",
     alignItems: "center",
-    paddingRight: 10,
-    gap: 8,
+    marginRight: 4,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
 
   deleteButtonModal: {
@@ -1337,6 +1252,9 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 30,
     alignItems: "center",
+    justifyContent: "center",
+    minHeight: 44,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   deleteButtonModalText: {
     color: "#C62828",
@@ -1356,6 +1274,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 10,
     elevation: 6,
+    ...(Platform.OS === 'web' ? { maxWidth: 420, alignSelf: 'center', width: '100%' } : {}),
   },
   modalTitle: {
     fontSize: 17,
@@ -1373,6 +1292,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 30,
     alignItems: "center",
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   cancelButton: {
     backgroundColor: "#fff",
@@ -1392,14 +1312,16 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     fontSize: 14,
   },
+
+  // Menu item row
   menuItemContainer: {
-    overflow: "hidden",
     marginHorizontal: 16,
     marginBottom: 10,
-    borderRadius: 14,
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   menuItemWrapper: {
-    position: "relative",
+    flexDirection: "row",
+    alignItems: "center",
     backgroundColor: "#fff",
     borderRadius: 14,
     shadowColor: "#000",
@@ -1408,12 +1330,8 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 2,
   },
-  menuItemContent: {
-    backgroundColor: "#fff",
-    borderRadius: 14,
-    zIndex: 1,
-  },
   menuItemTouchable: {
+    flex: 1,
     flexDirection: "row",
     alignItems: "center",
     padding: 14,
@@ -1446,29 +1364,6 @@ const styles = StyleSheet.create({
   menuList: {
     padding: 16,
     paddingBottom: 20,
-  },
-  menuItemActions: {
-    position: "absolute",
-    right: 0,
-    top: 0,
-    bottom: 0,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingRight: 10,
-    gap: 8,
-  },
-  actionButton: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    justifyContent: "center",
-    alignItems: "center",
-  },
-  editButton: {
-    backgroundColor: COLORS.PRIMARY,
-  },
-  deleteButton: {
-    backgroundColor: "#C62828",
   },
 
   // CustomAlert
@@ -1519,6 +1414,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     borderRadius: 30,
     alignItems: 'center',
+    ...(Platform.OS === 'web' ? { cursor: 'pointer' } : {}),
   },
   alertButtonSolid: {
     backgroundColor: COLORS.PRIMARY,

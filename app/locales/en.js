@@ -899,6 +899,7 @@ daftarMenu: {
     menuNamePlaceholder: 'Menu Name',
     descriptionPlaceholder: 'Description',
     pricePlaceholder: 'Price',
+    deleteMenuButton: 'Delete Menu'
   },
   quickAdd: {
     header: 'Add Menu',
