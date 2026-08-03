@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator, Alert } from "react-native";
+import { StyleSheet, Text, TouchableOpacity, View, ActivityIndicator } from "react-native";
+import { useToast } from '../../components/ToastProvider';
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -66,6 +67,7 @@ const DetailPengantaran = () => {
 
   const [statusKey, setStatusKey] = useState(initialStatusKey);
   const [submitting, setSubmitting] = useState(false);
+  const { showSuccess, showError } = useToast();
 
   // Posisi live seller sendiri (dari GPS device ini) — dipakai buat marker
   // biru di peta, sekaligus yang dikirim berkala ke server lewat effect
@@ -172,40 +174,38 @@ const DetailPengantaran = () => {
     );
   };
 
-  const handleStartDelivery = async () => {
-    if (isRantangan && !orderCanStart) {
-      Alert.alert('Belum Masa Pengantaran', 'Tanggal mulai pengantaran untuk pesanan ini belum tiba.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await updateOrderStatus('delivery');
-      // TIDAK router.back() lagi — tetap di halaman ini, tampilan berubah
-      // otomatis ke mode peta karena statusKey sekarang 'delivery'.
-      setStatusKey('delivery');
-    } catch (e) {
-      Alert.alert('Gagal', 'Terjadi kendala saat memperbarui status pesanan.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handleCompleteDelivery = async () => {
-    setSubmitting(true);
-    try {
-      if (isRantangan && isRecurring) {
-        await completeDailyDelivery();
-      } else {
-        await updateOrderStatus('completed');
+    const handleStartDelivery = async () => {
+      if (isRantangan && !orderCanStart) {
+        showError('Tanggal mulai pengantaran untuk pesanan ini belum tiba.', { title: 'Belum Masa Pengantaran' });
+        return;
       }
-      router.back();
-    } catch (e) {
-      Alert.alert('Gagal', 'Terjadi kendala saat menyelesaikan pesanan.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
+      setSubmitting(true);
+      try {
+        await updateOrderStatus('delivery');
+        setStatusKey('delivery');
+      } catch (e) {
+        showError('Terjadi kendala saat memperbarui status pesanan.', { title: 'Gagal' });
+      } finally {
+        setSubmitting(false);
+      }
+    };
 
+    const handleCompleteDelivery = async () => {
+      setSubmitting(true);
+      try {
+        if (isRantangan && isRecurring) {
+          await completeDailyDelivery();
+        } else {
+          await updateOrderStatus('completed');
+        }
+        showSuccess('Pengantaran berhasil diselesaikan.', { title: 'Pesanan Selesai' });
+        router.back();
+      } catch (e) {
+        showError('Terjadi kendala saat menyelesaikan pesanan.', { title: 'Gagal' });
+      } finally {
+        setSubmitting(false);
+      }
+    };
   // ---------------------------------------------------------------------
   // Mode peta — begitu status 'delivery', seluruh body halaman berubah
   // jadi peta di atas + info pembeli & tombol selesai di bawah.

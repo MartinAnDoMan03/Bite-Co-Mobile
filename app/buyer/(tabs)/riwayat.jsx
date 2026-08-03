@@ -1,7 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import axios from 'axios';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator } from 'react-native'
+import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator, Platform } from 'react-native'
 import React, { useEffect, useState, useCallback } from 'react'
 import config from '../../constants/config';
 import { useRouter } from 'expo-router';
@@ -147,6 +147,15 @@ const Riwayat = () => {
     }, [fetchOrders])
   );
 
+  useEffect(() => {
+    if (Platform.OS !== 'web') return;
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') fetchOrders();
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [fetchOrders]);
+
   // Timer buat re-check status "lewat 30 menit" secara real-time selama
   // halaman ini terbuka — tanpa ini, prompt cuma muncul kalau buyer manual
   // refresh/reopen halaman.
@@ -175,29 +184,38 @@ const Riwayat = () => {
   // pembayaran di dalam WebView.
   const openPaymentWebView = (order) => {
     if (!order.snapUrl) return;
+    if (Platform.OS === 'web') {
+      window.open(order.snapUrl, '_blank');
+      return;
+    }
     setPaymentSnapUrl(order.snapUrl);
     setShowPaymentModal(true);
   };
 
-  const initiatePayment = async (order) => {
-    setPaymentCheckLoading(true);
-    try {
-      const token = await AsyncStorage.getItem('buyerToken');
-      const res = await axios.post(
-        `${config.API_URL}/buyer/orders/${order.id}/payment`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      if (res.data?.snapUrl) {
+
+const initiatePayment = async (order) => {
+  setPaymentCheckLoading(true);
+  try {
+    const token = await AsyncStorage.getItem('buyerToken');
+    const res = await axios.post(
+      `${config.API_URL}/buyer/orders/${order.id}/payment`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    if (res.data?.snapUrl) {
+      if (Platform.OS === 'web') {
+        window.open(res.data.snapUrl, '_blank');
+      } else {
         setPaymentSnapUrl(res.data.snapUrl);
         setShowPaymentModal(true);
       }
-    } catch (e) {
-      alert(t('buyerRiwayat.alerts.checkStatusFailed'));
-    } finally {
-      setPaymentCheckLoading(false);
     }
-  };
+  } catch (e) {
+    alert(t('buyerRiwayat.alerts.checkStatusFailed'));
+  } finally {
+    setPaymentCheckLoading(false);
+  }
+};
 
   // Batalkan order yang approval-nya sudah lewat 30 menit. Pakai endpoint
   // cancel yang sama dengan jendela batal 15 detik di Pembayaran.jsx —
