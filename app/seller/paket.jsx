@@ -835,6 +835,7 @@ const TabPaketCatering = ({ showAlert, t }) => {
     slots: formSlots.map((s) => ({
       label: s.label,
       category_id: s.category_id,
+      category_name: s.category_name,
       max_pick: s.max_pick,
     })),
   });
