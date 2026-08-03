@@ -126,7 +126,13 @@ const DetailPengantaran = () => {
     return () => {
       isActive = false;
       if (locationSubscription.current) {
-        locationSubscription.current.remove();
+         try {
+      locationSubscription.current.remove();
+    } catch (err) {
+      // expo-location's web shim doesn't fully support subscription.remove()
+      // — harmless to skip, tracking is stopping anyway since we're unmounting.
+      console.warn('Gagal membersihkan location subscription:', err);
+    }
         locationSubscription.current = null;
       }
     };
@@ -190,22 +196,25 @@ const DetailPengantaran = () => {
       }
     };
 
-    const handleCompleteDelivery = async () => {
-      setSubmitting(true);
-      try {
-        if (isRantangan && isRecurring) {
-          await completeDailyDelivery();
-        } else {
-          await updateOrderStatus('completed');
-        }
-        showSuccess('Pengantaran berhasil diselesaikan.', { title: 'Pesanan Selesai' });
-        router.back();
-      } catch (e) {
-        showError('Terjadi kendala saat menyelesaikan pesanan.', { title: 'Gagal' });
-      } finally {
-        setSubmitting(false);
+  const handleCompleteDelivery = async () => {
+    setSubmitting(true);
+    try {
+      if (isRantangan && isRecurring) {
+        await completeDailyDelivery();
+      } else {
+        await updateOrderStatus('completed');
       }
-    };
+      showSuccess('Pengantaran berhasil diselesaikan.', { title: 'Pesanan Selesai' });
+      router.replace({
+        pathname: 'seller/JadwalPengantaran',
+        params: { justCompleted: '1' },
+      });
+    } catch (e) {
+      showError('Terjadi kendala saat menyelesaikan pesanan.', { title: 'Gagal' });
+    } finally {
+      setSubmitting(false);
+    }
+  };
   // ---------------------------------------------------------------------
   // Mode peta — begitu status 'delivery', seluruh body halaman berubah
   // jadi peta di atas + info pembeli & tombol selesai di bawah.

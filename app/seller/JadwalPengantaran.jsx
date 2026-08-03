@@ -3,12 +3,31 @@ import React from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import COLORS from '../constants/color';
-import { useRouter } from "expo-router";
+import { useFocusEffect } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { useLanguage } from '../contexts/LanguageContext';
 import { ScrollView, ActivityIndicator } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import axios from "axios";
 import config from '../constants/config';
+
+
+const PERIOD_OPTIONS = [
+  { key: '1hari', label: '1 Hari', days: 1 },
+  { key: '7hari', label: '7 Hari', days: 7 },
+  { key: '30hari', label: '30 Hari', days: 30 },
+  { key: 'semua', label: 'Semua', days: null },
+];
+const DEFAULT_PERIOD = 'semua'; 
+
+const matchesPeriod = (dateStr, periodKey) => {
+  const option = PERIOD_OPTIONS.find((p) => p.key === periodKey);
+  if (!option || option.days === null) return true;
+  if (!dateStr) return false;
+  const ts = new Date(dateStr).getTime();
+  if (isNaN(ts)) return false;
+  return ts >= Date.now() - option.days * 24 * 60 * 60 * 1000;
+};
 
 // Status -> warna pill (bg tint + teks)
 const STATUS_STYLES = {
@@ -40,6 +59,9 @@ const isTodayDeliveryCompleted = (dailyDeliveryLogs = []) => {
 // pakai startDate, dan untuk Rantangan Mingguan/Bulanan ditampilkan bersama
 // endDate biar seller tahu ini order berulang, bukan sekali antar.
 const formatScheduleDate = (order) => {
+  if (order.statusProgress === 'completed' && order.completedAt) {
+  return `Selesai ${new Date(order.completedAt).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' })}`;
+  }
   if (!order.startDate) return "-";
   const start = new Date(order.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long' });
   const isRecurring = order.packageType === 'Mingguan' || order.packageType === 'Bulanan';
@@ -97,11 +119,14 @@ const Card = ({ order, buyerName, statusLabel, statusKey, onPress }) => {
 
 const JadwalPengantaran = () => {
   const router = useRouter();
+  const params = useLocalSearchParams();
   const { t } = useLanguage();
   const [activeFilter, setActiveFilter] = React.useState("all");
   const [orders, setOrders] = React.useState([]);
   const [loading, setLoading] = React.useState(true);
   const [buyerMap, setBuyerMap] = React.useState({});
+  const [activePeriod, setActivePeriod] = React.useState(DEFAULT_PERIOD);
+
 
   const fetchDeliveryOrders = React.useCallback(async () => {
     try {
@@ -111,9 +136,11 @@ const JadwalPengantaran = () => {
       });
       const allOrders = res.data.orders || [];
 
-      // Only show orders in active delivery states
+      // Sekarang termasuk 'completed' juga — sebelumnya order yang sudah
+      // selesai langsung hilang dari layar ini sama sekali, bahkan sebelum
+      // sempat kelihatan di tab manapun.
       const deliveryOrders = allOrders.filter((o) =>
-        ['processing', 'delivery'].includes(o.statusProgress || o.status)
+        ['processing', 'delivery', 'completed'].includes(o.statusProgress || o.status)
       );
       setOrders(deliveryOrders);
 
@@ -134,21 +161,31 @@ const JadwalPengantaran = () => {
     }
   }, []);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      fetchDeliveryOrders();
+    }, [fetchDeliveryOrders])
+  );
+
   React.useEffect(() => {
-    fetchDeliveryOrders();
-  }, [fetchDeliveryOrders]);
+    if (params.justCompleted === '1') {
+      setActiveFilter('completed');
+    }
+  }, [params.justCompleted]);
 
-  const FILTERS = [
-    { key: "all", label: t('jadwalPengantaran.filters.all') },
-    { key: "processing", label: t('jadwalPengantaran.filters.processing') },
-    { key: "delivery", label: t('jadwalPengantaran.filters.completed') },
-  ];
+const FILTERS = [
+  { key: "all", label: t('jadwalPengantaran.filters.all') },
+  { key: "processing", label: t('jadwalPengantaran.filters.processing') },
+  { key: "delivery", label: t('jadwalPengantaran.filters.delivery', 'Diantar') },
+  { key: "completed", label: t('jadwalPengantaran.filters.completed') },
+];
 
-  const filteredData = orders.filter((o) => {
-    const status = o.statusProgress || o.status;
-    if (activeFilter === "all") return true;
-    return status === activeFilter;
-  });
+const filteredData = orders.filter((o) => {
+  const status = o.statusProgress || o.status;
+  if (activeFilter !== "all" && status !== activeFilter) return false;
+  if (activeFilter === "completed") return matchesPeriod(o.completedAt, activePeriod);
+  return true;
+});
 
   const handlePressCard = (item) => {
     router.push({
