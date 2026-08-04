@@ -105,6 +105,39 @@ const ListMenu = ({ menu, inCart, onAdd, onRemove, onImageLoad, onImageError, or
   );
 };
 
+const PackageCard = ({ pkg, inCart, onAdd, onRemove, orderable }) => (
+  <View style={[styles.menuCard, !orderable && styles.menuCardClosed]}>
+    <View style={[styles.menuImage, styles.packageIconWrap]}>
+      <MaterialIcons name="inventory-2" size={28} color={COLORS.PRIMARY} />
+    </View>
+    <View style={{ flex: 1 }}>
+      <Text style={styles.menuName} numberOfLines={1}>{pkg?.name || "-"}</Text>
+      <Text style={styles.menuDesc} numberOfLines={2}>{pkg?.description || "-"}</Text>
+      <Text style={styles.packageMinPax}>Min. {pkg?.min_pax || "-"} pax</Text>
+      <View style={styles.menuBottomRow}>
+        <Text style={styles.menuPrice}>
+          Rp {pkg?.price_per_pax ? pkg.price_per_pax.toLocaleString() : "-"} / pax
+        </Text>
+        {inCart ? (
+          <TouchableOpacity style={styles.removeBtn} onPress={onRemove}>
+            <MaterialIcons name="close" size={13} color="#D64545" />
+            <Text style={styles.removeBtnText}>Hapus</Text>
+          </TouchableOpacity>
+        ) : orderable ? (
+          <TouchableOpacity style={styles.addBtn} onPress={onAdd}>
+            <MaterialIcons name="add" size={14} color="white" />
+            <Text style={styles.addBtnText}>Tambah</Text>
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.addBtnDisabled}>
+            <Text style={styles.addBtnDisabledText}>Tutup</Text>
+          </View>
+        )}
+      </View>
+    </View>
+  </View>
+);
+
 // Input pax yang bisa diketik langsung, selain lewat tombol +/-.
 // Nyimpen text lokal supaya user bisa kosongin dulu pas lagi ngetik ulang
 // angkanya, dan baru divalidasi/dikomit pas blur atau submit.
@@ -162,6 +195,8 @@ const CateringDetail = () => {
   // Dihitung ulang tiap kali `store` berubah (setelah fetch detail selesai)
   const outletStatus = store ? getOutletStatus(store) : null;
   const orderable = store ? isOutletOrderable(store) : true;
+  const [packages, setPackages] = useState([]);
+  const [viewMode, setViewMode] = useState('menu');
   // Keranjang global (dibaca dari AsyncStorage, tidak terikat sellerid halaman ini).
   const [globalCart, setGlobalCart] = useState({ items: [], store: null, orderType: null, total: 0 });
 
@@ -324,6 +359,15 @@ const loadBuyerAddress = async () => {
         if (res.data && res.data.seller) {
           setStore(res.data.seller);
           setCategories(res.data.seller.categories || []);
+
+          const rawPackages = res.data.seller.cateringPackages || [];
+          const validPackages = rawPackages.filter(pkg =>
+            pkg.name &&
+            pkg.price_per_pax && pkg.price_per_pax > 0 &&
+            pkg.min_pax && pkg.min_pax > 0
+          );
+          setPackages(validPackages);
+
           setBannerUrl(res.data.seller.banner || res.data.seller.storeBanner || null);
         } else {
           setError("Gagal memuat detail catering");
@@ -356,24 +400,25 @@ const loadBuyerAddress = async () => {
     const existingStore = existingStoreRaw ? JSON.parse(existingStoreRaw) : null;
     const sameSellerSameType = existingStore?.id === sellerid && existingOrderType === 'Catering';
 
-    const doAdd = async () => {
-      setCart((prevCart) => {
-        let newCart;
-        if (prevCart.sellerId !== sellerid) {
-          newCart = { sellerId: sellerid, items: [{ ...menu, qty: 1 }] };
-        } else {
-          const found = prevCart.items.find((item) => item.id === menu.id);
-          if (!found) {
-            newCart = { ...prevCart, items: [...prevCart.items, { ...menu, qty: 1 }] };
-          } else {
-            newCart = prevCart;
-          }
-        }
-        saveCartToStorage(newCart.items, store);
-        return newCart;
-      });
-      await AsyncStorage.setItem('order_type', 'Catering');
-    };
+const doAdd = async () => {
+  setCart((prevCart) => {
+    let newCart;
+    const initialQty = menu.isPackage ? (menu.min_pax || 1) : 1;
+    if (prevCart.sellerId !== sellerid) {
+      newCart = { sellerId: sellerid, items: [{ ...menu, qty: initialQty }] };
+    } else {
+      const found = prevCart.items.find((item) => item.id === menu.id);
+      if (!found) {
+        newCart = { ...prevCart, items: [...prevCart.items, { ...menu, qty: initialQty }] };
+      } else {
+        newCart = prevCart;
+      }
+    }
+    saveCartToStorage(newCart.items, store);
+    return newCart;
+  });
+  await AsyncStorage.setItem('order_type', 'Catering');
+};
 
     if (existingOrderType && !sameSellerSameType) {
       showAlert(
@@ -413,17 +458,19 @@ const loadBuyerAddress = async () => {
     });
   };
 
-  const updateItemPax = (menuId, newQty) => {
-    setCart((prevCart) => {
-      const safeQty = Math.max(1, newQty);
-      const updatedItems = prevCart.items.map(item =>
-        item.id === menuId ? { ...item, qty: safeQty } : item
-      );
-      const newCart = { ...prevCart, items: updatedItems };
-      saveCartToStorage(updatedItems, store);
-      return newCart;
-    });
-  };
+const updateItemPax = (menuId, newQty) => {
+  setCart((prevCart) => {
+    const target = prevCart.items.find((item) => item.id === menuId);
+    const minAllowed = target?.isPackage ? (target.min_pax || 1) : 1;
+    const safeQty = Math.max(minAllowed, newQty);
+    const updatedItems = prevCart.items.map((item) =>
+      item.id === menuId ? { ...item, qty: safeQty } : item
+    );
+    const newCart = { ...prevCart, items: updatedItems };
+    saveCartToStorage(updatedItems, store);
+    return newCart;
+  });
+};
 
   const isInCart = (menuId) => {
     if (cart.sellerId !== sellerid) return false;
@@ -649,6 +696,28 @@ const loadBuyerAddress = async () => {
             </Text>
           </View>
         )}
+
+        {allContentLoaded && packages.length > 0 && (
+          <View style={styles.viewModeRow}>
+            <TouchableOpacity
+              style={[styles.viewModeChip, viewMode === 'menu' && styles.viewModeChipActive]}
+              onPress={() => setViewMode('menu')}
+            >
+              <Text style={[styles.viewModeChipText, viewMode === 'menu' && styles.viewModeChipTextActive]}>
+                Menu
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.viewModeChip, viewMode === 'paket' && styles.viewModeChipActive]}
+              onPress={() => setViewMode('paket')}
+            >
+              <Text style={[styles.viewModeChipText, viewMode === 'paket' && styles.viewModeChipTextActive]}>
+                Paket
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {!allContentLoaded || loading ? (
           <View style={{ paddingHorizontal: 20, gap: 12 }}>
             <MenuItemSkeleton />
@@ -662,6 +731,29 @@ const loadBuyerAddress = async () => {
             <MaterialIcons name="error-outline" size={36} color={COLORS.TEXTSECONDARY} />
             <Text style={styles.errorText}>{error}</Text>
           </View>
+        
+          ) : viewMode === 'paket' ? (
+              packages.length === 0 ? (
+                <View style={styles.errorContainer}>
+                  <MaterialIcons name="inventory-2" size={36} color={COLORS.TEXTSECONDARY} />
+                  <Text style={styles.errorText}>Belum ada paket catering</Text>
+                </View>
+              ) : (
+                <View style={{ gap: 12 }}>
+                  <Text style={styles.categoryTitle}>Paket Catering</Text>
+                  {packages.map((pkg) => (
+                    <PackageCard
+                      key={pkg.id}
+                      pkg={pkg}
+                      inCart={isInCart(pkg.id)}
+                      onAdd={() => addToCart({ ...pkg, price: pkg.price_per_pax, isPackage: true })}
+                      onRemove={() => removeFromCart(pkg)}
+                      orderable={orderable}
+                    />
+                  ))}
+                </View>
+              )
+
         ) : categories.length === 0 ? (
           <View style={styles.errorContainer}>
             <MaterialIcons name="restaurant-menu" size={36} color={COLORS.TEXTSECONDARY} />
@@ -727,7 +819,14 @@ const loadBuyerAddress = async () => {
                     <View key={item.id} style={styles.cartItemRow}>
                       <View style={{ flex: 1 }}>
                         <Text style={{ fontSize: 13 }}>{item.name}</Text>
-                        <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>Rp {item.price?.toLocaleString()}</Text>
+                        <Text style={{ fontSize: 12, color: COLORS.TEXTSECONDARY }}>
+                          Rp {item.price?.toLocaleString()}{item.isPackage ? ' / pax' : ''}
+                        </Text>
+                        {item.isPackage && (
+                          <Text style={{ fontSize: 10.5, color: COLORS.PRIMARY, marginTop: 2 }}>
+                            Min. {item.min_pax} pax
+                          </Text>
+                        )}
                       </View>
 
                       {isOwnCart && (
@@ -1246,6 +1345,32 @@ const styles = StyleSheet.create({
   secondaryCartBtnText: {
     color: '#555',
     fontWeight: '700',
+    },
+    viewModeRow: {
+    flexDirection: 'row',
+    marginHorizontal: 20,
+    marginBottom: 4,
+    gap: 8,
+  },
+  viewModeChip: {
+    flex: 1,
+    paddingVertical: 9,
+    borderRadius: 20,
+    alignItems: 'center',
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#EAEAEA',
+  },
+  viewModeChipActive: {
+    backgroundColor: COLORS.PRIMARY,
+    borderColor: COLORS.PRIMARY,
+  },
+  viewModeChipText: { fontSize: 13, fontWeight: '700', color: '#888' },
+  viewModeChipTextActive: { color: '#fff' },
+  packageIconWrap: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F7EAEF',
   },
   alertOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 32 },
   alertContent: { backgroundColor: 'white', borderRadius: 18, padding: 22, width: '100%', maxWidth: 340, alignItems: 'center' },
