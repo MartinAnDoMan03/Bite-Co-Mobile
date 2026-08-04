@@ -134,7 +134,7 @@ const AddMenuPage = () => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.8,
+        quality: 0.6,
         base64: false,
       });
 
