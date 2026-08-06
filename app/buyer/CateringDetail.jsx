@@ -18,7 +18,7 @@ import { getOutletStatus, isOutletOrderable } from '../services/OutletStatusServ
 
 const BANNER_HEIGHT = 150;
 const OVERLAP = 30;
-const FALLBACK_CARD_HEIGHT = 100;
+const FALLBACK_CARD_HEIGHT = 130;
 
 // Key AsyncStorage khusus buat lokasi antar Catering — TERPISAH dari 'pinPoint'
 // (lokasi profil) supaya milih lokasi custom di sini tidak menimpa alamat
@@ -686,7 +686,8 @@ const updateItemPax = (menuId, newQty) => {
 
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: headerHeight + 15, paddingBottom: 20, gap: 10 }}
+        style={{ flex: 1, marginTop: headerHeight }}
+        contentContainerStyle={{ paddingTop: 15, paddingBottom: 20, gap: 10 }}
       >
         {allContentLoaded && !orderable && outletStatus && (
           <View style={styles.closedNotice}>

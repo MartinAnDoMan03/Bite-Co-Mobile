@@ -38,4 +38,8 @@ app/constants/config.js
 # typescript
 *.tsbuildinfo
 
+credentials
+credentials.json
+.easignore
+
 app-example

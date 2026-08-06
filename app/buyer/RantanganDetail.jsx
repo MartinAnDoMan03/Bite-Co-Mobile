@@ -305,49 +305,6 @@ const RantanganDetail = () => {
   const handleBannerImageLoad = () => setBannerLoading(false);
   const handleBannerImageError = () => setBannerLoading(false);
 
-  const getPackageData = (type) => {
-    const defaultPrices = { harian: 50000, mingguan: 300000, bulanan: 1200000 };
-    const defaultDescriptions = {
-      harian: "Paket rantangan untuk 1 hari dengan menu bergizi dan bervariasi",
-      mingguan: "Paket rantangan untuk 1 minggu (7 hari) dengan menu berbeda setiap hari",
-      bulanan: "Paket rantangan untuk 1 bulan (30 hari) dengan menu bergizi dan hemat",
-    };
-
-    if (!store?.rantanganPackages || !Array.isArray(store.rantanganPackages)) {
-      return {
-        name: `Paket ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-        description: defaultDescriptions[type],
-        price: defaultPrices[type] || 0
-      };
-    }
-
-    let packageItem = store.rantanganPackages.find(pkg =>
-      pkg.name?.toLowerCase().includes(type.toLowerCase())
-    );
-
-    if (!packageItem) {
-      const typeIndex = { harian: 0, mingguan: 1, bulanan: 2 };
-      const index = typeIndex[type];
-      if (index !== undefined && store.rantanganPackages[index]) {
-        packageItem = store.rantanganPackages[index];
-      }
-    }
-
-    if (packageItem && packageItem.name && packageItem.description && packageItem.price) {
-      return {
-        name: packageItem.name,
-        description: packageItem.description,
-        price: packageItem.price
-      };
-    }
-
-    return {
-      name: `Paket ${type.charAt(0).toUpperCase() + type.slice(1)}`,
-      description: defaultDescriptions[type],
-      price: defaultPrices[type] || 0
-    };
-  };
-
   const headerHeight = BANNER_HEIGHT - OVERLAP + cardHeight;
 
   if (loading) {
@@ -439,7 +396,8 @@ const RantanganDetail = () => {
       {/* Scrollable content, sits below the fixed header */}
       <ScrollView
         showsVerticalScrollIndicator={false}
-        contentContainerStyle={{ paddingTop: headerHeight + 10, paddingBottom: 30 }}
+        style={{ flex: 1, marginTop: headerHeight }}
+        contentContainerStyle={{ paddingTop: 15, paddingBottom: 30 }}
       >
         {/* Package Options */}
         <View style={{ paddingHorizontal: 20 }}>
@@ -455,21 +413,32 @@ const RantanganDetail = () => {
             </View>
           )}
 
-          <View style={{ marginTop: 16 }}>
-            {['harian', 'mingguan', 'bulanan'].map((type) => {
-              const pkg = getPackageData(type);
-              return (
-                <PackageItem
-                  key={type}
-                  type={type}
-                  title={pkg.name}
-                  description={pkg.description}
-                  price={pkg.price}
-                  onPress={() => handlePackageSelect(type, pkg)}
-                  disabled={!orderable}
-                />
-              );
-            })}
+        <View style={{ marginTop: 16 }}>
+            {store?.rantanganPackages && store.rantanganPackages.length > 0 ? (
+              store.rantanganPackages.map((pkg, index) => {
+                const nameLower = pkg.name?.toLowerCase() || "";
+                let iconType = "lainnya";
+                if (nameLower.includes("harian")) iconType = "harian";
+                else if (nameLower.includes("mingguan")) iconType = "mingguan";
+                else if (nameLower.includes("bulanan")) iconType = "bulanan";
+
+                return (
+                  <PackageItem
+                    key={pkg.id || index}
+                    type={iconType}
+                    title={pkg.name}
+                    description={pkg.description}
+                    price={pkg.price}
+                    onPress={() => handlePackageSelect(pkg.id || pkg.name, pkg)}
+                    disabled={!orderable}
+                  />
+                );
+              })
+            ) : (
+              <Text style={{ textAlign: 'center', color: '#888', marginTop: 20 }}>
+                Belum ada paket rantangan yang tersedia.
+              </Text>
+            )}
           </View>
         </View>
 
