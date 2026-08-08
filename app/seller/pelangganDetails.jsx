@@ -176,33 +176,6 @@ const PelangganDetails = () => {
     });
   };
 
-  const handleContactCustomer = () => {
-    if (customer?.phone) {
-      showAlert(
-        t('pelangganDetails.alerts.contact.title'),
-        t('pelangganDetails.alerts.contact.message', { name: customer.name }),
-        [
-          { text: t('common.cancel'), style: "cancel" },
-          {
-            text: "WhatsApp",
-            onPress: () => {
-              console.log(`Open WhatsApp to ${customer.phone}`);
-            }
-          },
-          {
-            text: t('pelangganDetails.alerts.contact.callButton'),
-            onPress: () => {
-              console.log(`Call ${customer.phone}`);
-            }
-          }
-        ],
-        'info'
-      );
-    } else {
-      showAlert(t('pelangganDetails.alerts.noPhone.title'), t('pelangganDetails.alerts.noPhone.message'), [{ text: t('common.ok') }], 'warning');
-    }
-  };
-
   // Calculate customer insights
   const getCustomerInsights = (customer) => {
     if (!customer) return {};
@@ -324,9 +297,6 @@ const PelangganDetails = () => {
                   <View style={styles.contactRow}>
                     <MaterialIcons name="phone" size={15} color="#999" />
                     <Text style={styles.contactText}>{customer.phone}</Text>
-                    <TouchableOpacity style={styles.contactButton} onPress={handleContactCustomer} activeOpacity={0.85}>
-                      <MaterialIcons name="phone" size={18} color="#fff" />
-                    </TouchableOpacity>
                   </View>
                 )}
                 {customer.address && (
@@ -633,14 +603,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#777',
     flex: 1,
-  },
-  contactButton: {
-    backgroundColor: COLORS.PRIMARY,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    justifyContent: 'center',
-    alignItems: 'center',
   },
   statsGrid: {
     flexDirection: 'row',

@@ -243,17 +243,11 @@ const DetailOrder = () => {
               Rp {order.totalAmount?.toLocaleString()}
             </Text>
           </View>
-          <View style={styles.footerRow}>
-            <Text style={styles.footerLabel}>{t("detailOrder.shipping")}</Text>
-            <Text style={styles.footerValue}>
-              Rp {order.deliveryFee ? order.deliveryFee.toLocaleString() : "0"}
-            </Text>
-          </View>
           <View style={styles.divider} />
           <View style={styles.footerRow}>
             <Text style={styles.footerTotalLabel}>{t("detailOrder.totalPayment")}</Text>
             <Text style={styles.footerTotalValue}>
-              Rp {(order.totalAmount + (order.deliveryFee || 0)).toLocaleString()}
+              Rp {order.totalAmount?.toLocaleString()}
             </Text>
           </View>
         </View>
