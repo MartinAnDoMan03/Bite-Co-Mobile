@@ -42,18 +42,19 @@ const UlasanSeller = () => {
       const data = await response.json();
       if (data.orders) {
         // Filter orders that have reviews
-        const reviewedOrders = data.orders.filter(order => order.review && order.rating);
+        const reviewedOrders = data.orders.filter(order => order.ulasan && order.ulasan.rating);
 
         // Calculate stats
         const totalReviews = reviewedOrders.length;
-        const totalRating = reviewedOrders.reduce((sum, order) => sum + (order.rating || 0), 0);
+        const totalRating = reviewedOrders.reduce((sum, order) => sum + (order.ulasan.rating || 0), 0);
         const averageRating = totalReviews > 0 ? (totalRating / totalReviews).toFixed(1) : 0;
 
         // Rating breakdown
         const ratingsBreakdown = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
         reviewedOrders.forEach(order => {
-          if (order.rating >= 1 && order.rating <= 5) {
-            ratingsBreakdown[Math.floor(order.rating)]++;
+          const rating = order.ulasan.rating;
+          if (rating >= 1 && rating <= 5) {
+            ratingsBreakdown[Math.floor(rating)]++;
           }
         });
 

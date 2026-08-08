@@ -173,6 +173,8 @@ const Laporan = () => {
     }
   };
 
+  
+
   const processReportData = (orders, menuItems, period) => {
     const now = new Date();
     let startDate, endDate, previousStartDate, previousEndDate, labels;
@@ -220,12 +222,12 @@ const Laporan = () => {
     // Filter orders for current and previous periods
     const currentOrders = orders.filter(order => {
       const orderDate = new Date(order.createdAt || order.orderDate);
-      return orderDate >= startDate && orderDate <= endDate && order.status === 'completed';
+      return orderDate >= startDate && orderDate <= endDate && (order.status === 'success' || order.statusProgress === 'completed');
     });
 
     const previousOrders = orders.filter(order => {
       const orderDate = new Date(order.createdAt || order.orderDate);
-      return orderDate >= previousStartDate && orderDate <= previousEndDate && order.status === 'completed';
+      return orderDate >= previousStartDate && orderDate <= previousEndDate && (order.status === 'success' || order.statusProgress === 'completed');
     });
 
     // Calculate metrics
@@ -280,7 +282,7 @@ const Laporan = () => {
       if (order.items) {
         order.items.forEach(item => {
           const itemName = item.name || item.menuName || 'Unknown Item';
-          const quantity = parseInt(item.quantity) || 1;
+          const quantity = parseInt(item.qty) || 1;
           const price = parseFloat(item.price) || 0;
 
           itemCounts[itemName] = (itemCounts[itemName] || 0) + quantity;
