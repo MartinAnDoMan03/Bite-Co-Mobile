@@ -544,56 +544,58 @@ const ScreenKategori = ({
         </TouchableOpacity>
       </View>
 
-      {/* Add Category Modal */}
+    {/* Add Category Modal */}
       <Modal
         transparent={true}
         visible={showAddCategoryModal}
         animationType="fade"
         onRequestClose={closeAddCategoryModal}
       >
-        <TouchableWithoutFeedback onPress={closeAddCategoryModal}>
-          <View style={styles.modalOverlay} />
-        </TouchableWithoutFeedback>
+        <View style={styles.modalOverlay}>
+          <TouchableWithoutFeedback onPress={closeAddCategoryModal}>
+            <View style={StyleSheet.absoluteFill} />
+          </TouchableWithoutFeedback>
 
-        <KeyboardAvoidingView
-          style={styles.centerModalContent}
-          behavior={Platform.OS === "ios" ? "padding" : "height"}
-        >
-          <ScrollView
-            contentContainerStyle={{ flexGrow: 1 }}
-            keyboardShouldPersistTaps="handled"
+          <KeyboardAvoidingView
+            style={styles.centerModalContent}
+            behavior={Platform.OS === "ios" ? "padding" : "height"}
           >
-            <Text style={styles.modalTitle}>{t('daftarMenu.modal.addCategoryTitle')}</Text>
+            <ScrollView
+              contentContainerStyle={{ flexGrow: 1 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              <Text style={styles.modalTitle}>{t('daftarMenu.modal.addCategoryTitle')}</Text>
 
-            <TextInput
-              style={styles.input}
-              placeholder={t('daftarMenu.modal.categoryNamePlaceholder')}
-              placeholderTextColor="#aaa"
-              value={newCategoryName}
-              onChangeText={setNewCategoryName}
-              autoFocus={true}
-            />
+              <TextInput
+                style={styles.input}
+                placeholder={t('daftarMenu.modal.categoryNamePlaceholder')}
+                placeholderTextColor="#aaa"
+                value={newCategoryName}
+                onChangeText={setNewCategoryName}
+                autoFocus={true}
+              />
 
-            <View style={styles.modalButtonContainer}>
-              <TouchableOpacity
-                style={[styles.modalButton, styles.cancelButton]}
-                onPress={closeAddCategoryModal}
-              >
-                <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
-              </TouchableOpacity>
+              <View style={styles.modalButtonContainer}>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.cancelButton]}
+                  onPress={closeAddCategoryModal}
+                >
+                  <Text style={styles.cancelButtonText}>{t('daftarMenu.modal.cancel')}</Text>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.modalButton, styles.confirmButton]}
-                onPress={handleAddCategory}
-                disabled={isLoading}
-              >
-                <Text style={styles.confirmButtonText}>
-                  {isLoading ? t('daftarMenu.modal.adding') : t('daftarMenu.modal.add')}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </ScrollView>
-        </KeyboardAvoidingView>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.confirmButton]}
+                  onPress={handleAddCategory}
+                  disabled={isLoading}
+                >
+                  <Text style={styles.confirmButtonText}>
+                    {isLoading ? t('daftarMenu.modal.adding') : t('daftarMenu.modal.add')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </ScrollView>
+          </KeyboardAvoidingView>
+        </View>
       </Modal>
 
       {/* Edit Category Modal */}
@@ -603,10 +605,11 @@ const ScreenKategori = ({
         animationType="fade"
         onRequestClose={closeEditCategoryModal}
       >
+       <View style={styles.modalOverlay}>
         <TouchableWithoutFeedback
           onPress={closeEditCategoryModal}
         >
-          <View style={styles.modalOverlay} />
+            <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
 
         <KeyboardAvoidingView
@@ -664,6 +667,7 @@ const ScreenKategori = ({
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -846,8 +850,9 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
         animationType="fade"
         onRequestClose={closeEditModal}
       >
+          <View style={styles.modalOverlay}>
         <TouchableWithoutFeedback onPress={closeEditModal}>
-          <View style={styles.modalOverlay} />
+          <View style={StyleSheet.absoluteFill} />
         </TouchableWithoutFeedback>
 
         <KeyboardAvoidingView
@@ -941,6 +946,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
             </TouchableOpacity>
           </ScrollView>
         </KeyboardAvoidingView>
+      </View>
       </Modal>
 
       <View style={{ alignItems: "center", padding: 16 }}>
@@ -1104,6 +1110,9 @@ const styles = StyleSheet.create({
   modalOverlay: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.5)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 24,
     // di web, cursor pointer bikin jelas area overlay ini bisa diklik buat nutup modal
     ...(Platform.OS === 'web' ? { cursor: 'default' } : {}),
   },
@@ -1262,13 +1271,11 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   centerModalContent: {
-    position: "absolute",
-    top: "25%",
-    left: "8%",
-    right: "8%",
     backgroundColor: "white",
     borderRadius: 18,
     padding: 20,
+    width: "100%",
+    maxWidth: 400,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,

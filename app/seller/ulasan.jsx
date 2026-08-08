@@ -98,7 +98,7 @@ const UlasanSeller = () => {
     return stars;
   };
 
-  const ReviewCard = ({ order }) => (
+const ReviewCard = ({ order }) => (
     <View style={[styles.reviewCard, styles.shadow]}>
       <View style={styles.reviewHeader}>
         <View style={styles.reviewerAvatar}>
@@ -107,7 +107,8 @@ const UlasanSeller = () => {
         <View style={{ flex: 1 }}>
           <Text style={styles.buyerName} numberOfLines={1}>{order.buyerName || t('ulasan.buyerFallback')}</Text>
           <Text style={styles.reviewDate}>
-            {new Date(order.reviewDate || order.updatedAt).toLocaleDateString('id-ID', {
+            {/* PERBAIKAN: Ambil tanggal dari dalam ulasan */}
+            {new Date(order.ulasan?.createdAt || order.updatedAt).toLocaleDateString('id-ID', {
               day: 'numeric',
               month: 'long',
               year: 'numeric',
@@ -115,12 +116,12 @@ const UlasanSeller = () => {
           </Text>
         </View>
         <View style={styles.ratingContainer}>
-          <View style={styles.starsRow}>{renderStars(order.ulasan.rating, 13)}</View>
-          <Text style={styles.ratingText}>{t('ulasan.ratingOutOf5', { rating: order.ulasan.rating })}</Text>
+          <View style={styles.starsRow}>{renderStars(order.ulasan?.rating || 0, 13)}</View>
+          <Text style={styles.ratingText}>{t('ulasan.ratingOutOf5', { rating: order.ulasan?.rating || 0 })}</Text>
         </View>
       </View>
 
-      {order.ulasan.review && (
+      {order.ulasan?.review && (
         <View style={styles.reviewContent}>
           <Text style={styles.reviewText}>{order.ulasan.review}</Text>
         </View>
