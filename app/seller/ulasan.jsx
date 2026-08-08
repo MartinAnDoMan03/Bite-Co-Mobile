@@ -115,14 +115,14 @@ const UlasanSeller = () => {
           </Text>
         </View>
         <View style={styles.ratingContainer}>
-          <View style={styles.starsRow}>{renderStars(order.rating, 13)}</View>
-          <Text style={styles.ratingText}>{t('ulasan.ratingOutOf5', { rating: order.rating })}</Text>
+          <View style={styles.starsRow}>{renderStars(order.ulasan.rating, 13)}</View>
+          <Text style={styles.ratingText}>{t('ulasan.ratingOutOf5', { rating: order.ulasan.rating })}</Text>
         </View>
       </View>
 
-      {order.review && (
+      {order.ulasan.review && (
         <View style={styles.reviewContent}>
-          <Text style={styles.reviewText}>{order.review}</Text>
+          <Text style={styles.reviewText}>{order.ulasan.review}</Text>
         </View>
       )}
 

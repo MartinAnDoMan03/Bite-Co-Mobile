@@ -598,6 +598,7 @@ termsBuyerContent: {
     orderDetailsFallback: 'Detail tidak tersedia',
     totalReviews: '{{count}} ulasan',
     allReviews: 'Semua Ulasan ({{count}})',
+    ratingOutOf5: '{{rating}}/5',
     empty: {
       title: 'Belum Ada Ulasan',
       description: 'Ulasan dari pelanggan akan muncul di sini setelah mereka menyelesaikan pesanan',

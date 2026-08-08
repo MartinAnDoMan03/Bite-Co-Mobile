@@ -597,6 +597,7 @@ termsBuyerContent: {
     orderDetailsFallback: 'Details not available',
     totalReviews: '{{count}} reviews',
     allReviews: 'All Reviews ({{count}})',
+    ratingOutOf5: '{{rating}}/5',
     empty: {
       title: 'No Reviews Yet',
       description: 'Customer reviews will appear here once they complete an order',
