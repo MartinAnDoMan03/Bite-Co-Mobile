@@ -34,6 +34,7 @@ import axios from "axios";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import config from "../../constants/config";
 import { useLanguage } from "../../contexts/LanguageContext";
+import { notificationService } from "../../services/NotificationService";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const scale = (size) => (SCREEN_WIDTH / 375) * size;
@@ -142,6 +143,13 @@ const ExpandableMenu = () => {
     setRefreshing(true);
     await fetchProfile();
     await fetchStats(); // This now includes fetchNotificationCount
+    // Re-register the push token on relaunch too, not just fresh logins for relaunched apps
+    (async () => {
+      const token = await AsyncStorage.getItem("sellerToken");
+      if (token) {
+        notificationService.registerPushToken('seller', null, token).catch(() => {});
+      }
+    })();
     setRefreshing(false);
   };
   

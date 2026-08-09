@@ -206,7 +206,9 @@ const profile = () => {
         <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{t("profile.title")}</Text>
-      <View style={{ width: 26 }} />
+      <TouchableOpacity onPress={() => router.push('/buyer/Notifikasi')} style={{ width: 26 }}>
+        <MaterialIcons name="notifications-none" size={24} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
     </View>
 
       <ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 32 }}>

@@ -1,4 +1,4 @@
-import { Stack } from "expo-router";
+import { Stack, useRouter } from "expo-router";
 import { ToastProvider } from '../components/ToastProvider';
 import ErrorBoundary from '../components/ErrorBoundary';
 import { notificationService } from './services/NotificationService';
@@ -15,6 +15,7 @@ import { LanguageProvider } from './contexts/LanguageContext';
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
+  const router = useRouter();
   const [appIsReady, setAppIsReady] = useState(false);
   const [showSplash, setShowSplash] = useState(true);
   const [appState, setAppState] = useState(AppState.currentState);
@@ -95,23 +96,31 @@ export default function RootLayout() {
   // Setup notification listeners
   useEffect(() => {
     const handleNotificationReceived = (notification) => {
-      // Handle notification received
+      // Notification arrived while app was foregrounded — the OS handler
+      // (shouldShowAlert/shouldPlaySound above) already surfaces it.
     };
 
     const handleNotificationTapped = (response) => {
-      const action = notificationService.handleNotificationAction(response.notification);
-      if (action) {
-        // Navigate based on action
+      const data = notificationService.handleNotificationAction(response);
+      if (!data?.orderId) return;
+
+      // Route to the right order screen depending on who's logged in.
+      // Seller push payloads use { orderId }, buyer ones use
+      // { orderId, type: 'order_status_update' }.
+      if (data.type === 'order_status_update') {
+        router.push(`/buyer/DetailOrder?orderId=${data.orderId}`);
+      } else {
+        router.push(`/seller/DetailOrder?orderId=${data.orderId}`);
       }
     };
 
-    notificationService.setupListeners(
+    const subscriptions = notificationService.setupListeners(
       handleNotificationReceived,
       handleNotificationTapped
     );
 
     return () => {
-      notificationService.removeListeners();
+      notificationService.removeListeners(subscriptions);
     };
   }, []);
 
@@ -181,6 +190,7 @@ export default function RootLayout() {
             
             {/* Buyer Routes */}
             <Stack.Screen name="buyer/BuyerIndex" options={{ headerShown: false }} />
+            <Stack.Screen name="buyer/Notifikasi" options={{ headerShown: false }} />
             <Stack.Screen name="buyer/BuyerRegister" options={{ headerShown: false }} />
             <Stack.Screen name="buyer/BuyerOTPVerification" options={{ headerShown: false }} />
             <Stack.Screen name="buyer/(tabs)" options={{ headerShown: false }} />

@@ -59,7 +59,7 @@ const NotificationItem = ({ item, onPress }) => (
   </TouchableOpacity>
 );
 
-const Notifikasi = () => {
+const BuyerNotifikasi = () => {
   const router = useRouter();
   const { t } = useLanguage();
   const [notifications, setNotifications] = useState([]);
@@ -75,14 +75,14 @@ const Notifikasi = () => {
 
   const fetchNotifications = useCallback(async (filter) => {
     try {
-      const token = await AsyncStorage.getItem('sellerToken');
+      const token = await AsyncStorage.getItem('buyerToken');
       if (!token) return;
 
       const params = {};
       if (filter === 'unread') params.isRead = 'false';
       if (filter === 'read') params.isRead = 'true';
 
-      const response = await axios.get(`${config.API_URL}/seller/notifications`, {
+      const response = await axios.get(`${config.API_URL}/buyer/notifications`, {
         headers: { Authorization: `Bearer ${token}` },
         params,
       });
@@ -109,16 +109,15 @@ const Notifikasi = () => {
   };
 
   const handleItemPress = async (item) => {
-    // Optimistically mark as read locally
     setNotifications((prev) =>
       prev.map((n) => (n.id === item.id ? { ...n, isRead: true } : n))
     );
 
     try {
-      const token = await AsyncStorage.getItem('sellerToken');
+      const token = await AsyncStorage.getItem('buyerToken');
       if (token && !item.isRead) {
         await axios.patch(
-          `${config.API_URL}/seller/notifications/${item.id}/read`,
+          `${config.API_URL}/buyer/notifications/${item.id}/read`,
           {},
           { headers: { Authorization: `Bearer ${token}` } }
         );
@@ -128,7 +127,7 @@ const Notifikasi = () => {
     }
 
     if (item.data?.orderId) {
-      router.push(`/seller/DetailOrder?orderId=${item.data.orderId}`);
+      router.push(`/buyer/DetailOrder?orderId=${item.data.orderId}`);
     }
   };
 
@@ -284,4 +283,4 @@ const styles = StyleSheet.create({
   emptySubtitle: { fontSize: 13.5, color: '#888', textAlign: 'center', lineHeight: 19 },
 });
 
-export default Notifikasi;
+export default BuyerNotifikasi;

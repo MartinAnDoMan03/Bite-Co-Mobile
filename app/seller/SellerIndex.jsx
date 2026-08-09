@@ -20,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import logo from "../../assets/images/logo.png";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../contexts/LanguageContext";
+import { notificationService } from "../services/NotificationService";
 
 const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BURGUNDY = "#711330";
@@ -51,6 +52,7 @@ const SellerIndex = () => {
 
       if (response.data.success) {
         await AsyncStorage.setItem('sellerToken', response.data.token);
+        notificationService.registerPushToken('seller', null, response.data.token).catch(() => {});
         router.push("/seller/(tabs)");
       } else {
         showCustomAlert(response.data.message || t("sellerLogin.loginFailed"));

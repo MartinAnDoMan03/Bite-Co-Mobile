@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import config from '../constants/config';
+import { notificationService } from '../services/NotificationService';
 
 export const useBuyerAuth = () => {
   const [isLoading, setIsLoading] = useState(true);
@@ -20,6 +21,7 @@ export const useBuyerAuth = () => {
       if (token) {
         setBuyerToken(token);
         await fetchBuyerProfile(token);
+        notificationService.registerPushToken('buyer', null, token).catch(() => {});
       }
     } catch (error) {
       console.error('Auth check error:', error);
@@ -54,6 +56,7 @@ export const useBuyerAuth = () => {
       await AsyncStorage.setItem('buyerToken', token);
       setBuyerToken(token);
       await fetchBuyerProfile(token);
+      notificationService.registerPushToken('buyer', null, token).catch(() => {});
     } catch (error) {
       console.error('Login error:', error);
       throw error;
