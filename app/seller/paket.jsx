@@ -555,11 +555,15 @@ const CateringPackageItem = ({ nama, pricePerPax, minPax, slotCount, onEdit, onD
 
 // Baris slot di dalam form paket, tap buat edit, ada tombol hapus
 const SlotRow = ({ slot, onEdit, onDelete, t }) => (
+  
   <View style={styles.slotRow}>
     <TouchableOpacity style={{ flex: 1 }} onPress={onEdit} activeOpacity={0.7}>
       <Text style={styles.slotLabel}>{slot.label}</Text>
       <Text style={styles.slotMeta}>
-        {t('paket.slot.metaFormat', { category: slot.category_name, maxPick: slot.max_pick })}
+        {t('paket.slot.metaFormat', {
+          category: slot.category_name || "-",
+          maxPick: slot.max_pick
+        })}
       </Text>
     </TouchableOpacity>
     <TouchableOpacity style={styles.slotDeleteBtn} onPress={onDelete}>
@@ -610,34 +614,79 @@ const SlotFormModal = ({ visible, categories, initialSlot, onSave, onClose, t })
   const [maxPick, setMaxPick] = useState("1");
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
 
+  const [slotAlert, setSlotAlert] = useState({
+    visible: false,
+    title: "",
+    message: "",
+       }); 
+       
+  const showSlotAlert = (title, message) => {
+    setSlotAlert({ visible: true, title, message, }); 
+  }; 
+    
+  const closeSlotAlert = () => {
+  setSlotAlert((prev) => ({ ...prev, visible: false, })); 
+  };
+
   useEffect(() => {
     if (visible) {
       setLabel(initialSlot?.label || "");
+      
+      let resolvedCategoryName = initialSlot?.category_name;
+      if (!resolvedCategoryName && initialSlot?.category_id && categories.length > 0) {
+        const found = categories.find(c => c.id === initialSlot.category_id);
+        if (found) resolvedCategoryName = found.name;
+      }
+
       setCategory(
-        initialSlot ? { id: initialSlot.category_id, name: initialSlot.category_name } : null
+        initialSlot && initialSlot.category_id 
+          ? { id: initialSlot.category_id, name: resolvedCategoryName || "Kategori" } 
+          : null
       );
       setMaxPick(initialSlot?.max_pick ? initialSlot.max_pick.toString() : "1");
     }
-  }, [visible]);
+  }, [visible, initialSlot, categories]);
 
-  const handleSave = () => {
-    if (!label.trim()) {
-      return;
-    }
-    if (!category) {
-      return;
-    }
-    if (!maxPick || isNaN(Number(maxPick)) || Number(maxPick) <= 0) {
-      return;
-    }
-    onSave({
-      label: label.trim(),
-      category_id: category.id,
-      category_name: category.name,
-      max_pick: Number(maxPick),
-    });
-    onClose();
-  };
+const handleSave = () => {
+  if (!label.trim()) {
+    showSlotAlert(
+      t('common.error'),
+      'Nama slot wajib diisi.',
+      [{ text: t('common.ok') }],
+      "error"
+    );
+    return;
+  }
+
+  if (!category) {
+    showSlotAlert(
+      t('common.error'),
+      'Kategori slot wajib dipilih.',
+      [{ text: t('common.ok') }],
+      "error"
+    );
+    return;
+  }
+
+  if (!maxPick || isNaN(Number(maxPick)) || Number(maxPick) <= 0) {
+    showSlotAlert(
+      t('common.error'),
+      'Maksimal pilihan harus diisi dengan angka yang lebih dari 0.',
+      [{ text: t('common.ok') }],
+      "error"
+    );
+    return;
+  }
+
+  onSave({
+    label: label.trim(),
+    category_id: category.id,
+    category_name: category.name,
+    max_pick: Number(maxPick),
+  });
+
+  onClose();
+};
 
   return (
     <Modal transparent={true} visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -659,7 +708,9 @@ const SlotFormModal = ({ visible, categories, initialSlot, onSave, onClose, t })
 
           <TouchableOpacity style={styles.pickerButton} onPress={() => setShowCategoryPicker(true)} activeOpacity={0.85}>
             <MaterialIcons name="category" size={18} color={COLORS.PRIMARY} />
-            <Text style={styles.pickerButtonText}>{category ? category.name : t('paket.slot.categoryPickerPlaceholder')}</Text>
+            <Text style={[styles.pickerButtonText, !category && { color: "#aaa" }]}>
+              {category ? category.name : t('paket.slot.categoryPickerPlaceholder')}
+            </Text>
             <MaterialIcons name="chevron-right" size={20} color="#c9c9c9" />
           </TouchableOpacity>
 
@@ -690,6 +741,18 @@ const SlotFormModal = ({ visible, categories, initialSlot, onSave, onClose, t })
         onSelect={(cat) => setCategory(cat)}
         onClose={() => setShowCategoryPicker(false)}
         t={t}
+      />
+      <CustomAlert
+        visible={slotAlert.visible}
+        title={slotAlert.title}
+        message={slotAlert.message}
+        buttons={[
+          {
+            text: t('common.ok'),
+          },
+        ]}
+        type="error"
+        onClose={closeSlotAlert}
       />
     </Modal>
   );
