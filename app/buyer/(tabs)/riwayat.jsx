@@ -31,6 +31,8 @@ const STATUS_PROGRESS_META = {
   delivery: { icon: 'local-shipping', bg: '#F1F1F3', text: '#3A3F47', label: 'Pengiriman', isFailed: false },
   completed: { icon: 'check-circle', bg: '#F1F1F3', text: '#3A3F47', label: 'Selesai', isFailed: false },
   cancelled: { icon: 'cancel', bg: '#FDECEA', text: '#D32F2F', label: 'Dibatalkan', isFailed: true },
+  payment_expired: { icon: 'schedule', bg: '#FDECEA', text: '#D32F2F', label: 'Pembayaran Kadaluarsa', isFailed: true },
+
 };
 
 const getStatusMeta = (statusProgress) => {
@@ -351,7 +353,8 @@ const initiatePayment = async (order) => {
           <View style={styles.content}>
             <Text style={styles.sectionTitle}>{t('buyerRiwayat.sectionTitle', { count: filteredOrders.length })}</Text>
             {filteredOrders.map(order => {
-              const meta = getStatusMeta(order.statusProgress);
+              const expired = isPaymentExpired(order, now);
+              const meta = expired ? STATUS_PROGRESS_META.payment_expired : getStatusMeta(order.statusProgress);
               const overdue = isApprovalOverdue(order, now);
               return (
                 <TouchableOpacity
@@ -399,6 +402,31 @@ const initiatePayment = async (order) => {
                         onPress={(e) => {
                           e.stopPropagation();
                           handleCancelOverdueOrder(order);
+                        }}
+                        style={[styles.overdueCancelButton, cancellingOrderId === order.id && { opacity: 0.6 }]}
+                        disabled={cancellingOrderId === order.id}
+                      >
+                        {cancellingOrderId === order.id ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <Text style={styles.overdueCancelButtonText}>Batalkan Pesanan</Text>
+                        )}
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
+                  {!overdue && isPaymentExpired(order, now) && (
+                    <View style={styles.overdueBox}>
+                      <View style={styles.overdueRow}>
+                        <MaterialIcons name="error-outline" size={18} color="#B26A00" />
+                        <Text style={styles.overdueText}>
+                          Sesi pembayaran untuk pesanan ini sudah kadaluarsa.
+                        </Text>
+                      </View>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleCancelOverdueOrder(order); // same endpoint, already handles ownership/status validation
                         }}
                         style={[styles.overdueCancelButton, cancellingOrderId === order.id && { opacity: 0.6 }]}
                         disabled={cancellingOrderId === order.id}
