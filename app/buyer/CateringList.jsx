@@ -142,7 +142,7 @@ const CateringList = () => {
             id: seller.id,
             StoreName: seller.name || seller.outletName || "Unnamed Store",
             Logo: seller.logo ? { uri: seller.logo } : storeIcon,
-            Rating: seller.rating ? seller.rating.toString() : "4.5",
+            Rating: seller.rating ? seller.rating.toString() : "-",
             Distance: distance,
             kelurahan: seller.kelurahan || "",
             categories: seller.categories || [],

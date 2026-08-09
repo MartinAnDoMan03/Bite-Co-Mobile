@@ -191,6 +191,7 @@ const ExpandableMenu = () => {
   const [rantanganError, setRantanganError] = useState(null);
   const [buyerLocation, setBuyerLocation] = useState(null);
   const [menuExpanded, setMenuExpanded] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const rotateAnim = useRef(new Animated.Value(0)).current;
 
   // State buat banner order yang overdue
@@ -424,10 +425,26 @@ const checkOverdueOrders = useCallback(async () => {
 
         <View style={styles.searchContainer}>
           <MaterialIcons name="search" size={20} color={COLORS.TEXTSECONDARY} style={styles.searchIcon} />
-          <TextInput
+        <TextInput
             style={styles.searchInput}
             placeholder={t('buyerBeranda.searchPlaceholder')}
             placeholderTextColor={COLORS.TEXTSECONDARY}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            returnKeyType="search" 
+            onSubmitEditing={() => {
+              if (searchQuery.trim().length > 0) {
+                router.push({
+                  pathname: "buyer/SearchResult",
+                  params: { 
+                    query: searchQuery,
+                    lat: buyerLocation?.lat || "",
+                    lng: buyerLocation?.lng || ""
+                  }
+                });
+                setSearchQuery("");
+              }
+            }}
           />
         </View>
 
