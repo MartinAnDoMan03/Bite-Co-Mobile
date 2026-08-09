@@ -621,16 +621,53 @@ if (overrideRaw && isCateringOrder) {
       )}
 
       {showDatePicker && Platform.OS === 'web' && (
-        <input
-          type="date"
-          min={new Date().toISOString().split('T')[0]}
-          max={maxDate.toISOString().split('T')[0]}
-          onChange={(e) => { if (e.target.value) confirmDateSelection(new Date(e.target.value)); setShowDatePicker(false); }}
-          style={{ position: 'absolute', top: 200, left: '50%', transform: 'translateX(-50%)', zIndex: 999, padding: 12, fontSize: 16, borderRadius: 8 }}
-          autoFocus
-        />
-      )}
+        <Modal visible={showDatePicker} transparent animationType="fade">
+          <View style={styles.centerModalOverlay}>
+            <View style={styles.dateModalCard}>
+              <Text style={styles.modalTitle}>Pilih Tanggal Mulai</Text>
+              
+              <input
+                type="date"
+                min={new Date().toISOString().split('T')[0]}
+                max={maxDate.toISOString().split('T')[0]}
+                value={selectedDate.toISOString().split('T')[0]}
+                onChange={(e) => { 
+                  if (e.target.value) {
+                    setSelectedDate(new Date(e.target.value)); 
+                  }
+                }}
+                style={{ 
+                  width: '100%', 
+                  padding: '12px', 
+                  fontSize: '16px', 
+                  borderRadius: '10px', 
+                  border: '1px solid #e5e5e5',
+                  color: '#23272f',
+                  marginBottom: '16px',
+                  boxSizing: 'border-box',
+                  outline: 'none',
+                  fontFamily: 'inherit'
+                }}
+              />
 
+              <View style={styles.dateModalButtonRow}>
+                <TouchableOpacity style={styles.dateModalCancelButton} onPress={() => setShowDatePicker(false)}>
+                  <Text style={styles.dateModalCancelText}>Batal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dateModalConfirmButton}
+                  onPress={() => { 
+                    confirmDateSelection(selectedDate); 
+                    setShowDatePicker(false); 
+                  }}
+                >
+                  <Text style={styles.dateModalConfirmText}>Pilih</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
       {showDatePicker && Platform.OS === 'ios' && (
         <Modal visible={showDatePicker} transparent animationType="slide" onRequestClose={() => setShowDatePicker(false)}>
           <View style={styles.centerModalOverlay}>

@@ -1,4 +1,4 @@
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import banner2 from "../../assets/images/banner2.png";
 import { Image, ScrollView, StyleSheet, Text, TouchableOpacity, View, Modal } from "react-native";
 import starSolid from "../../assets/images/starSolid.png";
@@ -97,6 +97,7 @@ const InfoRow = ({ icon, text }) => (
 
 const RantanganDetail = () => {
   const { sellerid } = useLocalSearchParams();
+  const insets = useSafeAreaInsets();
   const [store, setStore] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -371,6 +372,14 @@ const RantanganDetail = () => {
         <View style={styles.bannerScrim} pointerEvents="none" />
       </View>
 
+      <TouchableOpacity
+        style={[styles.backButtonFloating, { top: insets.top + 16 }]}
+        onPress={() => router.back()}
+        accessibilityLabel="Kembali"
+      >
+        <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
+      </TouchableOpacity>
+
       <View
         style={[styles.storeCard, { top: BANNER_HEIGHT - OVERLAP }]}
         onLayout={(e) => setCardHeight(e.nativeEvent.layout.height)}
@@ -535,6 +544,22 @@ const styles = StyleSheet.create({
   bannerScrim: {
     ...StyleSheet.absoluteFillObject,
     backgroundColor: "rgba(0,0,0,0.15)",
+  },
+  backButtonFloating: {
+    position: "absolute",
+    left: 16,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: "white",
+    justifyContent: "center",
+    alignItems: "center",
+    zIndex: 10,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 5,
+    elevation: 5, 
   },
   storeCard: {
     position: "absolute",
