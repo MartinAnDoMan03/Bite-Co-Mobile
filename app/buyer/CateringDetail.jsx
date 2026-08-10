@@ -669,6 +669,84 @@ const updateItemPax = (menuId, newQty) => {
     }
   };
 
+  // ------------------------------------------------------------------
+  // Dipanggil khusus dari PackageSlotModal.onConfirm. Beda dari addToCart
+  // biasa: di sini kita TIDAK bergantung ke state `cart` (yang update-nya
+  // async lewat setCart) untuk nentuin isi final sebelum navigate — supaya
+  // gak ada race condition antara "nambah ke cart" dan "baca cart buat pergi
+  // ke Pembayaran". Semua dihitung dari array lokal, baru disimpan sekali,
+  // baru redirect. Efeknya: klik "Konfirmasi Pilihan" langsung ke halaman
+  // Pembayaran, gak balik dulu ke List Menu/keranjang.
+  // ------------------------------------------------------------------
+  const confirmPackageAndPay = async (pkg, selectedSlots) => {
+    if (!orderable) {
+      showAlert('Outlet Tutup', outletStatus?.nextOpenLabel || 'Outlet sedang tutup, coba lagi nanti.', [{ text: 'OK' }], 'warning');
+      return;
+    }
+
+    const newItem = {
+      ...pkg,
+      price: pkg.price_per_pax,
+      isPackage: true,
+      selectedSlots,
+      qty: pkg.min_pax || 1,
+    };
+
+    const proceed = async (baseItems) => {
+      const items = baseItems.some((i) => i.id === newItem.id) ? baseItems : [...baseItems, newItem];
+
+      setCart({ sellerId: sellerid, items });
+      await saveCartToStorage(items, store);
+      await AsyncStorage.setItem('order_type', 'Catering');
+
+      // Sama seperti handleLanjutPembayaran: simpan lokasi & catatan
+      // sebelum pindah halaman supaya Pembayaran.jsx bisa langsung baca.
+      if (useCustomLocation && customLocation) {
+        await AsyncStorage.setItem(DELIVERY_LOCATION_OVERRIDE_KEY, JSON.stringify(customLocation));
+      } else {
+        await AsyncStorage.removeItem(DELIVERY_LOCATION_OVERRIDE_KEY);
+      }
+      await AsyncStorage.setItem(CART_NOTES_KEY, orderNotes || '');
+
+      setSlotModalPackage(null);
+      router.push('/buyer/Pembayaran');
+    };
+
+    // Cek dulu apakah ada cart aktif punya seller/tipe lain — kalau ada,
+    // konfirmasi dulu ke buyer sebelum menimpanya (perilaku sama seperti
+    // addToCart biasa).
+    const existingOrderType = await AsyncStorage.getItem('order_type');
+    const existingStoreRaw = await AsyncStorage.getItem('cart_store');
+    const existingStore = existingStoreRaw ? JSON.parse(existingStoreRaw) : null;
+    const sameSellerSameType = existingStore?.id === sellerid && existingOrderType === 'Catering';
+
+    if (existingOrderType && !sameSellerSameType) {
+      setSlotModalPackage(null);
+      showAlert(
+        'Ganti Pesanan?',
+        `Kamu masih punya pesanan ${existingOrderType} yang belum diselesaikan. Menambah menu di sini akan menghapus pesanan tersebut.`,
+        [
+          { text: 'Batal', style: 'cancel' },
+          {
+            text: 'Ya, Ganti',
+            onPress: async () => {
+              await AsyncStorage.multiRemove(['cart', 'cart_total', 'cart_store', 'cart_pax', 'order_type', CATERING_LOCATION_KEY, DELIVERY_LOCATION_OVERRIDE_KEY, CART_NOTES_KEY]);
+              setCustomLocation(null);
+              setUseCustomLocation(false);
+              setOrderNotes('');
+              await proceed([]);
+            },
+          },
+        ],
+        'warning'
+      );
+      return;
+    }
+
+    const baseItems = sameSellerSameType && cart.sellerId === sellerid ? cart.items : [];
+    await proceed(baseItems);
+  };
+
   const handleCancelCart = () => {
     showAlert(
       'Batalkan Pesanan?',
@@ -1105,20 +1183,14 @@ const updateItemPax = (menuId, newQty) => {
       />
 
       <PackageSlotModal
-  visible={!!slotModalPackage}
-  pkg={slotModalPackage}
-  categories={categories}
-  onClose={() => setSlotModalPackage(null)}
-  onConfirm={(selectedSlots) => {
-    addToCart({
-      ...slotModalPackage,
-      price: slotModalPackage.price_per_pax,
-      isPackage: true,
-      selectedSlots,
-    });
-    setSlotModalPackage(null);
-  }}
-/>
+        visible={!!slotModalPackage}
+        pkg={slotModalPackage}
+        categories={categories}
+        onClose={() => setSlotModalPackage(null)}
+        onConfirm={(selectedSlots) => {
+          confirmPackageAndPay(slotModalPackage, selectedSlots);
+        }}
+      />
 
       <CustomAlert
         visible={alert.visible}
