@@ -54,6 +54,15 @@ const GiziProSeller = () => {
       route: '/seller/gizipro-cek-manual',
       ready: true,
     },
+    {
+      icon: 'auto-awesome',
+      title: 'Analisis (AI) - Uji Coba',
+      description: 'Versi baru pakai AI, masih simulasi',
+      color: '#00695C',
+      bg: '#E0F2F1',
+      route: '/seller/gizipro-analisis-ai',
+      ready: true,
+    },
   ];
 
   const handleFeaturePress = (feature) => {
@@ -231,4 +240,4 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 15,
   },
-}); 
+});

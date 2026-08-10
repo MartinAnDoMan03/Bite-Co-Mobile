@@ -224,6 +224,15 @@ const DetailOrder = () => {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.itemName}>{item.name}</Text>
                   <Text style={styles.itemQty}>{t("detailOrder.qty")} {item.qty}</Text>
+                  {item.selectedSlots && item.selectedSlots.length > 0 && (
+                    <View style={{ marginTop: 4 }}>
+                      {item.selectedSlots.map((slot, slotIdx) => (
+                        <Text key={slotIdx} style={styles.itemSlotText} numberOfLines={1}>
+                          {slot.slot_label}: {slot.selected_items.map(i => i.name).join(', ')}
+                        </Text>
+                      ))}
+                    </View>
+                  )}
                 </View>
                 <Text style={styles.itemPrice}>
                   Rp {item.price?.toLocaleString()}
@@ -420,6 +429,11 @@ const styles = StyleSheet.create({
     color: "#888",
     fontSize: 12,
     marginTop: 2,
+  },
+  itemSlotText: {
+    color: "#999",
+    fontSize: 11.5,
+    marginTop: 1,
   },
   itemPrice: {
     color: "#23272f",

@@ -162,6 +162,15 @@ const getStatusMeta = (statusProgress) => {
               <View style={{ flex: 1 }}>
                 <Text style={styles.itemName}>{item.name}</Text>
                 <Text style={styles.itemQty}>Qty: {item.qty}</Text>
+                {item.selectedSlots && item.selectedSlots.length > 0 && (
+                <View style={{ marginTop: 4 }}>
+                  {item.selectedSlots.map((slot, slotIdx) => (
+                    <Text key={slotIdx} style={styles.itemSlotText} numberOfLines={1}>
+                      {slot.slot_label}: {slot.selected_items.map(i => i.name).join(', ')}
+                    </Text>
+                  ))}
+                </View>
+              )}
               </View>
               <Text style={styles.itemPrice}>Rp {item.price?.toLocaleString()}</Text>
             </View>
@@ -322,6 +331,11 @@ const styles = StyleSheet.create({
     fontSize: 12.5,
     marginTop: 1,
   },
+  itemSlotText: {
+  color: '#8a8f99',
+  fontSize: 11.5,
+  marginTop: 1,
+},
   itemPrice: {
     color: '#23272f',
     fontSize: 14.5,

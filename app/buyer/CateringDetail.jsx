@@ -138,6 +138,130 @@ const PackageCard = ({ pkg, inCart, onAdd, onRemove, orderable }) => (
   </View>
 );
 
+// Modal pilihan slot menu untuk 1 paket catering.
+// Buyer harus milih tepat `max_pick` item di tiap slot sebelum bisa konfirmasi.
+const PackageSlotModal = ({ visible, pkg, categories, onConfirm, onClose }) => {
+  const [selections, setSelections] = useState({}); // { [slotIndex]: [itemId, itemId, ...] }
+
+  useEffect(() => {
+    if (visible) {
+      setSelections({});
+    }
+  }, [visible, pkg]);
+
+  if (!pkg) return null;
+
+  const slots = pkg.slots || [];
+
+  const toggleItem = (slotIndex, item, maxPick) => {
+    setSelections((prev) => {
+      const current = prev[slotIndex] || [];
+      const alreadySelected = current.some((i) => i.id === item.id);
+
+      if (alreadySelected) {
+        return { ...prev, [slotIndex]: current.filter((i) => i.id !== item.id) };
+      }
+      if (current.length >= maxPick) {
+        // Kalau max_pick == 1, perilakunya kayak radio: ganti pilihan lama.
+        if (maxPick === 1) {
+          return { ...prev, [slotIndex]: [item] };
+        }
+        return prev; // sudah penuh, abaikan
+      }
+      return { ...prev, [slotIndex]: [...current, item] };
+    });
+  };
+
+  const isSlotComplete = (slotIndex, maxPick) => (selections[slotIndex]?.length || 0) === maxPick;
+  const allSlotsComplete = slots.every((slot, idx) => isSlotComplete(idx, slot.max_pick));
+
+  const handleConfirm = () => {
+    if (!allSlotsComplete) return;
+    const selectedSlots = slots.map((slot, idx) => ({
+      slot_label: slot.label,
+      category_id: slot.category_id,
+      category_name: slot.category_name,
+      max_pick: slot.max_pick,
+      selected_items: (selections[idx] || []).map((i) => ({ id: i.id, name: i.name })),
+    }));
+    onConfirm(selectedSlots);
+  };
+
+  return (
+    <Modal visible={visible} animationType="slide" transparent onRequestClose={onClose}>
+      <View style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.3)', justifyContent: 'flex-end' }}>
+        <TouchableOpacity activeOpacity={1} style={{ flex: 1 }} onPress={onClose} />
+        <View style={styles.cartSheet}>
+          <ScrollView showsVerticalScrollIndicator={false}>
+            <View style={styles.cartHandle} />
+            <Text style={styles.cartTitle}>{pkg.name}</Text>
+            <Text style={{ fontSize: 12.5, color: COLORS.TEXTSECONDARY, marginBottom: 14 }}>
+              Pilih menu untuk setiap kategori di bawah ini
+            </Text>
+
+            {slots.map((slot, slotIndex) => {
+              const items = getSlotItems(slot, categories);
+              const selectedCount = selections[slotIndex]?.length || 0;
+
+              return (
+                <View key={slotIndex} style={{ marginBottom: 18 }}>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
+                    <Text style={{ fontSize: 14, fontWeight: '700', color: '#1A1A1A' }}>{slot.label}</Text>
+                    <Text style={{ fontSize: 12, color: selectedCount === slot.max_pick ? '#2E7D32' : COLORS.TEXTSECONDARY }}>
+                      {selectedCount}/{slot.max_pick} dipilih
+                    </Text>
+                  </View>
+
+                  {items.length === 0 ? (
+                    <Text style={{ fontSize: 12.5, color: '#aaa', fontStyle: 'italic' }}>
+                      Tidak ada menu di kategori ini
+                    </Text>
+                  ) : (
+                    items.map((item) => {
+                      const isSelected = (selections[slotIndex] || []).some((i) => i.id === item.id);
+                      return (
+                        <TouchableOpacity
+                          key={item.id}
+                          style={{
+                            flexDirection: 'row',
+                            alignItems: 'center',
+                            paddingVertical: 10,
+                            borderBottomWidth: 1,
+                            borderBottomColor: '#f0f0f0',
+                          }}
+                          onPress={() => toggleItem(slotIndex, item, slot.max_pick)}
+                          activeOpacity={0.7}
+                        >
+                          <MaterialIcons
+                            name={isSelected ? 'check-box' : 'check-box-outline-blank'}
+                            size={20}
+                            color={isSelected ? COLORS.PRIMARY : '#c9c9c9'}
+                          />
+                          <Text style={{ marginLeft: 10, fontSize: 13.5, color: '#23272f' }}>{item.name}</Text>
+                        </TouchableOpacity>
+                      );
+                    })
+                  )}
+                </View>
+              );
+            })}
+
+            <TouchableOpacity
+              style={[styles.primaryCartBtn, !allSlotsComplete && { opacity: 0.5 }]}
+              onPress={handleConfirm}
+              disabled={!allSlotsComplete}
+            >
+              <Text style={styles.primaryCartBtnText}>
+                {allSlotsComplete ? 'Konfirmasi Pilihan' : 'Lengkapi pilihan dulu'}
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 // Input pax yang bisa diketik langsung, selain lewat tombol +/-.
 // Nyimpen text lokal supaya user bisa kosongin dulu pas lagi ngetik ulang
 // angkanya, dan baru divalidasi/dikomit pas blur atau submit.
@@ -174,6 +298,13 @@ const QtyInput = ({ value, onChange }) => {
   );
 };
 
+// Cocokin slot (dari pkg.slots) dengan daftar item aktual di kategori terkait.
+// categories di sini adalah state `categories` yang sudah di-fetch dari /seller/detail.
+const getSlotItems = (slot, categories) => {
+  const matchedCategory = categories.find((cat) => cat.id === slot.category_id);
+  return matchedCategory?.items || [];
+};
+
 const CateringDetail = () => {
   const { sellerid } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
@@ -198,6 +329,7 @@ const CateringDetail = () => {
   const orderable = store ? isOutletOrderable(store) : true;
   const [packages, setPackages] = useState([]);
   const [viewMode, setViewMode] = useState('menu');
+  const [slotModalPackage, setSlotModalPackage] = useState(null); // pkg yang lagi dipilih slotnya
   // Keranjang global (dibaca dari AsyncStorage, tidak terikat sellerid halaman ini).
   const [globalCart, setGlobalCart] = useState({ items: [], store: null, orderType: null, total: 0 });
 
@@ -753,13 +885,19 @@ const updateItemPax = (menuId, newQty) => {
                   <Text style={styles.categoryTitle}>Paket Catering</Text>
                   {packages.map((pkg) => (
                     <PackageCard
-                      key={pkg.id}
-                      pkg={pkg}
-                      inCart={isInCart(pkg.id)}
-                      onAdd={() => addToCart({ ...pkg, price: pkg.price_per_pax, isPackage: true })}
-                      onRemove={() => removeFromCart(pkg)}
-                      orderable={orderable}
-                    />
+                    key={pkg.id}
+                    pkg={pkg}
+                    inCart={isInCart(pkg.id)}
+                    onAdd={() => {
+                      if (pkg.slots && pkg.slots.length > 0) {
+                        setSlotModalPackage(pkg);
+                      } else {
+                        addToCart({ ...pkg, price: pkg.price_per_pax, isPackage: true });
+                      }
+                    }}
+                    onRemove={() => removeFromCart(pkg)}
+                    orderable={orderable}
+                  />
                   ))}
                 </View>
               )
@@ -833,11 +971,20 @@ const updateItemPax = (menuId, newQty) => {
                           Rp {item.price?.toLocaleString()}{item.isPackage ? ' / pax' : ''}
                         </Text>
                         {item.isPackage && (
-                          <Text style={{ fontSize: 10.5, color: COLORS.PRIMARY, marginTop: 2 }}>
-                            Min. {item.min_pax} pax
-                          </Text>
-                        )}
-                      </View>
+                        <Text style={{ fontSize: 10.5, color: COLORS.PRIMARY, marginTop: 2 }}>
+                          Min. {item.min_pax} pax
+                        </Text>
+                      )}
+                      {item.isPackage && item.selectedSlots && item.selectedSlots.length > 0 && (
+                        <View style={{ marginTop: 4 }}>
+                          {item.selectedSlots.map((slot, idx) => (
+                            <Text key={idx} style={{ fontSize: 10.5, color: '#888' }} numberOfLines={1}>
+                              {slot.slot_label}: {slot.selected_items.map(i => i.name).join(', ')}
+                            </Text>
+                          ))}
+                        </View>
+                      )}
+                      </View>  
 
                       {isOwnCart && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
@@ -956,6 +1103,22 @@ const updateItemPax = (menuId, newQty) => {
         onSelect={handleCateringLocationSelect}
         initialPin={customLocation ? { latitude: customLocation.lat, longitude: customLocation.lng } : null}
       />
+
+      <PackageSlotModal
+  visible={!!slotModalPackage}
+  pkg={slotModalPackage}
+  categories={categories}
+  onClose={() => setSlotModalPackage(null)}
+  onConfirm={(selectedSlots) => {
+    addToCart({
+      ...slotModalPackage,
+      price: slotModalPackage.price_per_pax,
+      isPackage: true,
+      selectedSlots,
+    });
+    setSlotModalPackage(null);
+  }}
+/>
 
       <CustomAlert
         visible={alert.visible}
