@@ -415,6 +415,7 @@ termsBuyerContent: {
     header: { title: 'Bite Eco' },
     accessibility: { back: 'Kembali' },
     whatsappMessage: 'Halo, saya ingin bergabung dengan program Bite Eco untuk warung saya',
+    
     intro: {
       title: 'Bite Eco',
       subtitle: 'Bergabunglah dalam gerakan warung ramah lingkungan untuk masa depan yang lebih hijau',
@@ -452,8 +453,15 @@ termsBuyerContent: {
       description: 'Bergabunglah dengan program Bite Eco dan mulai berkontribusi untuk lingkungan yang lebih baik',
       button: 'Bergabung Sekarang',
     },
+    comingSoon: {
+    badge: 'Segera Hadir',
+    title: 'Bite Eco Sedang Disiapkan',
+    description: 'Kami sedang menyiapkan pengalaman baru yang lebih ramah lingkungan untuk Bite&Co. Nantikan pembaruannya!',
+    previewTitle: 'Yang Akan Datang',
+    
   },
-
+},
+  
   jadwalPengantaran: {
     header: { title: 'Jadwal Pengantaran' },
     detailHeader: { title: 'Detail Pengantaran' },

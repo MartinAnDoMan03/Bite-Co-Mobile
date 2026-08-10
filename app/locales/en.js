@@ -451,7 +451,15 @@ termsBuyerContent: {
       description: 'Join the Bite Eco program and start contributing to a better environment',
       button: 'Join Now',
     },
+      comingSoon: {
+    badge: 'Coming Soon',
+    title: 'Bite Eco Is Being Prepared',
+    description: 'We are working on a new eco-friendly experience for Bite&Co. Stay tuned for the update!',
+    previewTitle: 'What\'s Coming',
+    
   },
+},
+  
 
   jadwalPengantaran: {
     header: { title: 'Delivery Schedule' },
