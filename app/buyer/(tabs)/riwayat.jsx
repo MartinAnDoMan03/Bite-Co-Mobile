@@ -10,6 +10,7 @@ import { TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useLanguage } from '../../contexts/LanguageContext';
 import PaymentWebViewModal from '../../../components/PaymentWebViewModal';
+import QRISPaymentModal from '../../../components/QRISPaymentModal';
 import { OrderCardSkeleton } from '../../../components/SkeletonLoader';
 import COLORS from '../../constants/color';
 
@@ -121,6 +122,8 @@ const Riwayat = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSnapUrl, setPaymentSnapUrl] = useState(null);
   const [paymentCheckLoading, setPaymentCheckLoading] = useState(false);
+  const [showQrisModal, setShowQrisModal] = useState(false);
+  const [qrisOrder, setQrisOrder] = useState(null);
   const { filter: filterParam } = useLocalSearchParams();
   const [activeFilter, setActiveFilter] = useState(filterParam || 'semua');
   const [now, setNow] = useState(Date.now());
@@ -197,7 +200,10 @@ const Riwayat = () => {
     setShowPaymentModal(true);
   };
 
-
+ const openQrisPayment = (order) => {
+   setQrisOrder(order);
+   setShowQrisModal(true);
+ };
 const initiatePayment = async (order) => {
   setPaymentCheckLoading(true);
   try {
@@ -445,14 +451,32 @@ const initiatePayment = async (order) => {
                     order.statusProgress === 'approved_awaiting_payment' &&
                     !isPaymentExpired(order, now) && (
                       <TouchableOpacity
-                        onPress={() => (order.snapUrl ? openPaymentWebView(order) : initiatePayment(order))}
+                         onPress={() => {
+                         if (order.paymentMethod === 'manual_qris') {
+                           openQrisPayment(order);
+                         } else {
+                           order.snapUrl ? openPaymentWebView(order) : initiatePayment(order);
+                         }
+                       }}
                         style={[styles.payButton, { opacity: paymentCheckLoading ? 0.6 : 1 }]}
                         disabled={paymentCheckLoading}
                       >
                         <MaterialIcons name="payment" size={16} color="#fff" />
                         <Text style={styles.payButtonText}>
-                          {paymentCheckLoading ? t('buyerRiwayat.payButton.checking') : t('buyerRiwayat.payButton.continuePayment')}
+                          {order.paymentMethod === 'manual_qris'
+                           ? 'Bayar via QRIS'
+                           : (paymentCheckLoading ? t('buyerRiwayat.payButton.checking') : t('buyerRiwayat.payButton.continuePayment'))}
                         </Text>
+                        +         {order.paymentMethod === 'manual_qris' && order.paymentStatus === 'pending_verification' && (
+           <View style={styles.overdueBox}>
+             <View style={styles.overdueRow}>
+               <MaterialIcons name="hourglass-empty" size={18} color="#1976D2" />
+               <Text style={[styles.overdueText, { color: '#1976D2' }]}>
+                 Bukti pembayaran sedang diverifikasi. Mohon tunggu konfirmasi kami.
+               </Text>
+             </View>
+           </View>
+         )}
                       </TouchableOpacity>
                     )}
 
@@ -479,6 +503,12 @@ const initiatePayment = async (order) => {
               // sudah settlement/capture, webhook Midtrans harusnya sudah
               // mengupdate statusProgress di backend duluan.
               fetchOrders();
+              <QRISPaymentModal
+           visible={showQrisModal}
+           order={qrisOrder}
+           onClose={() => setShowQrisModal(false)}
+           onUploadSuccess={fetchOrders}
+         />
             }}
           />
         </ScrollView>
