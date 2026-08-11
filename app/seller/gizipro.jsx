@@ -21,7 +21,7 @@ const GiziProSeller = () => {
     {
       icon: 'assessment',
       title: 'Analisis Nutrisi Otomatis',
-      description: 'Hitung kandungan gizi tiap menu dari daftar bahan',
+      description: 'AI menghitung kandungan gizi tiap menu otomatis',
       color: COLORS.PRIMARY,
       bg: '#F7EAEF',
       route: '/seller/gizipro-analisis',
@@ -52,15 +52,6 @@ const GiziProSeller = () => {
       color: '#00695C',
       bg: '#E0F2F1',
       route: '/seller/gizipro-cek-manual',
-      ready: true,
-    },
-    {
-      icon: 'auto-awesome',
-      title: 'Analisis (AI) - Uji Coba',
-      description: 'Versi baru pakai AI, masih simulasi',
-      color: '#00695C',
-      bg: '#E0F2F1',
-      route: '/seller/gizipro-analisis-ai',
       ready: true,
     },
   ];

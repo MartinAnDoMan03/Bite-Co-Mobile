@@ -12,15 +12,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/color';
+import config from '../constants/config';
 
-const ANALYSIS_STORAGE_KEY = 'gizipro_analysis_results';
-
-// Sama seperti INSIGHT_RULES di gizipro-analisis.jsx - dipakai buat urutan & meta tampilan
-const RULE_META = {
-  tinggi_lemak_jenuh: { label: 'Lemak Jenuh Tinggi', badgeColor: '#B26A00', badgeBg: '#FFF3E0', icon: 'opacity' },
-  tinggi_natrium: { label: 'Natrium Tinggi', badgeColor: '#B26A00', badgeBg: '#FFF3E0', icon: 'grain' },
-  rendah_protein: { label: 'Protein Rendah', badgeColor: '#B26A00', badgeBg: '#FFF3E0', icon: 'egg' },
-  kalori_tinggi: { label: 'Kalori Tinggi', badgeColor: '#993C1D', badgeBg: '#FAECE7', icon: 'local-fire-department' },
+const getAuthToken = async () => {
+  try {
+    return await AsyncStorage.getItem('sellerToken');
+  } catch (error) {
+    console.error('Error getting auth token:', error);
+    return null;
+  }
 };
 
 const InsightTipsMenu = () => {
@@ -34,31 +34,41 @@ const InsightTipsMenu = () => {
   const load = async () => {
     try {
       setIsLoading(true);
-      const raw = await AsyncStorage.getItem(ANALYSIS_STORAGE_KEY);
-      const stored = raw ? JSON.parse(raw) : {};
-      const entries = Object.entries(stored); // [menuId, {menuName, result}]
+      const response = await fetch(`${config.API_URL}/seller/menu`, {
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${await getAuthToken()}`,
+        },
+      });
+      if (!response.ok) throw new Error(`Gagal ambil data menu (${response.status})`);
 
-      if (entries.length === 0) {
+      const result = await response.json();
+      const categories = result.data || result || [];
+      const allItems = categories.flatMap((category) => category.items || []);
+      const analyzedItems = allItems.filter((item) => item.giziResult);
+
+      if (analyzedItems.length === 0) {
         setIsEmpty(true);
         setIsLoading(false);
         return;
       }
 
-      // Kumpulin per kategori insight: id -> { menus: [{id, name}], tip }
+      // Kumpulin per "issue" (teks bebas dari AI) - dikelompokkan berdasarkan teks yang sama persis
       const grouped = {};
       const clean = [];
 
-      entries.forEach(([menuId, data]) => {
-        const insights = data.result.insights || [];
+      analyzedItems.forEach((item) => {
+        const insights = item.giziResult.insights || [];
         if (insights.length === 0) {
-          clean.push({ id: menuId, name: data.menuName });
+          clean.push({ id: String(item.id), name: item.name });
           return;
         }
         insights.forEach((insight) => {
-          if (!grouped[insight.id]) {
-            grouped[insight.id] = { id: insight.id, tip: insight.tip, insightText: insight.insight, menus: [] };
+          const key = (insight.issue || 'Lainnya').trim();
+          if (!grouped[key]) {
+            grouped[key] = { id: key, label: key, tip: insight.tip, insightText: insight.explanation, menus: [] };
           }
-          grouped[insight.id].menus.push({ id: menuId, name: data.menuName });
+          grouped[key].menus.push({ id: String(item.id), name: item.name });
         });
       });
 
@@ -117,7 +127,6 @@ const InsightTipsMenu = () => {
               <>
                 <Text style={styles.sectionTitle}>Perlu Diperbaiki</Text>
                 {groups.map((group) => {
-                  const meta = RULE_META[group.id] || { label: group.id, badgeColor: '#888', badgeBg: '#eee', icon: 'info' };
                   const expanded = expandedId === group.id;
                   return (
                     <View key={group.id} style={[styles.groupCard, styles.shadow]}>
@@ -126,11 +135,11 @@ const InsightTipsMenu = () => {
                         onPress={() => setExpandedId(expanded ? null : group.id)}
                         activeOpacity={0.7}
                       >
-                        <View style={[styles.groupIcon, { backgroundColor: meta.badgeBg }]}>
-                          <MaterialIcons name={meta.icon} size={20} color={meta.badgeColor} />
+                        <View style={[styles.groupIcon, { backgroundColor: '#FFF3E0' }]}>
+                          <MaterialIcons name="warning" size={20} color="#B26A00" />
                         </View>
                         <View style={{ flex: 1 }}>
-                          <Text style={styles.groupTitle}>{meta.label}</Text>
+                          <Text style={styles.groupTitle}>{group.label}</Text>
                           <Text style={styles.groupCount}>{group.menus.length} menu terdampak</Text>
                         </View>
                         <MaterialIcons

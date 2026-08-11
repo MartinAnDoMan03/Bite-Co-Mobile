@@ -14,8 +14,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import COLORS from '../constants/color';
 import config from '../constants/config';
 
-const ANALYSIS_STORAGE_KEY = 'gizipro_analysis_results';
-
 const getAuthToken = async () => {
   try {
     return await AsyncStorage.getItem('sellerToken');
@@ -50,21 +48,23 @@ const LabelDietOtomatis = () => {
 
       const result = await response.json();
       const categories = result.data || result || [];
-      const allItems = categories.flatMap((category) => category.items || []);
-
-      const raw = await AsyncStorage.getItem(ANALYSIS_STORAGE_KEY);
-      const storedResults = raw ? JSON.parse(raw) : {};
 
       const labeled = [];
       let unlabeledCount = 0;
 
-      allItems.forEach((item) => {
-        const stored = storedResults[String(item.id)];
-        if (stored && stored.result.labels.length > 0) {
-          labeled.push({ id: String(item.id), name: item.name, labels: stored.result.labels });
-        } else {
-          unlabeledCount += 1;
-        }
+      categories.forEach((category) => {
+        (category.items || []).forEach((item) => {
+          const raw = item.giziResult;
+          if (raw && raw.labels && raw.labels.length > 0) {
+            labeled.push({
+              id: String(item.id),
+              name: item.name,
+              labels: raw.labels.map((text) => ({ text, color: '#2E7D32', bg: '#E8F5E9' })),
+            });
+          } else {
+            unlabeledCount += 1;
+          }
+        });
       });
 
       setMenus(labeled);
