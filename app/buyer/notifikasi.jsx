@@ -17,6 +17,7 @@ import axios from 'axios';
 import COLORS from '../constants/color';
 import config from '../constants/config';
 import { useLanguage } from '../contexts/LanguageContext';
+import { getBuyerNotificationRoute } from '../utils/notificationRouting';
 
 const TYPE_ICONS = {
   order: 'receipt-long',
@@ -126,9 +127,8 @@ const BuyerNotifikasi = () => {
       console.error('Error marking notification as read:', error);
     }
 
-    if (item.data?.orderId) {
-      router.push(`/buyer/DetailOrder?orderId=${item.data.orderId}`);
-    }
+    const route = getBuyerNotificationRoute(item.data);
+    if (route) router.push(route);
   };
 
   const renderEmptyState = () => (

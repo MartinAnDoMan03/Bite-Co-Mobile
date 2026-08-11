@@ -10,6 +10,7 @@ import * as SystemUI from 'expo-system-ui';
 import { StatusBar as ExpoStatusBar } from 'expo-status-bar';
 import AnimatedSplash from '../components/AnimatedSplash';
 import { LanguageProvider } from './contexts/LanguageContext';
+import { getBuyerNotificationRoute, getSellerNotificationRoute } from './utils/notificationRouting';
 
 // Prevent splash screen from auto-hiding
 SplashScreen.preventAutoHideAsync();
@@ -104,14 +105,12 @@ export default function RootLayout() {
       const data = notificationService.handleNotificationAction(response);
       if (!data?.orderId) return;
 
-      // Route to the right order screen depending on who's logged in.
-      // Seller push payloads use { orderId }, buyer ones use
-      // { orderId, type: 'order_status_update' }.
-      if (data.type === 'order_status_update') {
-        router.push(`/buyer/DetailOrder?orderId=${data.orderId}`);
-      } else {
-        router.push(`/seller/DetailOrder?orderId=${data.orderId}`);
-      }
+      // buyerId is only ever present on notifications sent to sellers
+      // (see notifyUser calls above) — use that to tell the two apart.
+      const route = data.buyerId
+        ? getSellerNotificationRoute(data)
+        : getBuyerNotificationRoute(data);
+      if (route) router.push(route);
     };
 
     const subscriptions = notificationService.setupListeners(

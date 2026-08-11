@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { StyleSheet, Text, View, ScrollView, RefreshControl, ActivityIndicator, Platform, Modal, TouchableWithoutFeedback } from 'react-native'
 import React, { useEffect, useState, useCallback } from 'react'
 import config from '../../constants/config';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { TouchableOpacity } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
@@ -121,7 +121,8 @@ const Riwayat = () => {
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [paymentSnapUrl, setPaymentSnapUrl] = useState(null);
   const [paymentCheckLoading, setPaymentCheckLoading] = useState(false);
-  const [activeFilter, setActiveFilter] = useState('semua');
+  const { filter: filterParam } = useLocalSearchParams();
+  const [activeFilter, setActiveFilter] = useState(filterParam || 'semua');
   const [now, setNow] = useState(Date.now());
   const [cancellingOrderId, setCancellingOrderId] = useState(null);
   const [activePeriod, setActivePeriod] = useState(DEFAULT_PERIOD);

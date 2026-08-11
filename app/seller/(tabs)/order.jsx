@@ -14,7 +14,7 @@ import {
 } from "react-native";
 import HeaderTitle from '../../../components/HeaderTitle';
 import COLORS from '../../constants/color';
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import config from '../../constants/config';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { MaterialIcons, Ionicons } from "@expo/vector-icons";
@@ -350,7 +350,8 @@ const SellerOrder = () => {
   const [sellerProfile, setSellerProfile] = useState(null);
   
   // State untuk tab filter
-  const [activeFilter, setActiveFilter] = useState("semua");
+  const { filter: filterParam } = useLocalSearchParams();
+  const [activeFilter, setActiveFilter] = useState(filterParam || "semua");
 
   const [activePeriod, setActivePeriod] = useState(DEFAULT_PERIOD);
   const [showPeriodModal, setShowPeriodModal] = useState(false);
