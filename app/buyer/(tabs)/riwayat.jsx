@@ -19,12 +19,6 @@ const LOCALE_MAP = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' };
 // Batas waktu tunggu approval seller sebelum buyer ditawari opsi batal.
 const APPROVAL_TIMEOUT_MINUTES = 30;
 
-// Metadata tampilan dipetakan dari statusProgress (bukan status lama), samain
-// skema dengan StatusOrder.jsx & RiwayatDetail.jsx.
-// FIX: dulu tiap status punya warna badge sendiri-sendiri (kuning, biru, ungu,
-// biru muda, hijau, merah) + border kiri card berwarna-warni. Sekarang badge
-// netral (abu-abu + teks gelap) untuk semua status, KECUALI "cancelled" yang
-// tetap merah karena itu satu-satunya status yang memang perlu nonjol/kritikal.
 const STATUS_PROGRESS_META = {
   awaiting_seller_approval: { icon: 'hourglass-empty', bg: '#F1F1F3', text: '#3A3F47', label: 'Menunggu Persetujuan Penjual', isFailed: false },
   approved_awaiting_payment: { icon: 'schedule', bg: '#F1F1F3', text: '#3A3F47', label: 'Menunggu Pembayaran', isFailed: false },
@@ -33,16 +27,12 @@ const STATUS_PROGRESS_META = {
   completed: { icon: 'check-circle', bg: '#F1F1F3', text: '#3A3F47', label: 'Selesai', isFailed: false },
   cancelled: { icon: 'cancel', bg: '#FDECEA', text: '#D32F2F', label: 'Dibatalkan', isFailed: true },
   payment_expired: { icon: 'schedule', bg: '#FDECEA', text: '#D32F2F', label: 'Pembayaran Kadaluarsa', isFailed: true },
-
 };
 
 const getStatusMeta = (statusProgress) => {
   return STATUS_PROGRESS_META[statusProgress] || { icon: 'help-outline', bg: '#F1F1F3', text: '#3A3F47', label: 'Menunggu', isFailed: false };
 };
 
-// Filter tabs di atas — selaras dengan halaman Status Order buyer.
-// FIX: pakai t(key, fallback) supaya kalau key translasi belum terdaftar di
-// locale, otomatis pakai teks fallback ini alih-alih nampilin key mentah.
 const getFilters = (t) => [
   { key: 'semua', label: t('buyerRiwayat.filters.all', 'Semua') },
   { key: 'diproses', label: t('buyerRiwayat.filters.processing', 'Diproses') },
@@ -62,10 +52,6 @@ const matchesFilter = (statusProgress, filterKey) => {
   return true;
 };
 
-// Filter periode waktu — supaya riwayat tidak menumpuk jadi satu daftar
-// panjang tanpa akhir. Default "30 Hari Terakhir": cukup buat lihat riwayat
-// baru-baru ini, tapi nggak langsung nge-load/nampilin semua pesanan dari
-// awal akun dibuat.
 const PERIOD_OPTIONS = [
   { key: '7hari', label: '7 Hari', days: 7 },
   { key: '30hari', label: '30 Hari', days: 30 },
@@ -77,7 +63,7 @@ const DEFAULT_PERIOD = '30hari';
 
 const matchesPeriod = (createdAt, periodKey) => {
   const option = PERIOD_OPTIONS.find((p) => p.key === periodKey);
-  if (!option || option.days === null) return true; // "Semua" → tidak difilter
+  if (!option || option.days === null) return true;
   if (!createdAt) return false;
   const createdTs = new Date(createdAt).getTime();
   if (isNaN(createdTs)) return false;
@@ -85,10 +71,6 @@ const matchesPeriod = (createdAt, periodKey) => {
   return createdTs >= cutoff;
 };
 
-// Cek apakah order masih awaiting_seller_approval DAN sudah lewat batas waktu
-// (default 30 menit) sejak dibuat. `nowTs` dioper dari luar (bukan panggil
-// Date.now() langsung di sini) supaya semua card di-refresh serentak lewat
-// satu interval, bukan masing-masing card punya timer sendiri.
 const isApprovalOverdue = (order, nowTs) => {
   if (order.statusProgress !== 'awaiting_seller_approval') return false;
   if (!order.createdAt) return false;
@@ -98,10 +80,6 @@ const isApprovalOverdue = (order, nowTs) => {
   return elapsedMinutes >= APPROVAL_TIMEOUT_MINUTES;
 };
 
-// Sesi Snap Midtrans default kadaluarsa 24 jam sejak dibuat, kecuali backend
-// override lewat custom_expiry saat generate transaksi (cek payment/route.js
-// kalau devisi ini beda). Ini fallback client-side kalau webhook expire dari
-// Midtrans telat/gagal mengubah statusProgress.
 const PAYMENT_EXPIRY_HOURS = 24;
 
 const isPaymentExpired = (order, nowTs) => {
@@ -115,7 +93,7 @@ const isPaymentExpired = (order, nowTs) => {
 
 const Riwayat = () => {
   const { t, language } = useLanguage();
-  
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -164,11 +142,8 @@ const Riwayat = () => {
     return () => document.removeEventListener('visibilitychange', handleVisibility);
   }, [fetchOrders]);
 
-  // Timer buat re-check status "lewat 30 menit" secara real-time selama
-  // halaman ini terbuka — tanpa ini, prompt cuma muncul kalau buyer manual
-  // refresh/reopen halaman.
   useEffect(() => {
-    const interval = setInterval(() => setNow(Date.now()), 30000); // tiap 30 detik
+    const interval = setInterval(() => setNow(Date.now()), 30000);
     return () => clearInterval(interval);
   }, []);
 
@@ -177,19 +152,6 @@ const Riwayat = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  // FIX: sebelumnya function ini cek status Midtrans DULU sebelum membuka
-  // WebView, dan hanya membuka WebView kalau transaction_status === 'pending'.
-  // Tapi transaksi Midtrans baru "terdaftar" di endpoint /v2/{orderId}/status
-  // SETELAH buyer memilih metode pembayaran di dalam WebView itu sendiri —
-  // jadi pre-check ini selalu gagal (404 "Transaction doesn't exist") dan
-  // buyer terjebak di alert "sudah dibayar atau tidak dalam status pending"
-  // tanpa pernah bisa membuka halaman pembayaran sama sekali.
-  //
-  // Fix: langsung buka WebView pakai snapUrl yang sudah ada. Status
-  // pembayaran yang sebenarnya (settlement/capture/expire/dll) dihandle
-  // otomatis lewat webhook Midtrans (notification/route.js), yang akan
-  // mengupdate statusProgress begitu buyer benar-benar menyelesaikan
-  // pembayaran di dalam WebView.
   const openPaymentWebView = (order) => {
     if (!order.snapUrl) return;
     if (Platform.OS === 'web') {
@@ -200,37 +162,35 @@ const Riwayat = () => {
     setShowPaymentModal(true);
   };
 
- const openQrisPayment = (order) => {
-   setQrisOrder(order);
-   setShowQrisModal(true);
- };
-const initiatePayment = async (order) => {
-  setPaymentCheckLoading(true);
-  try {
-    const token = await AsyncStorage.getItem('buyerToken');
-    const res = await axios.post(
-      `${config.API_URL}/buyer/orders/${order.id}/payment`,
-      {},
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-    if (res.data?.snapUrl) {
-      if (Platform.OS === 'web') {
-        window.open(res.data.snapUrl, '_blank');
-      } else {
-        setPaymentSnapUrl(res.data.snapUrl);
-        setShowPaymentModal(true);
-      }
-    }
-  } catch (e) {
-    alert(t('buyerRiwayat.alerts.checkStatusFailed'));
-  } finally {
-    setPaymentCheckLoading(false);
-  }
-};
+  const openQrisPayment = (order) => {
+    setQrisOrder(order);
+    setShowQrisModal(true);
+  };
 
-  // Batalkan order yang approval-nya sudah lewat 30 menit. Pakai endpoint
-  // cancel yang sama dengan jendela batal 15 detik di Pembayaran.jsx —
-  // endpoint itu sudah handle validasi kepemilikan & status transition.
+  const initiatePayment = async (order) => {
+    setPaymentCheckLoading(true);
+    try {
+      const token = await AsyncStorage.getItem('buyerToken');
+      const res = await axios.post(
+        `${config.API_URL}/buyer/orders/${order.id}/payment`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data?.snapUrl) {
+        if (Platform.OS === 'web') {
+          window.open(res.data.snapUrl, '_blank');
+        } else {
+          setPaymentSnapUrl(res.data.snapUrl);
+          setShowPaymentModal(true);
+        }
+      }
+    } catch (e) {
+      alert(t('buyerRiwayat.alerts.checkStatusFailed'));
+    } finally {
+      setPaymentCheckLoading(false);
+    }
+  };
+
   const handleCancelOverdueOrder = async (order) => {
     setCancellingOrderId(order.id);
     try {
@@ -248,18 +208,14 @@ const initiatePayment = async (order) => {
     }
   };
 
-  // Daftar order yang sudah disaring sesuai tab filter aktif. Ditaruh setelah
-  // semua fungsi penting (fetchOrders, openPaymentWebView, initiatePayment)
-  // supaya tidak mengubah urutan logic yang sudah ada, cuma nambah di akhir.
   const filteredOrders = orders.filter(
-  (order) =>
-    matchesFilter(order.statusProgress, activeFilter) &&
-    matchesPeriod(order.createdAt, activePeriod)
-);
+    (order) =>
+      matchesFilter(order.statusProgress, activeFilter) &&
+      matchesPeriod(order.createdAt, activePeriod)
+  );
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
-      {/* Header selaras dengan halaman Pesanan penjual */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} accessibilityLabel={t('buyerRiwayat.header.accessibility.back')}>
           <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
@@ -268,9 +224,7 @@ const initiatePayment = async (order) => {
         <View style={{ width: 26 }} />
       </View>
 
-      {/* FILTER SECTION */}
       <View style={styles.filtersContainer}>
-        {/* Status Filter Chips */}
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
@@ -297,7 +251,6 @@ const initiatePayment = async (order) => {
           })}
         </ScrollView>
 
-      {/* Tombol Icon Filter Periode */}
         <View style={styles.iconFilterWrapper}>
           <TouchableOpacity
             style={[styles.iconFilterBtn, activePeriod !== DEFAULT_PERIOD && styles.iconFilterBtnActive]}
@@ -306,10 +259,10 @@ const initiatePayment = async (order) => {
               setShowPeriodModal(true);
             }}
           >
-            <MaterialIcons 
-              name="tune" 
-              size={20} 
-              color={activePeriod !== DEFAULT_PERIOD ? "#fff" : COLORS.PRIMARY} 
+            <MaterialIcons
+              name="tune"
+              size={20}
+              color={activePeriod !== DEFAULT_PERIOD ? "#fff" : COLORS.PRIMARY}
             />
           </TouchableOpacity>
         </View>
@@ -433,7 +386,7 @@ const initiatePayment = async (order) => {
                       <TouchableOpacity
                         onPress={(e) => {
                           e.stopPropagation();
-                          handleCancelOverdueOrder(order); // same endpoint, already handles ownership/status validation
+                          handleCancelOverdueOrder(order);
                         }}
                         style={[styles.overdueCancelButton, cancellingOrderId === order.id && { opacity: 0.6 }]}
                         disabled={cancellingOrderId === order.id}
@@ -450,34 +403,35 @@ const initiatePayment = async (order) => {
                   {!overdue &&
                     order.statusProgress === 'approved_awaiting_payment' &&
                     !isPaymentExpired(order, now) && (
-                      <TouchableOpacity
-                         onPress={() => {
-                         if (order.paymentMethod === 'manual_qris') {
-                           openQrisPayment(order);
-                         } else {
-                           order.snapUrl ? openPaymentWebView(order) : initiatePayment(order);
-                         }
-                       }}
-                        style={[styles.payButton, { opacity: paymentCheckLoading ? 0.6 : 1 }]}
-                        disabled={paymentCheckLoading}
-                      >
-                        <MaterialIcons name="payment" size={16} color="#fff" />
-                        <Text style={styles.payButtonText}>
-                          {order.paymentMethod === 'manual_qris'
-                           ? 'Bayar via QRIS'
-                           : (paymentCheckLoading ? t('buyerRiwayat.payButton.checking') : t('buyerRiwayat.payButton.continuePayment'))}
-                        </Text>
-                        +         {order.paymentMethod === 'manual_qris' && order.paymentStatus === 'pending_verification' && (
-           <View style={styles.overdueBox}>
-             <View style={styles.overdueRow}>
-               <MaterialIcons name="hourglass-empty" size={18} color="#1976D2" />
-               <Text style={[styles.overdueText, { color: '#1976D2' }]}>
-                 Bukti pembayaran sedang diverifikasi. Mohon tunggu konfirmasi kami.
-               </Text>
-             </View>
-           </View>
-         )}
-                      </TouchableOpacity>
+                      order.paymentMethod === 'manual_qris' && order.paymentStatus === 'pending_verification' ? (
+                        <View style={styles.overdueBox}>
+                          <View style={styles.overdueRow}>
+                            <MaterialIcons name="hourglass-empty" size={18} color="#1976D2" />
+                            <Text style={[styles.overdueText, { color: '#1976D2' }]}>
+                              Bukti pembayaran sedang diverifikasi. Mohon tunggu konfirmasi kami.
+                            </Text>
+                          </View>
+                        </View>
+                      ) : (
+                        <TouchableOpacity
+                          onPress={() => {
+                            if (order.paymentMethod === 'manual_qris') {
+                              openQrisPayment(order);
+                            } else {
+                              order.snapUrl ? openPaymentWebView(order) : initiatePayment(order);
+                            }
+                          }}
+                          style={[styles.payButton, { opacity: paymentCheckLoading ? 0.6 : 1 }]}
+                          disabled={paymentCheckLoading}
+                        >
+                          <MaterialIcons name="payment" size={16} color="#fff" />
+                          <Text style={styles.payButtonText}>
+                            {order.paymentMethod === 'manual_qris'
+                              ? 'Bayar via QRIS'
+                              : (paymentCheckLoading ? t('buyerRiwayat.payButton.checking') : t('buyerRiwayat.payButton.continuePayment'))}
+                          </Text>
+                        </TouchableOpacity>
+                      )
                     )}
 
                   {!overdue && isPaymentExpired(order, now) && (
@@ -499,21 +453,18 @@ const initiatePayment = async (order) => {
             snapUrl={paymentSnapUrl}
             onClose={() => {
               setShowPaymentModal(false);
-              // Refresh daftar order begitu WebView ditutup — kalau pembayaran
-              // sudah settlement/capture, webhook Midtrans harusnya sudah
-              // mengupdate statusProgress di backend duluan.
               fetchOrders();
-              <QRISPaymentModal
-           visible={showQrisModal}
-           order={qrisOrder}
-           onClose={() => setShowQrisModal(false)}
-           onUploadSuccess={fetchOrders}
-         />
             }}
+          />
+          <QRISPaymentModal
+            visible={showQrisModal}
+            order={qrisOrder}
+            onClose={() => setShowQrisModal(false)}
+            onUploadSuccess={fetchOrders}
           />
         </ScrollView>
       )}
-      {/* MODAL FILTER PERIODE */}
+
       <Modal
         visible={showPeriodModal}
         transparent
@@ -579,7 +530,7 @@ const styles = StyleSheet.create({
   },
   backBtn: { width: 26 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.PRIMARY },
-  
+
   filtersContainer: {
     flexDirection: "row",
     alignItems: "center",
