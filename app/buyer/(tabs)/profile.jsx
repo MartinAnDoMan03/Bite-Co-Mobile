@@ -81,7 +81,6 @@ const profile = () => {
 
       setUserData(response.data);
 
-      // Load address data from AsyncStorage
       await loadAddressData();
 
       setLoading(false);
