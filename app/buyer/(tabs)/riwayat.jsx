@@ -194,7 +194,8 @@ const Riwayat = () => {
   // (optimistic update) biar tombol "Bayar via QRIS" langsung berganti jadi
   // box "sedang diverifikasi" tanpa nunggu round-trip fetchOrders() —
   // mencegah buyer sempat tap upload lagi selagi network masih jalan
-  // (yang sebelumnya bisa bikin buyer transfer 2-3x).
+  // (yang sebelumnya bisa bikin buyer transfer 2-3x). Ini juga otomatis
+  // "membersihkan" status rejected sebelumnya begitu buyer upload ulang.
   const handleProofUploaded = (orderId) => {
     setOrders((prev) =>
       prev.map((o) =>
@@ -329,10 +330,12 @@ const Riwayat = () => {
               const expired = isPaymentExpired(order, now);
               const meta = expired ? STATUS_PROGRESS_META.payment_expired : getStatusMeta(order.statusProgress);
               const overdue = isApprovalOverdue(order, now);
+              const isQrisRejected =
+                order.paymentMethod === 'manual_qris' && order.paymentStatus === 'rejected';
               return (
                 <TouchableOpacity
                   key={order.id}
-                  style={[styles.orderCard, styles.shadow, overdue && styles.orderCardOverdue]}
+                  style={[styles.orderCard, styles.shadow, (overdue || isQrisRejected) && styles.orderCardOverdue, isQrisRejected && styles.orderCardRejected]}
                   activeOpacity={0.7}
                   onPress={() => router.push({ pathname: '/buyer/RiwayatDetail', params: { orderId: order.id } })}
                 >
@@ -413,9 +416,41 @@ const Riwayat = () => {
                     </View>
                   )}
 
+                  {/* Bukti pembayaran QRIS ditolak admin — kasih tau buyer kenapa,
+                      dan langsung kasih jalan keluar (upload ulang), bukan cuma
+                      status mentok tanpa penjelasan. */}
+                  {!overdue && !isPaymentExpired(order, now) && isQrisRejected && (
+                    <View style={styles.rejectedBox}>
+                      <View style={styles.overdueRow}>
+                        <MaterialIcons name="highlight-off" size={18} color="#D32F2F" />
+                        <View style={{ flex: 1 }}>
+                          <Text style={styles.rejectedText}>
+                            Bukti pembayaran kamu ditolak.
+                          </Text>
+                          <Text style={styles.rejectedSubtext}>
+                            {order.paymentRejectReason
+                              ? order.paymentRejectReason
+                              : 'Pastikan foto bukti transfer jelas dan sesuai nominal, lalu upload ulang.'}
+                          </Text>
+                        </View>
+                      </View>
+                      <TouchableOpacity
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          openQrisPayment(order);
+                        }}
+                        style={styles.rejectedRetryButton}
+                      >
+                        <MaterialIcons name="refresh" size={16} color="#fff" />
+                        <Text style={styles.overdueCancelButtonText}>Upload Ulang Bukti</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+
                   {!overdue &&
                     order.statusProgress === 'approved_awaiting_payment' &&
-                    !isPaymentExpired(order, now) && (
+                    !isPaymentExpired(order, now) &&
+                    !isQrisRejected && (
                       order.paymentMethod === 'manual_qris' &&
                       (order.paymentStatus === 'pending_verification' || !!order.paymentProofUrl) ? (
                         <View style={styles.overdueBox}>
@@ -684,6 +719,10 @@ const styles = StyleSheet.create({
     borderColor: '#FFD9A0',
     backgroundColor: '#FFFCF7',
   },
+  orderCardRejected: {
+    borderColor: '#F5C2C2',
+    backgroundColor: '#FFF9F9',
+  },
   orderHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -772,6 +811,33 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontWeight: '700',
     fontSize: 14,
+  },
+  rejectedBox: {
+    marginTop: 14,
+    paddingTop: 14,
+    borderTopWidth: 1,
+    borderTopColor: '#F5C2C2',
+  },
+  rejectedText: {
+    fontSize: 13,
+    color: '#D32F2F',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  rejectedSubtext: {
+    fontSize: 12,
+    color: '#8a5a10',
+    fontWeight: '500',
+    lineHeight: 17,
+  },
+  rejectedRetryButton: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: COLORS.PRIMARY,
+    paddingVertical: 11,
+    borderRadius: 12,
   },
   emptyState: {
     flex: 1,
