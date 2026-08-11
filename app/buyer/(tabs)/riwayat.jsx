@@ -16,7 +16,6 @@ import COLORS from '../../constants/color';
 
 const LOCALE_MAP = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' };
 
-// Batas waktu tunggu approval seller sebelum buyer ditawari opsi batal.
 const APPROVAL_TIMEOUT_MINUTES = 30;
 
 const STATUS_PROGRESS_META = {
@@ -189,6 +188,20 @@ const Riwayat = () => {
     } finally {
       setPaymentCheckLoading(false);
     }
+  };
+
+  // Dipanggil begitu upload bukti QRIS sukses. Update state lokal LANGSUNG
+  // (optimistic update) biar tombol "Bayar via QRIS" langsung berganti jadi
+  // box "sedang diverifikasi" tanpa nunggu round-trip fetchOrders() —
+  // mencegah buyer sempat tap upload lagi selagi network masih jalan
+  // (yang sebelumnya bisa bikin buyer transfer 2-3x).
+  const handleProofUploaded = (orderId) => {
+    setOrders((prev) =>
+      prev.map((o) =>
+        o.id === orderId ? { ...o, paymentStatus: 'pending_verification' } : o
+      )
+    );
+    fetchOrders(); // tetap refetch di background buat sinkronisasi penuh
   };
 
   const handleCancelOverdueOrder = async (order) => {
@@ -403,7 +416,8 @@ const Riwayat = () => {
                   {!overdue &&
                     order.statusProgress === 'approved_awaiting_payment' &&
                     !isPaymentExpired(order, now) && (
-                      order.paymentMethod === 'manual_qris' && order.paymentStatus === 'pending_verification' ? (
+                      order.paymentMethod === 'manual_qris' &&
+                      (order.paymentStatus === 'pending_verification' || !!order.paymentProofUrl) ? (
                         <View style={styles.overdueBox}>
                           <View style={styles.overdueRow}>
                             <MaterialIcons name="hourglass-empty" size={18} color="#1976D2" />
@@ -460,7 +474,7 @@ const Riwayat = () => {
             visible={showQrisModal}
             order={qrisOrder}
             onClose={() => setShowQrisModal(false)}
-            onUploadSuccess={fetchOrders}
+            onUploadSuccess={handleProofUploaded}
           />
         </ScrollView>
       )}
