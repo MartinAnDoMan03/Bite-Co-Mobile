@@ -140,6 +140,8 @@ export default {
       message: 'Are you sure you want to delete your account? This action cannot be undone and all data will be lost.',
       confirmButton: 'Delete',
       comingSoon: 'Account deletion is coming soon. Please contact customer service for help.',
+      success: 'Account deleted successfully. We are sorry to see you go.',
+      error: 'Failed to delete account. Please try again.',
     },
   privacyPolicyContent: {
   title: 'Privacy Policy',

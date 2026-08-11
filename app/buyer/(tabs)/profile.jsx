@@ -185,14 +185,23 @@ const profile = () => {
     );
   }
 
-  if (error) {
+if (error) {
     return (
       <SafeAreaView style={{ flex: 1, backgroundColor: "#F5F6FA" }}>
         <View style={styles.loadingContainer}>
           <Text style={styles.errorText}>{error}</Text>
+          
           <TouchableOpacity style={[styles.pillButton, styles.solidButton]} onPress={fetchProfileData}>
             <Text style={styles.solidButtonText}>{t("profile.retry")}</Text>
           </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[styles.pillButton, styles.outlineButton, { marginTop: 10, paddingHorizontal: 30 }]}
+            onPress={handleSignOut}
+          >
+            <Text style={styles.outlineButtonText}>{t("profile.logout")}</Text>
+          </TouchableOpacity>
+          
         </View>
       </SafeAreaView>
     );
@@ -206,7 +215,7 @@ const profile = () => {
         <MaterialIcons name="chevron-left" size={26} color={COLORS.PRIMARY} />
       </TouchableOpacity>
       <Text style={styles.headerTitle}>{t("profile.title")}</Text>
-      <TouchableOpacity onPress={() => router.push('/buyer/Notifikasi')} style={{ width: 26 }}>
+      <TouchableOpacity onPress={() => router.push('/buyer/notifikasi')} style={{ width: 26 }}>
         <MaterialIcons name="notifications-none" size={24} color={COLORS.PRIMARY} />
       </TouchableOpacity>
     </View>

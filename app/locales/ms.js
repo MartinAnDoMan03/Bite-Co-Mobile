@@ -140,6 +140,8 @@ export default {
       message: 'Adakah anda pasti mahu memadam akaun? Tindakan ini tidak boleh dibatalkan dan semua data akan hilang.',
       confirmButton: 'Padam',
       comingSoon: 'Ciri padam akaun akan tersedia tidak lama lagi. Sila hubungi khidmat pelanggan untuk bantuan.',
+      success: 'Akaun berjaya dipadam. Kami kesal melihat anda pergi.',
+      error: 'Gagal memadam akaun. Sila cuba lagi.',
     },
   privacyPolicyContent: {
   title: 'Dasar Privasi',

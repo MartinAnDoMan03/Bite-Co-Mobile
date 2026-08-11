@@ -317,23 +317,67 @@ const SettingsPage = () => {
     );
   };
 
-  const handleDeleteAccount = () => {
-    showAlert(
-      t('settings.deleteAccountModal.title'),
-      t('settings.deleteAccountModal.message'),
-      [
-        { text: t('common.cancel'), style: 'cancel' },
-        {
-          text: t('settings.deleteAccountModal.confirmButton'),
-          style: 'destructive',
-          onPress: () => {
-            showAlert(t('common.info'), t('settings.deleteAccountModal.comingSoon'), [{ text: t('common.ok') }], 'info');
-          },
+const handleDeleteAccount = () => {
+  showAlert(
+    t('settings.deleteAccountModal.title'),
+    t('settings.deleteAccountModal.message'),
+    [
+      { text: t('common.cancel'), style: 'cancel' },
+      {
+        text: t('settings.deleteAccountModal.confirmButton'),
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            const token = await AsyncStorage.getItem('buyerToken'); 
+            
+            const apiUrl = 'https://admin.biteandco.id/api/v1/buyer/profile'; 
+
+            const response = await fetch(apiUrl, {
+              method: 'DELETE',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}` 
+              }
+            });
+
+            if (response.ok) {
+              await AsyncStorage.clear(); 
+              
+              showAlert(
+                t('common.success'), 
+                t('settings.deleteAccountModal.success'), 
+                [
+                  { 
+                    text: t('common.ok'), 
+                    onPress: () => router.replace('buyer/BuyerIndex') 
+                  }
+                ], 
+                'success'
+              );
+            } else {
+              const errorData = await response.json();
+              showAlert(
+                t('common.error'), 
+                errorData.message || t('settings.deleteAccountModal.error'), 
+                [{ text: t('common.ok') }], 
+                'error'
+              );
+            }
+          } catch (error) {
+            console.error('Error deleting account:', error);
+            showAlert(
+              t('common.error'), 
+              t('settings.deleteAccountModal.networkError'), 
+              [{ text: t('common.ok') }], 
+              'error'
+            );
+          }
         },
-      ],
-      'warning'
-    );
-  };
+      },
+    ],
+    'warning'
+  );
+};
 
   const settingSections = [
     {

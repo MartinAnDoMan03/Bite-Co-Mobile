@@ -140,6 +140,8 @@ export default {
       message: 'Apakah Anda yakin ingin menghapus akun? Tindakan ini tidak dapat dibatalkan dan semua data akan hilang.',
       confirmButton: 'Hapus',
       comingSoon: 'Fitur hapus akun akan segera tersedia. Silakan hubungi customer service untuk bantuan.',
+      success: 'Akun berhasil dihapus. Kami menyesal melihat Anda pergi.',
+      error: 'Gagal menghapus akun. Silakan coba lagi.',
     },
   
   privacyPolicyContent: {
