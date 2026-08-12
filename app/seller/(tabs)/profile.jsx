@@ -21,6 +21,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { MaterialIcons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker"; // Import ImagePicker
+import * as ImageManipulator from "expo-image-manipulator";
 import * as Linking from 'expo-linking';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import PinPointMapModal from '../../../components/PinPointMapModal';
@@ -374,17 +375,24 @@ const profile = () => {
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [4, 3],
-      quality: 0.7,
+      quality: 0.8,
     });
 
     if (pickerResult.canceled === true) {
       return;
     }
 
+      const manipulated = await ImageManipulator.manipulateAsync(
+      pickerResult.assets[0].uri,
+      [{ resize: { width: 1080, height: 1080 } }],
+      { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+   );
+    const resizedAsset = { ...pickerResult.assets[0], uri: manipulated.uri };
+
     if (type === "storeIcon") {
-      setStoreIcon(pickerResult.assets[0]);
+      setStoreIcon(resizedAsset);
     } else if (type === "storeBanner") {
-      setStoreBanner(pickerResult.assets[0]);
+      setStoreBanner(resizedAsset);
     }
   };
 

@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useRouter } from 'expo-router';
 import config from '../../constants/config';
@@ -134,12 +135,39 @@ const AddMenuPage = () => {
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
         allowsEditing: true,
         aspect: [4, 3],
-        quality: 0.4,
+        quality: 0.8,
         base64: false,
       });
 
       if (!result.canceled && result.assets && result.assets.length > 0) {
-        setImage(result.assets[0].uri);
+        // Resize to a sane max width for a menu photo (1080px is plenty —
+        // this is what actually controls file size, not the quality param
+        // above, which only affects compression artifacts at whatever
+        // resolution the photo already is).
+        const manipulated = await ImageManipulator.manipulateAsync(
+          result.assets[0].uri,
+          [{ resize: { width: 1080, height: 1080 } }],
+          { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+        );
+
+        // Heads-up for the rare case a photo is still large after resize
+        // (e.g. an extremely detailed/large source image) — Vercel's
+        // request body limit is ~4.5MB, so warn before it silently fails.
+        if (manipulated.uri) {
+          const fileInfo = await fetch(manipulated.uri);
+          const blob = await fileInfo.blob();
+          if (blob.size > 4 * 1024 * 1024) {
+            showAlert(
+              t('common.warning'),
+              'Foto ini masih terlalu besar. Coba pilih foto lain atau ambil ulang dengan size yang lebih kecil.',
+              [{ text: t('common.ok') }],
+              'warning'
+            );
+            return;
+          }
+        }
+
+        setImage(manipulated.uri);
       }
     } catch (error) {
       console.error('Error picking image:', error);
