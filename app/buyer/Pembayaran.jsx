@@ -294,7 +294,13 @@ if (overrideRaw && isCateringOrder) {
         const parsed = JSON.parse(saved);
         setAddressFields(parsed);
         setAddress(parsed.address || '');
-      } else {
+      }
+    
+      const orderTypeData = await AsyncStorage.getItem('order_type');
+      const overrideRaw = await AsyncStorage.getItem('delivery_location_override');
+      const hasCateringOverride = orderTypeData === 'Catering' && !!overrideRaw;
+
+      if (!saved && !hasCateringOverride) {
         setShowAddressModal(true);
       }
     };
