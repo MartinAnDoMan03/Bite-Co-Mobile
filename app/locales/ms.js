@@ -402,11 +402,11 @@ termsBuyerContent: {
     },
     appInfo: {
       versionLabel: 'Versi Aplikasi',
-      versionValue: '1.2.5',
+      versionValue: '1.1.3',
       lastUpdateLabel: 'Kemas Kini Terakhir',
-      lastUpdateValue: '15 Disember 2024',
+      lastUpdateValue: '14 Agustus 2024',
       deviceIdLabel: 'ID Peranti',
-      deviceIdValue: 'BTC-SELLER-001',
+      deviceIdValue: '-',
     },
   },
 

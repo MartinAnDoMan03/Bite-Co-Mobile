@@ -402,11 +402,11 @@ termsBuyerContent: {
     },
     appInfo: {
       versionLabel: 'App Version',
-      versionValue: '1.2.5',
+      versionValue: '1.1.3',
       lastUpdateLabel: 'Last Updated',
-      lastUpdateValue: 'December 15, 2024',
+      lastUpdateValue: 'August 14, 2024',
       deviceIdLabel: 'Device ID',
-      deviceIdValue: 'BTC-SELLER-001',
+      deviceIdValue: '-',
     },
   },
 

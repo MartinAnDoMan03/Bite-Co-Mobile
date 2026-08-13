@@ -403,11 +403,11 @@ termsBuyerContent: {
     },
     appInfo: {
       versionLabel: 'Versi Aplikasi',
-      versionValue: '1.2.5',
+      versionValue: '1.1.3',
       lastUpdateLabel: 'Update Terakhir',
-      lastUpdateValue: '15 Desember 2024',
+      lastUpdateValue: '14 Agustus 2024',
       deviceIdLabel: 'ID Perangkat',
-      deviceIdValue: 'BTC-SELLER-001',
+      deviceIdValue: '-',
     },
   },
 
