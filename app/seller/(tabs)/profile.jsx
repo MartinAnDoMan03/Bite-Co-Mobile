@@ -479,9 +479,36 @@ const profile = () => {
             </View>
           </View>
 
-          <InfoRow icon="edit" label={t("profil.info.storeName")} value={userData.name} />
-          <InfoRow icon="mail-outline" label={t("profil.info.email")} value={userData.email} />
-          <InfoRow icon="phone" label={t("profil.info.phone")} value={userData.phone} isLast />
+          {isEditing ? (
+            <View style={{ paddingVertical: 4 }}>
+              <AddressField
+                label={t("profil.info.storeName")}
+                value={userData.name}
+                editable
+                onChangeText={(v) => handleInputChange("name", v)}
+                placeholder={t("profil.notProvided")}
+              />
+              <AddressField
+                label={t("profil.info.phone")}
+                value={userData.phone}
+                editable
+                onChangeText={(v) => handleInputChange("phone", v)}
+                keyboardType="phone-pad"
+                placeholder={t("profil.notProvided")}
+              />
+            </View>
+          ) : (
+            <>
+              <InfoRow icon="edit" label={t("profil.info.storeName")} value={userData.name} />
+              <InfoRow icon="phone" label={t("profil.info.phone")} value={userData.phone} isLast />
+            </>
+          )}
+          <InfoRow icon="mail-outline" label={t("profil.info.email")} value={userData.email} isLast />
+          {isEditing && (
+            <Text style={styles.closedHint}>
+              Email tidak dapat diubah di sini karena terhubung dengan akun login kamu.
+            </Text>
+          )}
         </View>
 
         {/* ---------------- Jam Operasional ---------------- */}
