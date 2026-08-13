@@ -123,7 +123,7 @@ const BantuanPage = () => {
   };
 
   const handleEmailContact = () => {
-    const email = 'support@biteandco.id';
+    const email = 'biteandco2025@gmail.com '; // Email utama sementara or permanen tergantung situasi
     const subject = 'Bantuan Aplikasi Seller';
     const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
 
