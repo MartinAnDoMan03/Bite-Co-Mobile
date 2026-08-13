@@ -395,10 +395,10 @@ termsBuyerContent: {
       q6: { question: "Why don't menu photos show up?", answer: 'Make sure the photo is in JPG or PNG format with a maximum size of 5MB. A slow internet connection can also cause photos to not display properly.' },
     },
     contact: {
-      phone: '+62 812-3456-7890',
-      email: 'support@biteandco.id',
+      phone: '+62 852-6213-0124',
+      email: 'biteandco2025@gmail.com',
       hours: 'Monday - Friday: 08:00 - 17:00 WIB',
-      location: 'Jakarta, Indonesia',
+      location: 'Medan, Indonesia',
     },
     appInfo: {
       versionLabel: 'App Version',

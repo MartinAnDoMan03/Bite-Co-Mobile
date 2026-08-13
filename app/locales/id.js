@@ -396,10 +396,10 @@ termsBuyerContent: {
       q6: { question: 'Kenapa foto menu tidak muncul?', answer: 'Pastikan foto berformat JPG atau PNG dengan ukuran maksimal 5MB. Koneksi internet yang lambat juga bisa menyebabkan foto tidak tampil dengan baik.' },
     },
     contact: {
-      phone: '+62 812-3456-7890',
-      email: 'support@biteandco.id',
+      phone: '+62 852-6213-0124',
+      email: 'biteandco2025@gmail.com',
       hours: 'Senin - Jumat: 08:00 - 17:00 WIB',
-      location: 'Jakarta, Indonesia',
+      location: 'Medan, Indonesia',
     },
     appInfo: {
       versionLabel: 'Versi Aplikasi',
