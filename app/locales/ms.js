@@ -1004,7 +1004,7 @@ paket: {
       minPaxLabel: 'Minimum Pax',
       minPaxPlaceholder: '50',
       eventTypesLabel: 'Sesuai untuk Acara Apa? (boleh pilih lebih dari 1)',
-      slotsLabel: 'Slot Pilihan',
+      slotsLabel: 'Slot Pilihan (Opsional)',
       addSlotButton: 'Tambah Slot',
       emptySlots: 'Belum ada slot. Tambah sekurang-kurangnya 1 slot pilihan.',
       saving: 'Sedang menyimpan...',

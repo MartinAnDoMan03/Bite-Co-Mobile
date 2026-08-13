@@ -1003,7 +1003,7 @@ paket: {
       minPaxLabel: 'Minimum Pax',
       minPaxPlaceholder: '50',
       eventTypesLabel: 'Suitable for Which Events? (multiple choice)',
-      slotsLabel: 'Choice Slots',
+      slotsLabel: 'Choice Slots (Optional)',
       addSlotButton: 'Add Slot',
       emptySlots: 'No slots yet. Add at least 1 choice slot.',
       saving: 'Saving...',

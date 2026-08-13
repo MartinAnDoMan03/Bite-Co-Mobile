@@ -882,10 +882,6 @@ const TabPaketCatering = ({ showAlert, t }) => {
       showAlert(t('common.error'), t('paket.catering.validation.minPax'), [{ text: t('common.ok') }], "error");
       return false;
     }
-    if (formSlots.length === 0) {
-      showAlert(t('common.error'), t('paket.catering.validation.slotsRequired'), [{ text: t('common.ok') }], "error");
-      return false;
-    }
     return true;
   };
 
