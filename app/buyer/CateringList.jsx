@@ -100,30 +100,36 @@ const CateringList = () => {
         console.log("Total sellers received:", data.sellers.length);
         console.log("Seller names:", data.sellers.map(s => ({ name: s.name, id: s.id, categories: s.categories?.length })));
 
-        // Filter sellers that have categories data with at least one menu item
+        const hasValidCategories = (seller) =>
+          seller.categories &&
+          Array.isArray(seller.categories) &&
+          seller.categories.length > 0 &&
+          seller.categories.some(
+            (category) =>
+              category.items &&
+              Array.isArray(category.items) &&
+              category.items.length > 0
+          );
+
+        const hasValidPackages = (seller) =>
+          Array.isArray(seller.cateringPackages) &&
+          seller.cateringPackages.some(
+            (pkg) => pkg.name && pkg.price_per_pax > 0 && pkg.min_pax > 0
+          );
+
+        // Include a seller if they have either a real menu OR at least one valid catering package
         const sellersWithCategories = data.sellers.filter((seller) => {
-          const hasCategories =
-            seller.categories &&
-            Array.isArray(seller.categories) &&
-            seller.categories.length > 0 &&
-            seller.categories.some(
-              (category) =>
-                category.items &&
-                Array.isArray(category.items) &&
-                category.items.length > 0
-            );
             
-          return hasCategories;
+          return hasValidCategories(seller) || hasValidPackages(seller);
         });
 
-        console.log(
-          "Sellers with categories and menu items:",
-          sellersWithCategories.length
-        );
-        console.log("Filtered out:", data.sellers.filter(s => 
-  !s.categories || s.categories.length === 0 || 
-  !s.categories.some(cat => cat.items && cat.items.length > 0)
-).map(s => s.name));
+        // console.log(
+        //   "Sellers with categories and menu items:",
+        //   sellersWithCategories.length
+        // );
+        // console.log("Filtered out:", data.sellers.filter(s =>
+        //   !hasValidCategories(s) && !hasValidPackages(s)
+        // ).map(s => s.name));
 
         const formattedStores = sellersWithCategories.map((seller) => {
           // Handle distance formatting
