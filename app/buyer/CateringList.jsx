@@ -123,14 +123,6 @@ const CateringList = () => {
           return hasValidCategories(seller) || hasValidPackages(seller);
         });
 
-        // console.log(
-        //   "Sellers with categories and menu items:",
-        //   sellersWithCategories.length
-        // );
-        // console.log("Filtered out:", data.sellers.filter(s =>
-        //   !hasValidCategories(s) && !hasValidPackages(s)
-        // ).map(s => s.name));
-
         const formattedStores = sellersWithCategories.map((seller) => {
           // Handle distance formatting
           let distance = "N/A";
