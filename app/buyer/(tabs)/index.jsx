@@ -1,4 +1,4 @@
-import { Image, Text, TextInput, TouchableOpacity, View, ScrollView, StyleSheet, Animated, Easing, Platform, LayoutAnimation, UIManager, Dimensions } from "react-native";
+import { Image, Text, TextInput, TouchableOpacity, View, ScrollView, StyleSheet, Animated, Easing, Platform, LayoutAnimation, UIManager, useWindowDimensions } from "react-native";
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useLanguage } from "../../contexts/LanguageContext";
@@ -19,7 +19,6 @@ import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
 import OutletStatusBadge from '../../../components/OutletStatusBadge';
 import { getOutletStatus } from '../../services/OutletStatusService';
 import { FlatList } from "react-native";
-const { width } = Dimensions.get("window");
 
 // Aktifkan LayoutAnimation di Android (sama seperti di halaman seller)
 if (
@@ -183,6 +182,7 @@ const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress,
 const ExpandableMenu = () => {
   const { t } = useLanguage();
   const router = useRouter();
+  const { width } = useWindowDimensions();
   const [stores, setStores] = useState([]);
   const [rantanganStores, setRantanganStores] = useState([]);
   const [loading, setLoading] = useState(true);

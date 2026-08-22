@@ -244,6 +244,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   scrollContainer: {
+    alignSelf: 'center',
+    width: '100%',
+    maxWidth: 760,
     paddingHorizontal: 20,
     paddingTop: 18,
     paddingBottom: 40,
@@ -251,29 +254,37 @@ const styles = StyleSheet.create({
 
   topRow: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
+    gap: 8,
     marginBottom: 12,
   },
   orderId: {
+    flexShrink: 1,
     fontWeight: '700',
     fontSize: 19,
     color: '#23272f',
     letterSpacing: 0.2,
   },
   statusBadge: {
+    flexShrink: 1,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 8,
   },
   statusText: {
+    flexShrink: 1,
     fontWeight: '700',
     fontSize: 11.5,
+    textAlign: 'right',
   },
 
   metaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
     marginBottom: 4,
   },
   metaLabel: {
@@ -281,9 +292,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   metaValue: {
+    flex: 1,
+    flexShrink: 1,
     color: '#23272f',
     fontSize: 14,
     fontWeight: '500',
+    textAlign: 'right',
   },
 
   divider: {
@@ -308,6 +322,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   sellerName: {
+    flex: 1,
+    flexShrink: 1,
     fontWeight: '600',
     fontSize: 15,
     color: '#23272f',
@@ -328,11 +344,13 @@ const styles = StyleSheet.create({
   itemRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     paddingVertical: 10,
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5',
   },
   itemName: {
+    flexShrink: 1,
     fontWeight: '500',
     fontSize: 14.5,
     color: '#23272f',
@@ -343,11 +361,12 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   itemSlotText: {
-  color: '#8a8f99',
-  fontSize: 11.5,
-  marginTop: 1,
-},
+    color: '#8a8f99',
+    fontSize: 11.5,
+    marginTop: 1,
+  },
   itemPrice: {
+    flexShrink: 0,
     color: '#23272f',
     fontSize: 14.5,
     fontWeight: '600',
@@ -357,23 +376,29 @@ const styles = StyleSheet.create({
   summaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: 16,
     marginBottom: 8,
   },
   summaryLabel: {
+    flexShrink: 1,
     color: '#666',
     fontSize: 14,
   },
   summaryValue: {
+    flexShrink: 1,
     color: '#23272f',
     fontSize: 14,
     fontWeight: '500',
   },
   totalLabel: {
+    flexShrink: 1,
     fontWeight: '700',
     fontSize: 16,
     color: '#23272f',
   },
   totalValue: {
+    flexShrink: 0,
     fontWeight: '700',
     fontSize: 16,
     color: COLORS.PRIMARY,

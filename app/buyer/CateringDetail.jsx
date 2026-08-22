@@ -594,13 +594,45 @@ const doAdd = async () => {
 const updateItemPax = (menuId, newQty) => {
   setCart((prevCart) => {
     const target = prevCart.items.find((item) => item.id === menuId);
-    const minAllowed = target?.isPackage ? (target.min_pax || 1) : 1;
+
+    if (!target) return prevCart;
+
+    const minAllowed = target.isPackage
+      ? (target.min_pax || 1)
+      : 1;
+
+    // Normal menu: kalau tekan "-" dari qty 1, hapus item
+    if (!target.isPackage && newQty < 1) {
+      const updatedItems = prevCart.items.filter(
+        (item) => item.id !== menuId
+      );
+
+      const newCart = {
+        ...prevCart,
+        items: updatedItems,
+      };
+
+      saveCartToStorage(updatedItems, store);
+
+      return newCart;
+    }
+
+    // Package: tidak boleh kurang dari min_pax
     const safeQty = Math.max(minAllowed, newQty);
+
     const updatedItems = prevCart.items.map((item) =>
-      item.id === menuId ? { ...item, qty: safeQty } : item
+      item.id === menuId
+        ? { ...item, qty: safeQty }
+        : item
     );
-    const newCart = { ...prevCart, items: updatedItems };
+
+    const newCart = {
+      ...prevCart,
+      items: updatedItems,
+    };
+
     saveCartToStorage(updatedItems, store);
+
     return newCart;
   });
 };
@@ -1066,17 +1098,45 @@ const updateItemPax = (menuId, newQty) => {
 
                       {isOwnCart && (
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
-                          <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) - 1)}>
-                            <MaterialIcons name="remove-circle-outline" size={22} color={COLORS.PRIMARY} />
+                          <TouchableOpacity
+                            onPress={() =>
+                              updateItemPax(item.id, (item.qty || 1) - 1)
+                            }
+                          >
+                            <MaterialIcons
+                              name="remove-circle-outline"
+                              size={22}
+                              color={COLORS.PRIMARY}
+                            />
                           </TouchableOpacity>
 
                           <QtyInput
                             value={item.qty || 1}
-                            onChange={(newQty) => updateItemPax(item.id, newQty)}
+                            onChange={(newQty) =>
+                              updateItemPax(item.id, newQty)
+                            }
                           />
 
-                          <TouchableOpacity onPress={() => updateItemPax(item.id, (item.qty || 1) + 1)}>
-                            <MaterialIcons name="add-circle-outline" size={22} color={COLORS.PRIMARY} />
+                          <TouchableOpacity
+                            onPress={() =>
+                              updateItemPax(item.id, (item.qty || 1) + 1)
+                            }
+                          >
+                            <MaterialIcons
+                              name="add-circle-outline"
+                              size={22}
+                              color={COLORS.PRIMARY}
+                            />
+                          </TouchableOpacity>
+
+                          <TouchableOpacity
+                            onPress={() => removeFromCart(item)}
+                          >
+                            <MaterialIcons
+                              name="delete-outline"
+                              size={21}
+                              color="#D64545"
+                            />
                           </TouchableOpacity>
                         </View>
                       )}
