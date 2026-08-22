@@ -205,6 +205,22 @@ const DetailOrder = () => {
           </View>
           <Text style={styles.sectionValue}>{order.deliveryAddress || "-"}</Text>
           <View style={styles.divider} />
+
+          {!!order.eventDateTime && (
+            <>
+              <View style={styles.sectionHeader}>
+                <MaterialIcons name="event" size={18} color={COLORS.PRIMARY} />
+                <Text style={styles.sectionTitle}>Tanggal & Waktu Pengantaran</Text>
+              </View>
+              <Text style={styles.sectionValue}>
+                {new Date(order.eventDateTime).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+                {', '}
+                {new Date(order.eventDateTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+              </Text>
+              <View style={styles.divider} />
+            </>
+          )}
+          
           <View style={styles.sectionHeader}>
             <MaterialIcons name="sticky-note-2" size={18} color={COLORS.PRIMARY} />
             <Text style={styles.sectionTitle}>{t("detailOrder.notes")}</Text>

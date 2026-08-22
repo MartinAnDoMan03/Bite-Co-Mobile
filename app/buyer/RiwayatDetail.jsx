@@ -143,6 +143,17 @@ const getStatusMeta = (statusProgress) => {
         <Text style={styles.sectionTitle}>Alamat Pengantaran</Text>
         <Text style={styles.sectionValue}>{order.deliveryAddress || '-'}</Text>
 
+        {!!order.eventDateTime && (
+          <>
+            <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Tanggal & Waktu Pengantaran</Text>
+            <Text style={styles.sectionValue}>
+              {new Date(order.eventDateTime).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}
+              {', '}
+              {new Date(order.eventDateTime).toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })}
+            </Text>
+          </>
+        )}
+
         <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Catatan</Text>
         <Text style={styles.sectionValue}>{order.notes || '-'}</Text>
 

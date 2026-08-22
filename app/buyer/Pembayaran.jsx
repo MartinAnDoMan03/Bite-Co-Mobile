@@ -143,6 +143,11 @@ const Pembayaran = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [promoDiscount, setPromoDiscount] = useState(null);
+  // ---- Catering delivery date & time (separate from Rantangan's)
+  const [cateringDateTime, setCateringDateTime] = useState(null);
+  const [showCateringDatePicker, setShowCateringDatePicker] = useState(false);
+  const [showCateringTimePicker, setShowCateringTimePicker] = useState(false);
+  const [pendingCateringDate, setPendingCateringDate] = useState(new Date());
 
 useEffect(() => {
   if (!store?.id) return;
@@ -231,6 +236,12 @@ if (overrideRaw && isCateringOrder) {
   }, []);
 
   const isRantanganOrder = orderType === 'Rantangan' || orderType.includes('Rantangan');
+  const isCateringOrder = orderType === 'Catering' || orderType.includes('Catering');
+
+  // Aturan H-1
+  const minCateringDate = new Date();
+  minCateringDate.setDate(minCateringDate.getDate() + 1);
+  minCateringDate.setHours(0, 0, 0, 0);
 
   const getPackageType = (orderType) => {
     if (!orderType) return null;
@@ -268,6 +279,53 @@ if (overrideRaw && isCateringOrder) {
     }
     setSelectedDate(date);
     calculateEndDate(date, packageType);
+  };
+
+  // Step 1: pick the date, floor to midnight, then immediately open the
+  // time picker — a single "date & time" flow across two native pickers,
+  // since a combined datetime mode isn't reliable across Android versions.
+const handleCateringDatePicked = (date) => {
+  const withMidnight = new Date(date);
+  withMidnight.setHours(0, 0, 0, 0);
+
+  const minDate = new Date();
+  minDate.setDate(minDate.getDate() + 1);
+  minDate.setHours(0, 0, 0, 0);
+
+  if (withMidnight < minDate) {
+    showAlert(
+      'Tanggal Tidak Valid',
+      'Pesanan Catering minimal harus dilakukan H-1. Tanggal pengantaran paling cepat adalah besok.',
+      [{ text: 'OK' }],
+      'warning'
+    );
+    return;
+  }
+
+  setPendingCateringDate(withMidnight);
+  setShowCateringDatePicker(false);
+  setShowCateringTimePicker(true);
+};
+
+  // Step 2: merge the chosen time onto the date from step 1.
+  const handleCateringTimePicked = (time) => {
+    const combined = new Date(pendingCateringDate);
+    combined.setHours(time.getHours(), time.getMinutes(), 0, 0);
+    setCateringDateTime(combined);
+    setShowCateringTimePicker(false);
+  };
+  const formatCateringDateTime = (date) => {
+    if (!date) return '';
+    return date.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+      + ', ' + date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+  };
+
+  const formatDateInputValue = (date) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+
+  return `${year}-${month}-${day}`;
   };
 
   const handleAndroidDateChange = (event, date) => {
@@ -338,6 +396,27 @@ if (overrideRaw && isCateringOrder) {
       return;
     }
 
+      if (isCateringOrder && cateringDateTime) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const minDate = new Date(today);
+        minDate.setDate(minDate.getDate() + 1);
+
+        const selectedDay = new Date(cateringDateTime);
+        selectedDay.setHours(0, 0, 0, 0);
+
+        if (selectedDay < minDate) {
+          showAlert(
+            'Tanggal Tidak Valid',
+            'Pesanan Catering minimal dipesan H-1. Silakan pilih tanggal mulai besok.',
+            [{ text: 'Pilih Tanggal', onPress: () => setShowCateringDatePicker(true) }],
+            'warning'
+          );
+          return;
+        }
+      }
+
     setSubmitting(true);
     try {
       const token = await AsyncStorage.getItem('buyerToken');
@@ -370,6 +449,7 @@ if (overrideRaw && isCateringOrder) {
           startDate: isRantanganOrder && startDate ? startDate.toISOString() : null,
           endDate: isRantanganOrder && endDate ? endDate.toISOString() : null,
           packageType: isRantanganOrder ? getPackageType(orderType) : null,
+          eventDateTime: isCateringOrder && cateringDateTime ? cateringDateTime.toISOString() : null,
         },
         token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
       );
@@ -390,10 +470,46 @@ if (overrideRaw && isCateringOrder) {
       } else {
         showAlert('Gagal Membuat Pesanan', 'Pesanan tidak berhasil dibuat. Coba lagi beberapa saat.', [{ text: 'OK' }], 'error');
       }
-    } catch (e) {
-      console.error('Create order error:', e);
-      showAlert('Gagal Membuat Pesanan', 'Terjadi kendala saat membuat pesanan. Coba lagi.', [{ text: 'OK' }], 'error');
-    } finally {
+      } catch (e) {
+        console.error('Create order error:', e);
+        console.error('Response:', e.response?.data);
+
+        const status = e.response?.status;
+
+        let errorMessage = 'Terjadi kendala saat membuat pesanan.';
+
+        if (e.response?.data) {
+          const data = e.response.data;
+
+          if (typeof data === 'string') {
+            errorMessage = data;
+          } 
+          else if (data.message) {
+            errorMessage = data.message;
+          } 
+
+          else if (data.error) {
+            errorMessage = data.error;
+          } 
+          else if (data.errors) {
+            errorMessage = Object.values(data.errors)
+              .flat()
+              .join('\n');
+          }
+          else {
+            errorMessage = JSON.stringify(data, null, 2);
+          }
+        } else if (e.message) {
+          errorMessage = e.message;
+        }
+
+        showAlert(
+          `Gagal Membuat Pesanan`,
+          errorMessage,
+          [{ text: 'OK' }],
+          'error'
+        );
+      } finally {
       setSubmitting(false);
     }
   };
@@ -537,6 +653,26 @@ if (overrideRaw && isCateringOrder) {
             </View>
           )}
 
+          {isCateringOrder && (
+            <View style={{ marginTop: 16, marginBottom: 4 }}>
+              <Text style={styles.sectionLabel}>Tanggal & Waktu Pengantaran</Text>
+              <TouchableOpacity
+                style={styles.dateButton}
+                onPress={() => setShowCateringDatePicker(true)}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="event" size={18} color={COLORS.PRIMARY} />
+                <Text style={styles.dateButtonText}>
+                  {cateringDateTime ? formatCateringDateTime(cateringDateTime) : 'Pilih Tanggal & Waktu Pengantaran'}
+                </Text>
+                <MaterialIcons name="chevron-right" size={20} color="#c9c9c9" />
+              </TouchableOpacity>
+              <Text style={{ fontSize: 11.5, color: '#999', marginTop: 4 }}>
+                Pesanan Catering minimal dipesan H-1 (paling cepat besok).
+              </Text>
+            </View>
+          )}
+
           {promoDiscount && (
             <View style={styles.totalRow}>
               <Text style={{ color: '#2E7D32', fontWeight: '600', fontSize: 13 }}>Diskon ({promoDiscount.title})</Text>
@@ -633,14 +769,14 @@ if (overrideRaw && isCateringOrder) {
               <Text style={styles.modalTitle}>Pilih Tanggal Mulai</Text>
               
               <input
-                type="date"
-                min={new Date().toISOString().split('T')[0]}
-                max={maxDate.toISOString().split('T')[0]}
-                value={selectedDate.toISOString().split('T')[0]}
-                onChange={(e) => { 
-                  if (e.target.value) {
-                    setSelectedDate(new Date(e.target.value)); 
-                  }
+                  type="date"
+                  min={formatDateInputValue(new Date())}
+                  max={formatDateInputValue(maxDate)}
+                  value={formatDateInputValue(selectedDate)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setSelectedDate(new Date(`${e.target.value}T00:00:00`));
+                    }
                 }}
                 style={{ 
                   width: '100%', 
@@ -698,6 +834,151 @@ if (overrideRaw && isCateringOrder) {
                   onPress={() => { confirmDateSelection(selectedDate); setShowDatePicker(false); }}
                 >
                   <Text style={styles.dateModalConfirmText}>Pilih</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Catering: date picker (Step 1) */}
+      {showCateringDatePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={pendingCateringDate}
+          mode="date"
+          display="default"
+          minimumDate={minCateringDate}
+          maximumDate={maxDate}
+          onChange={(event, date) => {
+            setShowCateringDatePicker(false);
+            if (event.type === 'set' && date) handleCateringDatePicked(date);
+          }}
+        />
+      )}
+
+      {showCateringDatePicker && Platform.OS === 'web' && (
+        <Modal visible={showCateringDatePicker} transparent animationType="fade">
+          <View style={styles.centerModalOverlay}>
+            <View style={styles.dateModalCard}>
+              <Text style={styles.modalTitle}>Pilih Tanggal Pengantaran</Text>
+              <input
+                  type="date"
+                  min={formatDateInputValue(minCateringDate)}
+                  max={formatDateInputValue(maxDate)}
+                  value={formatDateInputValue(pendingCateringDate)}
+                  onChange={(e) => {
+                    if (e.target.value) {
+                      setPendingCateringDate(new Date(`${e.target.value}T00:00:00`));
+                    }
+                  }}
+                style={{
+                  width: '100%', padding: '12px', fontSize: '16px', borderRadius: '10px',
+                  border: '1px solid #e5e5e5', color: '#23272f', marginBottom: '16px',
+                  boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit',
+                }}
+              />
+              <View style={styles.dateModalButtonRow}>
+                <TouchableOpacity style={styles.dateModalCancelButton} onPress={() => setShowCateringDatePicker(false)}>
+                  <Text style={styles.dateModalCancelText}>Batal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dateModalConfirmButton}
+                  onPress={() => handleCateringDatePicked(pendingCateringDate)}
+                >
+                  <Text style={styles.dateModalConfirmText}>Lanjut Pilih Waktu</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {showCateringDatePicker && Platform.OS === 'ios' && (
+        <Modal visible={showCateringDatePicker} transparent animationType="slide" onRequestClose={() => setShowCateringDatePicker(false)}>
+          <View style={styles.centerModalOverlay}>
+            <View style={styles.dateModalCard}>
+              <Text style={styles.modalTitle}>Pilih Tanggal Pengantaran</Text>
+              <DateTimePicker
+                value={pendingCateringDate}
+                mode="date"
+                display="spinner"
+                minimumDate={minCateringDate}
+                maximumDate={maxDate}
+                onChange={(event, date) => { if (date) setPendingCateringDate(date); }}
+                style={{ backgroundColor: 'white', height: 200 }}
+                textColor="#000"
+              />
+              <View style={styles.dateModalButtonRow}>
+                <TouchableOpacity style={styles.dateModalCancelButton} onPress={() => setShowCateringDatePicker(false)}>
+                  <Text style={styles.dateModalCancelText}>Batal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dateModalConfirmButton}
+                  onPress={() => handleCateringDatePicked(pendingCateringDate)}
+                >
+                  <Text style={styles.dateModalConfirmText}>Lanjut Pilih Waktu</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/*  Catering: time picker (Step 2) */}
+      {showCateringTimePicker && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={pendingCateringDate}
+          mode="time"
+          is24Hour
+          display="default"
+          onChange={(event, time) => {
+            setShowCateringTimePicker(false);
+            if (event.type === 'set' && time) handleCateringTimePicked(time);
+          }}
+        />
+      )}
+
+      {showCateringTimePicker && (Platform.OS === 'ios' || Platform.OS === 'web') && (
+        <Modal visible={showCateringTimePicker} transparent animationType="fade" onRequestClose={() => setShowCateringTimePicker(false)}>
+          <View style={styles.centerModalOverlay}>
+            <View style={styles.dateModalCard}>
+              <Text style={styles.modalTitle}>Pilih Waktu Pengantaran</Text>
+              {Platform.OS === 'web' ? (
+                <input
+                  type="time"
+                  defaultValue="00:00"
+                  onChange={(e) => {
+                    const [h, m] = e.target.value.split(':').map(Number);
+                    const t = new Date(pendingCateringDate);
+                    t.setHours(h, m);
+                    setPendingCateringDate(t);
+                  }}
+                  style={{
+                    width: '100%', padding: '12px', fontSize: '16px', borderRadius: '10px',
+                    border: '1px solid #e5e5e5', color: '#23272f', marginBottom: '16px',
+                    boxSizing: 'border-box', outline: 'none', fontFamily: 'inherit', textAlign: 'center',
+                  }}
+                />
+              ) : (
+                <DateTimePicker
+                  value={pendingCateringDate}
+                  mode="time"
+                  is24Hour
+                  display="spinner"
+                  onChange={(event, time) => { if (time) setPendingCateringDate(time); }}
+                  style={{ backgroundColor: 'white', height: 200 }}
+                  textColor="#000"
+                />
+              )}
+              <View style={styles.dateModalButtonRow}>
+                <TouchableOpacity style={styles.dateModalCancelButton} onPress={() => setShowCateringTimePicker(false)}>
+                  <Text style={styles.dateModalCancelText}>Batal</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.dateModalConfirmButton}
+                  onPress={() => handleCateringTimePicked(pendingCateringDate)}
+                >
+                  <Text style={styles.dateModalConfirmText}>Simpan</Text>
                 </TouchableOpacity>
               </View>
             </View>

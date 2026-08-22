@@ -190,6 +190,23 @@ const RantanganInfo = ({ startDate, endDate, packageType, dailyDeliveryLogs = []
 // ---------------------------------------------------------------------------
 // Order card
 // ---------------------------------------------------------------------------
+
+const CateringEventInfo = ({ eventDateTime }) => {
+  if (!eventDateTime) return null;
+  const date = new Date(eventDateTime);
+  const fmtDate = date.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+  const fmtTime = date.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' });
+
+  return (
+    <View style={styles.rantanganBox}>
+      <View style={styles.rantanganDateItem}>
+        <MaterialIcons name="event" size={13} color={COLORS.PRIMARY} />
+        <Text style={styles.rantanganDateText}>Antar: {fmtDate}, {fmtTime}</Text>
+      </View>
+    </View>
+  );
+};
+
 const CardStatus = ({
   date,
   total,
@@ -206,6 +223,7 @@ const CardStatus = ({
   packageType,
   startDate,
   endDate,
+  eventDateTime,
   dailyDeliveryLogs = [],
 }) => {
   const { t } = useLanguage();
@@ -221,6 +239,7 @@ const CardStatus = ({
   };
 
   const isRantangan = orderType === 'Rantangan' || (orderType && orderType.includes('Rantangan'));
+  const isCatering = orderType === 'Catering' || (orderType && orderType.includes('Catering'));
   const isBiteEco = orderType === 'Bite Eco';
   const isRecurring = packageType === 'Mingguan' || packageType === 'Bulanan';
   const orderCanStart = canStartToday(startDate);
@@ -299,6 +318,8 @@ const CardStatus = ({
             dailyDeliveryLogs={dailyDeliveryLogs}
           />
         )}
+
+        {isCatering && <CateringEventInfo eventDateTime={order.eventDateTime} />}
 
         <View style={styles.actionRow}>
           {showAcceptReject ? (
@@ -592,6 +613,7 @@ const SellerOrder = () => {
                 packageType={order.packageType}
                 startDate={order.startDate}
                 endDate={order.endDate}
+                eventDateTime={order.eventDateTime}
                 dailyDeliveryLogs={order.dailyDeliveryLogs || []}
               />
             ))
