@@ -11,6 +11,7 @@ import {
   ScrollView,
   Dimensions,
   ActivityIndicator,
+  useWindowDimensions,
 } from "react-native";
 import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -27,9 +28,12 @@ import * as ImageManipulator from 'expo-image-manipulator';
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const BURGUNDY = "#711330";
 
-// Helper responsif sederhana biar ukuran nggak "kekunci" di satu device
-const scale = (size) => (SCREEN_WIDTH / 375) * size;
-const CARD_MARGIN_H = Math.max(14, SCREEN_WIDTH * 0.045);
+// Capped for web only — on native this is a zero-op .
+const SCALE_BASE_WIDTH = Platform.OS === 'web' ? Math.min(SCREEN_WIDTH, 480) : SCREEN_WIDTH;
+const SCALE_BASE_HEIGHT = Platform.OS === 'web' ? Math.min(SCREEN_HEIGHT, 900) : SCREEN_HEIGHT;
+
+const scale = (size, w = SCALE_BASE_WIDTH) => (w / 375) * size;
+const CARD_MARGIN_H = Math.max(14, SCALE_BASE_WIDTH * 0.045);
 
 /* ---------- Reusable step header (burgundy + step badge) ---------- */
 const StepHeader = ({ step, title, subtitle, containerStyle }) => (
@@ -94,7 +98,7 @@ const Success = () => {
 };
 
 /* ---------- Step 3: Syarat dan Ketentuan ---------- */
-const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, setLoading }) => {
+const Syarat = ({ setScreenNow, ktpImage, selfieImage, formData, selectedBank, setLoading, effectiveWidth, isWideScreen }) => {
   const { t } = useLanguage();
   const [agreedTerms, setAgreedTerms] = useState(false);
   const [productHalal, setProductHalal] = useState(false);
@@ -195,7 +199,7 @@ const appendImageToFormData = async (formData, fieldName, image, fileName) => {
         subtitle={t('detailUsaha.syarat.header.subtitle')}
       />
 
-      <View style={styles.whiteCard}>
+      <View style={[styles.whiteCard, isWideScreen && { borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }]}>
         <ScrollView
           contentContainerStyle={{ paddingBottom: 30 }}
           showsVerticalScrollIndicator={false}
@@ -236,7 +240,7 @@ const appendImageToFormData = async (formData, fieldName, image, fileName) => {
 };
 
 /* ---------- Step 2: Detail Usaha (form) ---------- */
-const Detail = ({ setScreenNow, onNext }) => {
+const Detail = ({ setScreenNow, onNext, effectiveWidth, isWideScreen }) => {
   const { t } = useLanguage();
   const [selectedBank, setSelectedBank] = useState(null);
   const [showBankModal, setShowBankModal] = useState(false);
@@ -299,7 +303,7 @@ const Detail = ({ setScreenNow, onNext }) => {
         subtitle={t('detailUsaha.detail.header.subtitle')}
       />
 
-      <View style={styles.whiteCard}>
+      <View style={[styles.whiteCard, isWideScreen && { borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }]}>
         <KeyboardAvoidingView
           behavior={Platform.OS === "ios" ? "padding" : "height"}
           style={{ flex: 1 }}
@@ -344,7 +348,7 @@ const Detail = ({ setScreenNow, onNext }) => {
             <Text style={styles.fieldLabel}>{t('detailUsaha.detail.fields.password.label')}</Text>
             <View style={styles.passwordFieldWrap}>
               <TextInput
-                style={[styles.fieldInput, { paddingRight: scale(44) }]}
+                style={[styles.fieldInput, { paddingRight: scale(44, effectiveWidth) }]}
                 placeholder={t('detailUsaha.detail.fields.password.placeholder')}
                 placeholderTextColor="#aaa"
                 secureTextEntry={!showPassword}
@@ -381,7 +385,7 @@ const Detail = ({ setScreenNow, onNext }) => {
                 activeOpacity={0.8}
               >
                 <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                  <Text style={{ color: selectedBank ? "#1a1a1a" : "#aaa", fontSize: scale(14.5) }}>
+                  <Text style={{ color: selectedBank ? "#1a1a1a" : "#aaa", fontSize: scale(14.5, effectiveWidth) }}>
                     {selectedBank || t('detailUsaha.detail.fields.bank.placeholder')}
                   </Text>
                   <Ionicons
@@ -408,7 +412,7 @@ const Detail = ({ setScreenNow, onNext }) => {
                     >
                       <Text
                         style={{
-                          fontSize: scale(14),
+                          fontSize: scale(14, effectiveWidth),
                           color: selectedBank === bank.name ? BURGUNDY : "#1a1a1a",
                           fontWeight: selectedBank === bank.name ? "700" : "400",
                         }}
@@ -490,7 +494,7 @@ const UploadItem = ({ number, title, subtitle, image, onPress, locked, retakeLab
   );
 };
 
-const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfieImage, setLoading }) => {
+const Identitas = ({ setScreenNow, setKtpImage, setSelfieImage, ktpImage, selfieImage, setLoading, effectiveWidth, isWideScreen }) => {
   const { t } = useLanguage();
   const [showPermissionModal, setShowPermissionModal] = useState(false);
   const [pendingIsKtp, setPendingIsKtp] = useState(true);
@@ -706,7 +710,7 @@ const validateSelfieWithKTP = async (imageUri) => {
           containerStyle={styles.stepHeaderFlex}
         />
 
-        <View style={styles.whiteCardAuto}>
+        <View style={[styles.whiteCardAuto, isWideScreen && { borderBottomLeftRadius: 26, borderBottomRightRadius: 26 }]}>
           <Text style={styles.cardTitle}>{t('detailUsaha.identitas.cardTitle')}</Text>
 
           <UploadItem
@@ -733,7 +737,7 @@ const validateSelfieWithKTP = async (imageUri) => {
             style={[
               styles.btnPrimary,
               styles.btnPrimaryIdentitas,
-              { opacity: ktpImage && selfieImage ? 1 : 0.5 },
+              { opacity: ktpImage && selfieImage ? 1 : 0.5, marginTop: isWideScreen ? 24 : 60 },
             ]}
             onPress={handleContinue}
             disabled={!ktpImage || !selfieImage}
@@ -790,6 +794,9 @@ const validateSelfieWithKTP = async (imageUri) => {
 
 /* ---------- Root screen ---------- */
 const DetailUsaha = () => {
+  const { width } = useWindowDimensions();
+  const isWideScreen = Platform.OS === 'web' && width >= 640;
+  const effectiveWidth = isWideScreen ? Math.min(width, 480) : width;
   const [screenNow, setScreenNow] = useState("identitas");
   const [ktpImage, setKtpImage] = useState(null);
   const [selfieImage, setSelfieImage] = useState(null);
@@ -804,43 +811,59 @@ const DetailUsaha = () => {
   return (
     <SafeAreaView style={styles.container} edges={["top", "bottom"]}>
       {loading && (
-      <View style={styles.loadingOverlay}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={BURGUNDY} />
+        <View style={styles.loadingOverlay}>
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color={BURGUNDY} />
+          </View>
         </View>
-      </View>
-    )}
-
-      {screenNow === "identitas" && (
-        <Identitas
-          setScreenNow={setScreenNow}
-          setKtpImage={setKtpImage}
-          setSelfieImage={setSelfieImage}
-          ktpImage={ktpImage}
-          selfieImage={selfieImage}
-          setLoading={setLoading}
-        />
       )}
 
-      {screenNow === "detail" && (
-        <Detail
-          setScreenNow={setScreenNow}
-          onNext={handleDetailNext}
-        />
-      )}
+      <ScrollView
+        style={{ flex: 1 }}
+        contentContainerStyle={[
+          { flexGrow: 1 },
+          isWideScreen && { alignItems: "center", paddingVertical: 40 },
+        ]}
+      >
+        <View style={isWideScreen ? styles.desktopCard : { flex: 1 }}>
+          {screenNow === "identitas" && (
+            <Identitas
+              setScreenNow={setScreenNow}
+              setKtpImage={setKtpImage}
+              setSelfieImage={setSelfieImage}
+              ktpImage={ktpImage}
+              selfieImage={selfieImage}
+              setLoading={setLoading}
+              effectiveWidth={effectiveWidth}
+              isWideScreen={isWideScreen}
+            />
+          )}
 
-      {screenNow === "syarat" && businessData && (
-        <Syarat
-          setScreenNow={setScreenNow}
-          ktpImage={ktpImage}
-          selfieImage={selfieImage}
-          formData={businessData.formData}
-          selectedBank={businessData.selectedBank}
-          setLoading={setLoading}
-        />
-      )}
+          {screenNow === "detail" && (
+            <Detail
+              setScreenNow={setScreenNow}
+              onNext={handleDetailNext}
+              effectiveWidth={effectiveWidth}
+              isWideScreen={isWideScreen}
+            />
+          )}
 
-      {screenNow === "success" && <Success />}
+          {screenNow === "syarat" && businessData && (
+            <Syarat
+              setScreenNow={setScreenNow}
+              ktpImage={ktpImage}
+              selfieImage={selfieImage}
+              formData={businessData.formData}
+              selectedBank={businessData.selectedBank}
+              setLoading={setLoading}
+              effectiveWidth={effectiveWidth}
+              isWideScreen={isWideScreen}
+            />
+          )}
+
+          {screenNow === "success" && <Success />}
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 };
@@ -851,6 +874,21 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: BURGUNDY,
+  },
+  containerWide: {
+    alignItems: "center", 
+    paddingVertical: 40,
+  },
+  desktopCard: { 
+    width: "100%", 
+    maxWidth: 480, 
+    borderRadius: 28, 
+    marginVertical: 0, 
+    shadowColor: "#000", 
+    shadowOffset: { width: 0, height: 8 }, 
+    shadowOpacity: 0.12, 
+    shadowRadius: 24, 
+    elevation: 6 
   },
   stepHeader: {
     backgroundColor: BURGUNDY,
@@ -1042,7 +1080,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   uploadBox: {
-    height: Math.max(90, SCREEN_HEIGHT * 0.12),
+    height: Math.max(90, SCALE_BASE_HEIGHT * 0.12),
     borderRadius: 10,
     borderWidth: 1,
     borderColor: "#eee",
@@ -1075,10 +1113,10 @@ const styles = StyleSheet.create({
   btnPrimary: {
     width: "100%",
     backgroundColor: BURGUNDY,
+    marginTop: 15,
     paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
-    marginTop: 120,
     shadowColor: BURGUNDY,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,

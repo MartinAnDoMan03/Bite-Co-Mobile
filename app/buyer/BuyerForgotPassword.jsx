@@ -22,18 +22,16 @@ const BURGUNDY = "#711330";
 
 // Helper scaling responsif: dasar dari lebar 375 (iPhone standar), dengan batas atas/bawah
 // biar teks & spacing nggak kegedean di tablet atau kekecilan di layar kecil.
-const BASE_WIDTH = 375;
-const scale = (size, width) => {
-  const ratio = width / BASE_WIDTH;
-  const clampedRatio = Math.max(0.85, Math.min(ratio, 1.3));
-  return Math.round(size * clampedRatio);
-};
 
 const BuyerForgotPassword = () => {
   const { t } = useLanguage();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const { width } = useWindowDimensions();
+
+  // Only ever true on a wide web browser — native app and narrow/mobile web
+  // render exactly as before, untouched.
+  const isWideScreen = Platform.OS === 'web' && width >= 640;
 
   // State untuk mengontrol tampilan (1 = Input Email, 2 = Input OTP & Password Baru)
   const [step, setStep] = useState(1); 
@@ -153,20 +151,20 @@ const BuyerForgotPassword = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, isWideScreen && styles.containerWide]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+          <View style={[!isWideScreen && { flex: 1, paddingTop: 100, }, isWideScreen && styles.desktopCard]}>
           
-          {/* Header Section: judul & deskripsi ada di sini, bukan di bagian putih */}
-          <View style={[styles.topSection, { paddingTop: insets.top + 150, paddingHorizontal: SCREEN_WIDTH * 0.09 }]}>
-            <Text style={[styles.greeting, { fontSize: scale(26, SCREEN_WIDTH) }]}>
+          <View style={[styles.topSection]}>
+            <Text style={[styles.greeting, { fontSize: 28 }]}>
               {step === 1 ? t('buyerForgotPassword.step1.title') : t('buyerForgotPassword.step2.title')}
             </Text>
-            <Text style={[styles.subtitle, { fontSize: scale(13, SCREEN_WIDTH) }]}>
+            <Text style={[styles.subtitle, { fontSize: 14 }]}>
               {step === 1 ? (
                 t('buyerForgotPassword.step1.subtitle')
               ) : (
@@ -178,7 +176,7 @@ const BuyerForgotPassword = () => {
           </View>
 
           {/* Form Section — hanya berisi input & tombol */}
-          <View style={[styles.bottomSection, { paddingHorizontal: SCREEN_WIDTH * 0.07, paddingTop: Math.max(SCREEN_HEIGHT * 0.0, 48) }]}>
+          <View style={[styles.bottomSection]}>
             
             {step === 1 ? (
               <>
@@ -188,7 +186,7 @@ const BuyerForgotPassword = () => {
                     placeholderTextColor="#aaa"
                     value={email}
                     onChangeText={setEmail}
-                    style={[styles.input, { fontSize: scale(14, SCREEN_WIDTH) }]}
+                    style={[styles.input]}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
@@ -199,7 +197,7 @@ const BuyerForgotPassword = () => {
                   onPress={handleRequestOTP}
                   disabled={isLoading}
                 >
-                  <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
+                  <Text style={[styles.btnPrimaryText]}>
                     {isLoading ? t('buyerForgotPassword.buttons.sending') : t('buyerForgotPassword.buttons.sendOtp')}
                   </Text>
                 </TouchableOpacity>
@@ -212,7 +210,7 @@ const BuyerForgotPassword = () => {
                     placeholderTextColor="#aaa"
                     value={otp}
                     onChangeText={setOtp}
-                    style={[styles.input, { fontSize: scale(14, SCREEN_WIDTH), letterSpacing: 2 }]}
+                    style={[styles.input]}
                     keyboardType="number-pad"
                     maxLength={6}
                   />
@@ -225,7 +223,7 @@ const BuyerForgotPassword = () => {
                     value={newPassword}
                     onChangeText={setNewPassword}
                     secureTextEntry={!showPassword}
-                    style={[styles.input, { fontSize: scale(14, SCREEN_WIDTH), paddingRight: 48 }]}
+                    style={[styles.input]}
                   />
                   <TouchableOpacity
                     style={styles.eyeBtn}
@@ -241,17 +239,18 @@ const BuyerForgotPassword = () => {
                   onPress={handleResetPassword}
                   disabled={isLoading}
                 >
-                  <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
+                  <Text style={[styles.btnPrimaryText]}>
                     {isLoading ? t('buyerForgotPassword.buttons.processing') : t('buyerForgotPassword.buttons.savePassword')}
                   </Text>
                 </TouchableOpacity>
                 
                 <TouchableOpacity style={{ marginTop: 15 }} onPress={() => setStep(1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
-                  <Text style={[styles.resendText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{t('buyerForgotPassword.buttons.resendOtp')}</Text>
+                  <Text style={[styles.resendText]}>{t('buyerForgotPassword.buttons.resendOtp')}</Text>
                 </TouchableOpacity>
               </>
             )}
 
+          </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -263,10 +262,10 @@ const BuyerForgotPassword = () => {
             <View style={styles.alertIconWrap}>
               <Ionicons name={alertType === "success" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
             </View>
-            <Text style={[styles.alertTitle, { fontSize: scale(16, SCREEN_WIDTH) }]}>{alertTitle}</Text>
-            <Text style={[styles.alertText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{alertMessage}</Text>
+            <Text style={[styles.alertTitle]}>{alertTitle}</Text>
+            <Text style={[styles.alertText]}>{alertMessage}</Text>
             <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAlertModal(false)}>
-              <Text style={[styles.alertBtnText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{t('buyerForgotPassword.alerts.gotIt')}</Text>
+              <Text style={[styles.alertBtnText]}>{t('buyerForgotPassword.alerts.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -279,10 +278,30 @@ export default BuyerForgotPassword;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BURGUNDY },
+
+  containerWide: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  desktopCard: {
+    width: "100%",
+    maxWidth: 480,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginVertical: 40,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+
   topSection: {
     backgroundColor: BURGUNDY,
     alignItems: "center",
-    paddingBottom: 190,
+    paddingTop: 70,
+    paddingBottom: 70,
+    paddingHorizontal: 24,
   },
   greeting: {
     fontWeight: "800",
@@ -298,9 +317,13 @@ const styles = StyleSheet.create({
   },
   bottomSection: {
     flex: 1,
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
     backgroundColor: "#ffffff",
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    padding: 28,
     alignItems: "center",
   },
   inputWrap: { width: "100%", marginBottom: 16, position: 'relative' },

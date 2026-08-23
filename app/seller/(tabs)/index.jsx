@@ -12,6 +12,7 @@ import {
   ScrollView,
   RefreshControl,
   UIManager,
+  useWindowDimensions
 } from "react-native";
 import React, { useState, useRef, useEffect } from "react";
 import HeaderTitleBack from "../../../components/HeaderTitleBack";
@@ -37,7 +38,7 @@ import { useLanguage } from "../../contexts/LanguageContext";
 import { notificationService } from "../../services/NotificationService";
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
-const scale = (size) => (SCREEN_WIDTH / 375) * size;
+const scale = (size) => (Math.min(SCREEN_WIDTH, 480) / 375) * size;
 
 // Enable LayoutAnimation for Android
 if (
@@ -123,6 +124,10 @@ const ExpandableMenu = () => {
   const [storeName, setStoreName] = useState("");
   const [storeAddress, setStoreAddress] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const { width: liveWidth } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isDesktop = isWeb && liveWidth >= 1024;
+  const contentMaxWidth = 900;
   const [stats, setStats] = useState({
     subscribers: 0,
     monthlyRevenue: 0,
@@ -398,40 +403,27 @@ const ExpandableMenu = () => {
       }
     >
       {/* Header Section */}
-      <View style={styles.headerContainer}>
-        <SafeAreaView style={styles.headerSafeArea}>
-          {/* Top Bar */}
-          <View style={styles.topBar}>
-            <View style={{ flex: 1, transform: [{ translateY: scale(24) }] }}>
-              <Text style={styles.welcomeText}>{t("beranda.welcome")}</Text>
-              <Text style={styles.storeNameText}>{storeName}!</Text>
+        <View style={styles.headerContainer}>
+          <SafeAreaView style={styles.headerSafeArea}>
+            <View style={styles.topBar}>
+              <View style={{ flex: 1, transform: [{ translateY: scale(24) }] }}>
+                <Text style={styles.welcomeText}>{t("beranda.welcome")}</Text>
+                <Text style={styles.storeNameText}>{storeName}!</Text>
+              </View>
+              <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/seller/notifikasi')}>
+                <MaterialIcons name="notifications" size={24} color="white" />
+                {stats.unreadNotifications > 0 && (
+                  <View style={styles.notificationBadge}>
+                    <Text style={styles.notificationBadgeText}>{stats.unreadNotifications}</Text>
+                  </View>
+                )}
+              </TouchableOpacity>
             </View>
-            <TouchableOpacity 
-              style={styles.notificationButton}
-              onPress={() => router.push('/seller/notifikasi')}
-            >
-              <MaterialIcons name="notifications" size={24} color="white" />
-              {stats.unreadNotifications > 0 && (
-                <View style={styles.notificationBadge}>
-                  <Text style={styles.notificationBadgeText}>
-                    {stats.unreadNotifications}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          </View>
-
-          {/* Tanggal — diposisikan sendiri di pojok kanan bawah header */}
-          <Text style={styles.dateText}>
-            {new Date().toLocaleDateString("id-ID", {
-              weekday: "long",
-              year: "numeric",
-              month: "long",
-              day: "numeric",
-            })}
-          </Text>
-        </SafeAreaView>
-      </View>
+            <Text style={styles.dateText}>
+              {new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+            </Text>
+          </SafeAreaView>
+        </View>
 
       {/* Warning - Jika profil belum lengkap maka akan diarahkan ke halaman profil (secara spesifik alamat) */}
       {isProfileIncomplete && (
@@ -441,6 +433,7 @@ const ExpandableMenu = () => {
       )}
 
       {/* Menu Grid — di luar header burgundy, di atas background putih/abu-abu */}
+      <View style={isDesktop ? { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' } : undefined}>
       <View style={styles.menuSection}>
         <View style={styles.menuGrid}>
           {mainMenuItems.map((item, index) => (
@@ -566,6 +559,7 @@ const ExpandableMenu = () => {
             </View>
           </View>
         </View>
+      </View>
       </View>
     </ScrollView>
   );

@@ -96,8 +96,10 @@ const CircleButton = ({
   bgColor,
   iconColor,
   bordered,
+  size = 56,
 }) => {
   const router = useRouter();
+  const iconSize = Math.round(size * 0.5);
   return (
     <View style={{ alignItems: "center" }}>
       <TouchableOpacity
@@ -111,9 +113,9 @@ const CircleButton = ({
         style={{
           backgroundColor: bgColor || COLORS.PRIMARY,
           padding: 10,
-          borderRadius: 16,
-          width: 56,
-          height: 56,
+          borderRadius: size * 0.28,
+          width: size,
+          height: size,
           justifyContent: "center",
           alignItems: "center",
           borderWidth: bordered ? 1.5 : 0,
@@ -121,14 +123,14 @@ const CircleButton = ({
         }}
       >
         {iconType === "material" ? (
-          <MaterialIcons name={iconName} size={28} color={iconColor || "white"} />
+          <MaterialIcons name={iconName} size={iconSize} color={iconColor || "white"} />
         ) : (
-          <Image source={icon} style={[{ width: 28, height: 28 }, iconStyle]} />
+          <Image source={icon} style={[{ width: iconSize, height: iconSize }, iconStyle]} />
         )}
       </TouchableOpacity>
       <Text
         style={{
-          fontSize: 14,
+          fontSize: size > 56 ? 15 : 14,
           textAlign: "center",
           marginTop: 5,
         }}
@@ -153,10 +155,10 @@ const SectionHeader = ({ title, onSeeAllPress }) => {
   );
 };
 
-const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress, seller }) => {
+const StoreList = ({ StoreName, storeKelurahan, Rating, Distance, Logo, onPress, seller, cardWidthOverride }) => {
   const { t } = useLanguage();
   return (
-    <TouchableOpacity style={styles.storeCard} onPress={onPress} activeOpacity={0.85}>
+    <TouchableOpacity style={[styles.storeCard, cardWidthOverride]} onPress={onPress} activeOpacity={0.85}>
       <View style={styles.storeLogoWrapperFull}>
         <Image source={Logo} style={styles.storeLogoFull} />
         <View style={styles.ratingBadgeFull}>
@@ -183,6 +185,20 @@ const ExpandableMenu = () => {
   const { t } = useLanguage();
   const router = useRouter();
   const { width } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isTablet = isWeb && width >= 768 && width < 1024;
+  const isDesktop = isWeb && width >= 1024;
+  const contentMaxWidth = 1200;
+
+  // to accomodate web browser to keep it from forcing edge to edge
+  const effectiveWidth = isWeb ? Math.min(width, contentMaxWidth) : width;
+
+  const numColumns = isDesktop ? 4 : isTablet ? 3 : 2;
+  const GRID_GAP = 14;
+  const cardWidthOverride = (isTablet || isDesktop)
+    ? { width: (effectiveWidth - GRID_GAP * (numColumns - 1)) / numColumns }
+    : null;
+
   const [stores, setStores] = useState([]);
   const [rantanganStores, setRantanganStores] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -383,6 +399,7 @@ const checkOverdueOrders = useCallback(async () => {
     <View style={{ flex: 1 }}>
       <ScrollView contentContainerStyle={styles.scrollContainer}>
         <SafeAreaView edges={['top']} style={styles.header}>
+          <View style={{ alignItems: 'center' }}>
           {promos.length > 0 ? (
             <FlatList
               ref={flatListRef}
@@ -391,13 +408,13 @@ const checkOverdueOrders = useCallback(async () => {
               pagingEnabled
               showsHorizontalScrollIndicator={false}
               onMomentumScrollEnd={(e) => {
-                const index = Math.round(e.nativeEvent.contentOffset.x / width);
+                const index = Math.round(e.nativeEvent.contentOffset.x / effectiveWidth);
                 setCurrentBannerIndex(index);
               }}
               keyExtractor={(item) => item.id}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={{ width, alignItems: 'center', paddingVertical: 10 }}
+                  style={{ width: effectiveWidth, alignItems: 'center', paddingVertical: 10 }}
                   activeOpacity={item.sellerId ? 0.85 : 1}
                   onPress={() => {
                     if (!item.sellerId) return;
@@ -415,14 +432,18 @@ const checkOverdueOrders = useCallback(async () => {
               )}
             />
           ) : (
-            /* --- TAMPILAN JIKA TIDAK ADA PROMO --- */
+             <View style={[styles.emptyHeaderPlaceholder, { width: '100%', maxWidth: contentMaxWidth }]}>
+            { /* --- TAMPILAN JIKA TIDAK ADA PROMO --- */ }
             <View style={styles.emptyHeaderPlaceholder}>
               <Text style={styles.headerGreetingTitle}>Bite & Co</Text>
               <Text style={styles.headerGreetingSubtitle}>Cari katering sehat & lezat hari ini!</Text>
             </View>
+            </View>
           )}
+          </View>
         </SafeAreaView>
 
+        <View style={isWeb ? { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' } : { flex: 1 }}>
         <View style={styles.searchContainer}>
           <MaterialIcons name="search" size={20} color={COLORS.TEXTSECONDARY} style={styles.searchIcon} />
         <TextInput
@@ -450,37 +471,60 @@ const checkOverdueOrders = useCallback(async () => {
 
         {/* Baris menu utama - selalu tampil */}
         <View style={styles.categoriesSection}>
-          <View style={styles.categories}>
-            <CircleButton icon={iconCatering} text={t('buyerBeranda.categories.catering')} navigateTo="buyer/CateringList" />
-            <CircleButton icon={iconRantangan} text={t('buyerBeranda.categories.rantangan')} navigateTo="buyer/RantanganList" />
-            <CircleButton icon={gizipro} text={t('buyerBeranda.categories.giziPro')} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} />
-            <CircleButton icon={iconBiteEco} text={t('buyerBeranda.categories.biteCo')} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} />
+          <View style={[styles.categories, isDesktop && { gap: 56 }]}>
+            <CircleButton icon={iconCatering} text={t('buyerBeranda.categories.catering')} navigateTo="buyer/CateringList" size={isDesktop ? 72 : 56} />
+            <CircleButton icon={iconRantangan} text={t('buyerBeranda.categories.rantangan')} navigateTo="buyer/RantanganList" size={isDesktop ? 72 : 56} />
+            <CircleButton icon={gizipro} text={t('buyerBeranda.categories.giziPro')} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} size={isDesktop ? 72 : 56} />
+            <CircleButton icon={iconBiteEco} text={t('buyerBeranda.categories.biteECo')} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} size={isDesktop ? 72 : 56} />
+
+            {isDesktop && (
+              <>
+                <CircleButton
+                  iconType="material"
+                  iconName="live-help"
+                  text={t('buyerBeranda.categories.bantuan')}
+                  navigateTo="buyer/bantuan"
+                  size={72}
+                />
+                <CircleButton
+                  iconType="material"
+                  iconName="settings"
+                  text={t('buyerBeranda.categories.pengaturan')}
+                  navigateTo="buyer/settings"
+                  size={72}
+                />
+              </>
+            )}
           </View>
 
-          {/* Baris menu tambahan - hanya tampil saat expanded */}
-          {menuExpanded && (
+          {/* Second row + expand button — shown on native AND narrow/phone web,
+              only hidden on desktop web where all 6 already fit in one row above. */}
+          {!isDesktop && menuExpanded && (
             <View style={[styles.categories, styles.categoriesSecondRow]}>
               <CircleButton
                 iconType="material"
                 iconName="live-help"
                 text={t('buyerBeranda.categories.bantuan')}
                 navigateTo="buyer/bantuan"
+                size={56}
               />
               <CircleButton
                 iconType="material"
                 iconName="settings"
                 text={t('buyerBeranda.categories.pengaturan')}
                 navigateTo="buyer/settings"
+                size={56}
               />
             </View>
           )}
 
-          {/* Tombol expand/collapse */}
-          <TouchableOpacity onPress={toggleMenuExpand} style={styles.expandButton}>
-            <Animated.View style={[styles.expandButtonCircle, { transform: [{ rotate: chevronRotate }] }]}>
-              <MaterialIcons name="keyboard-arrow-down" size={22} color={COLORS.PRIMARY} />
-            </Animated.View>
-          </TouchableOpacity>
+          {!isDesktop && (
+            <TouchableOpacity onPress={toggleMenuExpand} style={styles.expandButton}>
+              <Animated.View style={[styles.expandButtonCircle, { transform: [{ rotate: chevronRotate }] }]}>
+                <MaterialIcons name="keyboard-arrow-down" size={22} color={COLORS.PRIMARY} />
+              </Animated.View>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Notice lokasi ditampilkan sekali saja untuk seluruh halaman */}
@@ -530,6 +574,7 @@ const checkOverdueOrders = useCallback(async () => {
                   Rating={store.Rating}
                   Distance={store.Distance}
                   seller={store}
+                  cardWidthOverride={cardWidthOverride}
                   onPress={() => {
                     router.push({
                       pathname: "buyer/CateringDetail",
@@ -538,6 +583,12 @@ const checkOverdueOrders = useCallback(async () => {
                   }}
                 />
               ))}
+                {(isTablet || isDesktop) &&
+                  Array.from({
+                    length: (numColumns - (previewStores.length % numColumns)) % numColumns,
+                  }).map((_, i) => (
+                    <View key={`filler-${i}`} style={cardWidthOverride} />
+                  ))}
             </View>
           )}
         </View>
@@ -579,6 +630,7 @@ const checkOverdueOrders = useCallback(async () => {
                   Rating={store.Rating}
                   Distance={store.Distance}
                   seller={store}
+                  cardWidthOverride={cardWidthOverride}
                   onPress={() => {
                     router.push({
                       pathname: "buyer/RantanganDetail",
@@ -587,8 +639,15 @@ const checkOverdueOrders = useCallback(async () => {
                   }}
                 />
               ))}
+                {(isTablet || isDesktop) &&
+                  Array.from({
+                    length: (numColumns - (previewStores.length % numColumns)) % numColumns,
+                  }).map((_, i) => (
+                    <View key={`filler-${i}`} style={cardWidthOverride} />
+                  ))}
             </View>
           )}
+        </View>
         </View>
       </ScrollView>
 
@@ -660,10 +719,11 @@ const styles = StyleSheet.create({
   },
   categoriesSection: {
     marginVertical: 22,
+    alignItems: "center",
   },
   categories: {
     flexDirection: "row",
-    justifyContent: "space-evenly",
+    gap: 28,
     paddingHorizontal: 20,
   },
   categoriesSecondRow: {
@@ -703,7 +763,6 @@ const styles = StyleSheet.create({
   storeSection: {
     paddingTop: 16,
     paddingBottom: 16,
-    paddingHorizontal: 10,
   },
   sectionHeaderRow: {
     flexDirection: "row",
@@ -740,7 +799,7 @@ const styles = StyleSheet.create({
   storeGrid: {
     flexDirection: "row",
     flexWrap: "wrap",
-    justifyContent: "space-between",
+    gap: 14,
     paddingHorizontal: 0,
     marginTop: 4,
   },

@@ -319,7 +319,7 @@ const CardStatus = ({
           />
         )}
 
-        {isCatering && <CateringEventInfo eventDateTime={order.eventDateTime} />}
+      {isCatering && <CateringEventInfo eventDateTime={eventDateTime} />}
 
         <View style={styles.actionRow}>
           {showAcceptReject ? (
@@ -420,18 +420,28 @@ const SellerOrder = () => {
       });
       setBuyerMap(initialBuyerMap);
 
-      uniqueBuyerIds.forEach(async (buyerId) => {
-        try {
-          const buyerRes = await fetch(`${config.API_URL}/buyer/profile/${buyerId}`);
-          const buyerData = await buyerRes.json();
-          if (buyerData && buyerData.name) {
-            setBuyerMap((prev) => ({
-              ...prev,
-              [buyerId]: { buyerName: buyerData.name, buyerIcon: undefined },
-            }));
-          }
-        } catch {}
-      });
+    uniqueBuyerIds.forEach(async (buyerId) => {
+      try {
+        const buyerRes = await fetch(`${config.API_URL}/buyer/profile/${buyerId}`);
+        const buyerData = await buyerRes.json();
+        if (buyerData && buyerData.name) {
+          setBuyerMap((prev) => ({
+            ...prev,
+            [buyerId]: { buyerName: buyerData.name, buyerIcon: undefined },
+          }));
+        } else {
+          setBuyerMap((prev) => ({
+            ...prev,
+            [buyerId]: { buyerName: t('pesanan.buyerFallback', 'Pembeli'), buyerIcon: undefined },
+          }));
+        }
+      } catch {
+        setBuyerMap((prev) => ({
+          ...prev,
+          [buyerId]: { buyerName: t('pesanan.buyerFallback', 'Pembeli'), buyerIcon: undefined },
+        }));
+      }
+    });
     } catch (e) {
       setOrders([]);
     } finally {

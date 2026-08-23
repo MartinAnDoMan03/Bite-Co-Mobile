@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   View,
   Image,
-  Dimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -22,7 +21,6 @@ import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../contexts/LanguageContext";
 import { notificationService } from "../services/NotificationService";
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BURGUNDY = "#711330";
 
 const SellerIndex = () => {
@@ -128,7 +126,7 @@ const SellerIndex = () => {
 
            {/* Tombol Masuk */}
             <TouchableOpacity
-              style={[styles.btnPrimary, { opacity: loading ? 0.7 : 1, marginTop: SCREEN_HEIGHT * 0.02 }]}
+              style={[styles.btnPrimary, { opacity: loading ? 0.7 : 1, marginTop: 10 }]}
               onPress={handleLogin}
               disabled={loading}
               activeOpacity={0.85}
@@ -190,37 +188,40 @@ const styles = StyleSheet.create({
   flexDirection: "row",
   justifyContent: "center",
   alignItems: "center",
-  marginTop: SCREEN_HEIGHT * 0.015,
+  marginTop: 8,
 },
 registerText: {
   color: "#666",
-  fontSize: SCREEN_WIDTH * 0.038,
+  fontSize: 14,
 },
 registerLink: {
   color: BURGUNDY,
-  fontSize: SCREEN_WIDTH * 0.038,
+  fontSize: 14,
   fontWeight: "700",
   textDecorationLine: "underline"
 },
   topSection: {
-  height: SCREEN_HEIGHT * 0.40,
-  backgroundColor: BURGUNDY,
-  alignItems: "center",
-  justifyContent: "center", 
-  paddingTop: SCREEN_HEIGHT * 0.05,
+    height: 300,
+    width: "100%",
+    backgroundColor: BURGUNDY,
+    alignItems: "center",
+    justifyContent: "center",
   },
   logo: {
-    width: SCREEN_WIDTH * 0.38,
-    height: SCREEN_WIDTH * 0.38,
+    width: 150,
+    height: 150,
     tintColor: "#fff",
   },
 
   // Bottom white section
   bottomSection: {
   flex: 1,
-  paddingHorizontal: SCREEN_WIDTH * 0.07,
-  paddingTop: SCREEN_HEIGHT * 0.04,
-  paddingBottom: SCREEN_HEIGHT * 0.03,
+  width: "100%",
+  maxWidth: 500,
+  alignSelf: "center",
+  paddingHorizontal: 28,
+  paddingTop: 40,
+  paddingBottom: 30,
   alignItems: "center", 
   backgroundColor: "#ffffff",
   borderTopLeftRadius: 25,   
@@ -229,24 +230,24 @@ registerLink: {
 },
 
   greeting: {
-    fontSize: SCREEN_WIDTH * 0.11,
+    fontSize: 42,
     fontWeight: "800",
     color: BURGUNDY,
     marginBottom: 4,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: SCREEN_WIDTH * 0.035,
+    fontSize: 15,
     color: BURGUNDY,
     fontWeight: "500",
-    marginBottom: SCREEN_HEIGHT * 0.035,
+    marginBottom: 28,
     textAlign: "center", 
   },
 
   // Input
   inputWrap: {
     position: "relative",
-    marginBottom: SCREEN_HEIGHT * 0.02,
+    marginBottom: 16,
     width: "100%",
   },
   input: {
@@ -254,9 +255,9 @@ registerLink: {
     borderWidth: 1.2,
     borderColor: "#ddd",
     borderRadius: 14,
-    paddingVertical: SCREEN_HEIGHT * 0.018,
-    paddingHorizontal: SCREEN_WIDTH * 0.05,
-    fontSize: SCREEN_WIDTH * 0.038,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    fontSize: 16,
     color: "#1a1a1a",
   },
   eyeBtn: {
@@ -273,11 +274,14 @@ registerLink: {
   // Lupa password
   forgotWrap: {
     alignSelf: "flex-start",
-    marginBottom: SCREEN_HEIGHT * 0.05,
+    marginBottom: 24,
+    zIndex: 10, 
+    paddingVertical: 10, 
+    paddingRight: 10, 
   },
   forgotText: {
     color: BURGUNDY,
-    fontSize: SCREEN_WIDTH * 0.033,
+    fontSize: 14,
     fontWeight: "700",
   },
 
@@ -285,10 +289,10 @@ registerLink: {
   btnPrimary: {
     width: "100%",
     backgroundColor: BURGUNDY,
-    paddingVertical: SCREEN_HEIGHT * 0.02,
+    paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
-    marginBottom: SCREEN_HEIGHT * 0.017,
+    marginBottom: 14,
     shadowColor: BURGUNDY,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.2,
@@ -297,7 +301,7 @@ registerLink: {
   },
   btnPrimaryText: {
     color: "#fff",
-    fontSize: SCREEN_WIDTH * 0.04,
+    fontSize: 16,
     fontWeight: "700",
     letterSpacing: 0.3,
   },
@@ -328,16 +332,16 @@ registerLink: {
   },
   alertTitle: {
     color: BURGUNDY,
-    fontSize: SCREEN_WIDTH * 0.045,
+    fontSize: 18,
     fontWeight: "700",
     marginBottom: 8,
     textAlign: "center",
   },
   alertText: {
     color: "#555",
-    fontSize: SCREEN_WIDTH * 0.036,
+    fontSize: 15,
     textAlign: "center",
-    lineHeight: SCREEN_WIDTH * 0.05,
+    lineHeight: 22,
     marginBottom: 22,
   },
   alertBtn: {
@@ -349,7 +353,7 @@ registerLink: {
   },
   alertBtnText: {
     color: "#fff",
-    fontSize: SCREEN_WIDTH * 0.037,
+    fontSize: 15,
     fontWeight: "700",
   },
 });

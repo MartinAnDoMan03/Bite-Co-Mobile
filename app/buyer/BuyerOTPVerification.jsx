@@ -34,6 +34,8 @@ const BuyerOTPVerification = () => {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = useWindowDimensions();
+  const isWideScreen = Platform.OS === 'web' && SCREEN_WIDTH >= 640;
+  const effectiveWidth = isWideScreen ? Math.min(SCREEN_WIDTH, 480) : SCREEN_WIDTH;
   const { email, userId } = useLocalSearchParams();
 
   const [otp, setOtp] = useState(["", "", "", ""]);
@@ -155,16 +157,24 @@ const BuyerOTPVerification = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={[styles.container, isWideScreen && styles.containerWide]}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
       >
         <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
+          <View style={[!isWideScreen && { flex: 1 }, isWideScreen && styles.desktopCard]}>
 
           {/* Header Section: judul & deskripsi, senada dengan BuyerForgotPassword */}
-          <View style={[styles.topSection, { paddingTop: insets.top + 150, paddingHorizontal: SCREEN_WIDTH * 0.09 }]}>
+          <View style={[
+            styles.topSection,
+            {
+              paddingTop: isWideScreen ? 70 : insets.top + 150,
+              paddingBottom: isWideScreen ? 40 : 190,
+              paddingHorizontal: effectiveWidth * 0.09,
+            },
+          ]}>
             <TouchableOpacity
               style={[styles.backButton, { top: insets.top + 16 }]}
               onPress={() => router.back()}
@@ -173,16 +183,16 @@ const BuyerOTPVerification = () => {
               <Ionicons name="arrow-back" size={20} color="#fff" />
             </TouchableOpacity>
 
-            <Text style={[styles.greeting, { fontSize: scale(26, SCREEN_WIDTH) }]}>
+            <Text style={[styles.greeting, { fontSize: scale(26, effectiveWidth) }]}>
               {t('buyerOtpVerification.title')}
             </Text>
-            <Text style={[styles.subtitle, { fontSize: scale(13, SCREEN_WIDTH) }]}>
+            <Text style={[styles.subtitle, { fontSize: scale(13, effectiveWidth) }]}>
               {t('buyerOtpVerification.subtitlePrefix')} <Text style={{ fontWeight: 'bold' }}>{email}</Text>
             </Text>
           </View>
 
           {/* Form Section */}
-          <View style={[styles.bottomSection, { paddingHorizontal: SCREEN_WIDTH * 0.07, paddingTop: Math.max(SCREEN_HEIGHT * 0.0, 48) }]}>
+          <View style={[styles.bottomSection, { paddingHorizontal: effectiveWidth * 0.07, paddingTop: Math.max(SCREEN_HEIGHT * 0.0, 48) }]}>
 
             <View style={styles.otpContainer}>
               {[0, 1, 2, 3].map((index) => (
@@ -192,9 +202,9 @@ const BuyerOTPVerification = () => {
                   style={[
                     styles.otpInput,
                     {
-                      width: scale(58, SCREEN_WIDTH),
-                      height: scale(58, SCREEN_WIDTH),
-                      fontSize: scale(22, SCREEN_WIDTH),
+                      width: scale(58, effectiveWidth),
+                      height: scale(58, effectiveWidth),
+                      fontSize: scale(22, effectiveWidth),
                     },
                     focusedIndex === index && styles.otpInputFocused,
                     otp[index] !== "" && styles.otpInputFilled,
@@ -215,13 +225,13 @@ const BuyerOTPVerification = () => {
               onPress={handleVerifyOTP}
               disabled={isLoading}
             >
-              <Text style={[styles.btnPrimaryText, { fontSize: scale(15, SCREEN_WIDTH) }]}>
+              <Text style={[styles.btnPrimaryText, { fontSize: scale(15, effectiveWidth) }]}>
                 {isLoading ? t('buyerOtpVerification.buttons.verifying') : t('buyerOtpVerification.buttons.verify')}
               </Text>
             </TouchableOpacity>
 
             <View style={styles.resendContainer}>
-              <Text style={[styles.resendHint, { fontSize: scale(13, SCREEN_WIDTH) }]}>
+              <Text style={[styles.resendHint, { fontSize: scale(13, effectiveWidth) }]}>
                 {canResend
                   ? t('buyerOtpVerification.resend.prompt')
                   : t('buyerOtpVerification.resend.timer', { seconds: timer })}
@@ -232,13 +242,14 @@ const BuyerOTPVerification = () => {
                   disabled={isResending}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                 >
-                  <Text style={[styles.resendText, { fontSize: scale(13, SCREEN_WIDTH) }, isResending && styles.disabledText]}>
+                  <Text style={[styles.resendText, { fontSize: scale(13, effectiveWidth) }, isResending && styles.disabledText]}>
                     {isResending ? t('buyerOtpVerification.buttons.resending') : t('buyerOtpVerification.buttons.resend')}
                   </Text>
                 </TouchableOpacity>
               )}
             </View>
 
+          </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -250,10 +261,10 @@ const BuyerOTPVerification = () => {
             <View style={styles.alertIconWrap}>
               <Ionicons name={alertType === "success" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
             </View>
-            <Text style={[styles.alertTitle, { fontSize: scale(16, SCREEN_WIDTH) }]}>{alertTitle}</Text>
-            <Text style={[styles.alertText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{alertMessage}</Text>
+            <Text style={[styles.alertTitle, { fontSize: scale(16, effectiveWidth) }]}>{alertTitle}</Text>
+            <Text style={[styles.alertText, { fontSize: scale(13, effectiveWidth) }]}>{alertMessage}</Text>
             <TouchableOpacity style={styles.alertBtn} onPress={() => setShowAlertModal(false)}>
-              <Text style={[styles.alertBtnText, { fontSize: scale(13, SCREEN_WIDTH) }]}>{t('buyerOtpVerification.alerts.gotIt')}</Text>
+              <Text style={[styles.alertBtnText, { fontSize: scale(13, effectiveWidth) }]}>{t('buyerOtpVerification.alerts.gotIt')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -280,6 +291,22 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(255, 255, 255, 0.2)",
     justifyContent: "center",
     alignItems: "center",
+  },
+    containerWide: {
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  desktopCard: {
+    width: "100%",
+    maxWidth: 480,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginVertical: 40,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
   },
   greeting: {
     fontWeight: "800",
@@ -337,6 +364,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
     marginTop: 20,
+    marginBottom: 30,
     flexWrap: "wrap",
   },
   resendHint: { color: "#777" },

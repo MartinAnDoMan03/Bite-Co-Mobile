@@ -5,7 +5,7 @@ import {
   TextInput,
   TouchableOpacity,
   View,
-  Dimensions,
+  useWindowDimensions,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
@@ -16,11 +16,14 @@ import { useRouter } from "expo-router";
 import config from '../constants/config'; 
 import { Ionicons } from "@expo/vector-icons";
 
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 const BURGUNDY = "#711330";
 
 const SellerForgotPassword = () => {
   const router = useRouter();
+  const { width } = useWindowDimensions();
+
+  // Deteksi layar lebar untuk web/tablet
+  const isWideScreen = Platform.OS === 'web' && width >= 640;
   
   // State untuk mengontrol tampilan (1 = Input Email, 2 = Input OTP & Password Baru)
   const [step, setStep] = useState(1); 
@@ -37,8 +40,10 @@ const SellerForgotPassword = () => {
   const [showAlertModal, setShowAlertModal] = useState(false);
   const [alertMessage, setAlertMessage] = useState("");
   const [alertTitle, setAlertTitle] = useState("Informasi");
+  const [alertType, setAlertType] = useState("info");
 
-  const showCustomAlert = (title, message) => {
+  const showCustomAlert = (type, title, message) => {
+    setAlertType(type);
     setAlertTitle(title);
     setAlertMessage(message);
     setShowAlertModal(true);
@@ -47,7 +52,7 @@ const SellerForgotPassword = () => {
   // Fungsi Langkah 1: Minta OTP
   const handleRequestOTP = async () => {
     if (!email) {
-      showCustomAlert("Gagal", "Harap masukkan email Anda.");
+      showCustomAlert("failed", "Gagal", "Harap masukkan email Anda.");
       return;
     }
 
@@ -65,12 +70,12 @@ const SellerForgotPassword = () => {
         throw new Error(result.message || "Gagal mengirim OTP");
       }
 
-      showCustomAlert("Berhasil", "Kode OTP telah dikirim ke email Anda.");
+      showCustomAlert("success", "Berhasil", "Kode OTP telah dikirim ke email Anda.");
       setStep(2); // Pindah ke langkah input OTP
 
     } catch (error) {
       console.error("Request OTP error:", error);
-      showCustomAlert("Gagal", error.message || "Terjadi kesalahan. Pastikan email terdaftar.");
+      showCustomAlert("failed", "Gagal", error.message || "Terjadi kesalahan. Pastikan email terdaftar.");
     } finally {
       setIsLoading(false);
     }
@@ -79,13 +84,13 @@ const SellerForgotPassword = () => {
 // Fungsi Langkah 2 & 3: Verifikasi OTP lalu Reset Password
   const handleResetPassword = async () => {
     if (!otp || !newPassword) {
-      showCustomAlert("Gagal", "OTP dan Password Baru harus diisi.");
+      showCustomAlert("failed", "Gagal", "OTP dan Password Baru harus diisi.");
       return;
     }
 
     setIsLoading(true);
     try {
-      // --- TAHAP 2: VERIFIKASI OTP TERLEBIH DAHULU ---
+      // --- TAHAP 2: VERIFIKASI OTP ---
       const verifyResponse = await fetch(`${config.API_URL}/seller/verify-reset-otp`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -98,11 +103,10 @@ const SellerForgotPassword = () => {
       const verifyResult = await verifyResponse.json();
 
       if (!verifyResponse.ok) {
-        // Jika OTP salah, langsung berhenti di sini dan lempar error
         throw new Error(verifyResult.message || "Kode OTP salah atau kadaluarsa.");
       }
 
-      // --- TAHAP 3: JIKA OTP BENAR, LANJUT SIMPAN PASSWORD BARU ---
+      // --- TAHAP 3: SIMPAN PASSWORD BARU ---
       const resetResponse = await fetch(`${config.API_URL}/seller/reset-password-complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -120,121 +124,135 @@ const SellerForgotPassword = () => {
         throw new Error(resetResult.message || "Gagal mereset password.");
       }
 
-      // Jika berhasil melewati tahap 2 dan 3
-      showCustomAlert("Berhasil", "Password berhasil diubah! Silakan masuk dengan password baru.");
+      showCustomAlert("success", "Berhasil", "Password berhasil diubah! Silakan masuk dengan password baru.");
       
       setTimeout(() => {
         setShowAlertModal(false);
-        router.back(); // Kembali ke halaman login
+        router.back(); 
       }, 2000);
 
     } catch (error) {
       console.error("Reset Password error:", error);
-      showCustomAlert("Gagal", error.message);
+      showCustomAlert("failed", "Gagal", error.message);
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          
-          {/* Header Section */}
-          <View style={styles.topSection}>
-            <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
-              <Ionicons name="arrow-back" size={28} color="#fff" />
-            </TouchableOpacity>
-            <Text style={styles.headerTitle}>Lupa Password</Text>
-          </View>
+    <SafeAreaView style={[styles.container, isWideScreen && styles.containerWide]}>
+      <KeyboardAvoidingView
+        style={{ flex: 1, width: '100%' }}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
+      >
+        <ScrollView 
+          contentContainerStyle={{ 
+            flexGrow: 1, 
+            justifyContent: isWideScreen ? "center" : "flex-start",
+            alignItems: isWideScreen ? "center" : "stretch"
+          }} 
+          keyboardShouldPersistTaps="handled"
+        >
+          <View style={[!isWideScreen && { flex: 1, paddingTop: 100 }, isWideScreen && styles.desktopCard]}>
+           
+            {/* Header Section */}
+            <View style={styles.topSection}>
+              {/* Tombol Back khusus Seller */}
+              <TouchableOpacity style={styles.backBtn} onPress={() => router.back()}>
+                <Ionicons name="arrow-back" size={28} color="#fff" />
+              </TouchableOpacity>
 
-          {/* Form Section */}
-          <View style={styles.bottomSection}>
-            
-            {step === 1 ? (
-              // TAMPILAN LANGKAH 1 (INPUT EMAIL)
-              <>
-                <Text style={styles.greeting}>Reset Password</Text>
-                <Text style={styles.subtitle}>
-                  Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mereset password Anda.
-                </Text>
+              <Text style={[styles.greeting, { fontSize: 28 }]}>
+                {step === 1 ? "Lupa Password" : "Buat Password Baru"}
+              </Text>
+              <Text style={[styles.subtitle, { fontSize: 14 }]}>
+                {step === 1 ? (
+                  "Masukkan email yang terdaftar. Kami akan mengirimkan kode OTP untuk mereset password Anda."
+                ) : (
+                  <>
+                    Masukkan 6-digit kode OTP yang dikirim ke <Text style={{fontWeight: 'bold'}}>{email}</Text> beserta password baru Anda.
+                  </>
+                )}
+              </Text>
+            </View>
 
-                <View style={styles.inputWrap}>
-                  <TextInput
-                    placeholder="Email Anda"
-                    placeholderTextColor="#aaa"
-                    value={email}
-                    onChangeText={setEmail}
-                    style={styles.input}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
+            {/* Form Section */}
+            <View style={styles.bottomSection}>
+              
+              {step === 1 ? (
+                <>
+                  <View style={styles.inputWrap}>
+                    <TextInput 
+                      placeholder="Email Anda"
+                      placeholderTextColor="#aaa"
+                      value={email}
+                      onChangeText={setEmail}
+                      style={styles.input}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                    />
+                  </View>
 
-                <TouchableOpacity
-                  style={[styles.btnPrimary, { opacity: isLoading ? 0.7 : 1 }]}
-                  onPress={handleRequestOTP}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.btnPrimaryText}>
-                    {isLoading ? "Mengirim..." : "Kirim Kode OTP"}
-                  </Text>
-                </TouchableOpacity>
-              </>
-            ) : (
-              // TAMPILAN LANGKAH 2 (INPUT OTP & NEW PASSWORD)
-              <>
-                <Text style={styles.greeting}>Buat Password Baru</Text>
-                <Text style={styles.subtitle}>
-                  Masukkan 6-digit kode OTP yang dikirim ke <Text style={{fontWeight: 'bold'}}>{email}</Text> beserta password baru Anda.
-                </Text>
-
-                <View style={styles.inputWrap}>
-                  <TextInput
-                    placeholder="Kode OTP"
-                    placeholderTextColor="#aaa"
-                    value={otp}
-                    onChangeText={setOtp}
-                    style={styles.input}
-                    keyboardType="number-pad"
-                    maxLength={6}
-                  />
-                </View>
-
-                <View style={styles.inputWrap}>
-                  <TextInput
-                    placeholder="Password Baru"
-                    placeholderTextColor="#aaa"
-                    value={newPassword}
-                    onChangeText={setNewPassword}
-                    secureTextEntry={!showPassword}
-                    style={[styles.input, { paddingRight: 48 }]}
-                  />
-                  <TouchableOpacity
-                    style={styles.eyeBtn}
-                    onPress={() => setShowPassword(!showPassword)}
+                  <TouchableOpacity 
+                    style={[styles.btnPrimary, { opacity: isLoading ? 0.7 : 1 }]}
+                    onPress={handleRequestOTP}
+                    disabled={isLoading}
                   >
-                    <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#888" />
+                    <Text style={styles.btnPrimaryText}>
+                      {isLoading ? "Mengirim..." : "Kirim Kode OTP"}
+                    </Text>
                   </TouchableOpacity>
-                </View>
+                </>
+              ) : (
+                <>
+                  <View style={styles.inputWrap}>
+                    <TextInput 
+                      placeholder="Kode OTP"
+                      placeholderTextColor="#aaa"
+                      value={otp}
+                      onChangeText={setOtp}
+                      style={styles.input}
+                      keyboardType="number-pad"
+                      maxLength={6}
+                    />
+                  </View>
 
-                <TouchableOpacity
-                  style={[styles.btnPrimary, { opacity: isLoading ? 0.7 : 1 }]}
-                  onPress={handleResetPassword}
-                  disabled={isLoading}
-                >
-                  <Text style={styles.btnPrimaryText}>
-                    {isLoading ? "Memproses..." : "Simpan Password Baru"}
-                  </Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity style={{marginTop: 15}} onPress={() => setStep(1)}>
-                  <Text style={styles.resendText}>Kirim ulang OTP (Ganti Email)</Text>
-                </TouchableOpacity>
-              </>
-            )}
+                  <View style={styles.inputWrap}>
+                    <TextInput 
+                      placeholder="Password Baru"
+                      placeholderTextColor="#aaa"
+                      value={newPassword}
+                      onChangeText={setNewPassword}
+                      secureTextEntry={!showPassword}
+                      style={styles.input}
+                    />
+                    <TouchableOpacity 
+                      style={styles.eyeBtn}
+                      onPress={() => setShowPassword(!showPassword)}
+                      hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                    >
+                      <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#888" />
+                    </TouchableOpacity>
+                  </View>
 
+                  <TouchableOpacity 
+                    style={[styles.btnPrimary, { opacity: isLoading ? 0.7 : 1 }]}
+                    onPress={handleResetPassword}
+                    disabled={isLoading}
+                  >
+                    <Text style={styles.btnPrimaryText}>
+                      {isLoading ? "Memproses..." : "Simpan Password Baru"}
+                    </Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity style={{ marginTop: 15 }} onPress={() => setStep(1)} hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}>
+                    <Text style={styles.resendText}>Kirim ulang OTP (Ganti Email)</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+            </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -244,7 +262,7 @@ const SellerForgotPassword = () => {
         <View style={styles.alertOverlay}>
           <View style={styles.alertCard}>
             <View style={styles.alertIconWrap}>
-              <Ionicons name={alertTitle === "Berhasil" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
+              <Ionicons name={alertType === "success" ? "checkmark-circle" : "alert-circle"} size={28} color={BURGUNDY} />
             </View>
             <Text style={styles.alertTitle}>{alertTitle}</Text>
             <Text style={styles.alertText}>{alertMessage}</Text>
@@ -262,68 +280,90 @@ export default SellerForgotPassword;
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: BURGUNDY },
-  topSection: {
-    height: SCREEN_HEIGHT * 0.25,
-    backgroundColor: BURGUNDY,
+
+  containerWide: {
     alignItems: "center",
     justifyContent: "center",
-    position: 'relative'
   },
-  backBtn: { position: 'absolute', top: 40, left: 20, zIndex: 10 },
-  headerTitle: { color: 'white', fontSize: 24, fontWeight: 'bold' },
-  bottomSection: {
-    flex: 1,
-    paddingHorizontal: SCREEN_WIDTH * 0.07,
-    paddingTop: SCREEN_HEIGHT * 0.05,
-    backgroundColor: "#ffffff",
-    borderTopLeftRadius: 25,
-    borderTopRightRadius: 25,
-    marginTop: -20,
+  desktopCard: {
+    width: "100%",
+    maxWidth: 480,
+    borderRadius: 28,
+    overflow: "hidden",
+    marginVertical: 40,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+  },
+
+  topSection: {
+    backgroundColor: BURGUNDY,
     alignItems: "center",
+    paddingTop: 70, // Di-adjust supaya tombol back nggak mepet
+    paddingBottom: 70,
+    paddingHorizontal: 24,
+    position: 'relative',
+  },
+  backBtn: { 
+    position: 'absolute', 
+    top: 20, 
+    left: 20, 
+    zIndex: 10,
+    padding: 10 
   },
   greeting: {
-    fontSize: SCREEN_WIDTH * 0.08,
     fontWeight: "800",
-    color: BURGUNDY,
-    marginBottom: 8,
+    color: "#fff",
+    marginBottom: 10,
     textAlign: "center",
   },
   subtitle: {
-    fontSize: SCREEN_WIDTH * 0.035,
-    color: "#666",
-    marginBottom: SCREEN_HEIGHT * 0.04,
+    color: "rgba(255,255,255,0.85)",
     textAlign: "center",
     lineHeight: 20,
+    maxWidth: 340,
   },
-  inputWrap: { width: "100%", marginBottom: SCREEN_HEIGHT * 0.02, position: 'relative' },
+  bottomSection: {
+    flex: 1,
+    width: "100%",
+    maxWidth: 500,
+    alignSelf: "center",
+    backgroundColor: "#ffffff",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 28,
+    alignItems: "center",
+  },
+  inputWrap: { width: "100%", marginBottom: 16, position: 'relative' },
   input: {
     backgroundColor: "#fff",
     borderWidth: 1.2,
     borderColor: "#ddd",
     borderRadius: 14,
-    paddingVertical: SCREEN_HEIGHT * 0.018,
-    paddingHorizontal: SCREEN_WIDTH * 0.05,
-    fontSize: SCREEN_WIDTH * 0.038,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
     color: "#1a1a1a",
   },
   eyeBtn: { position: "absolute", right: 16, top: 0, bottom: 0, justifyContent: "center" },
   btnPrimary: {
     width: "100%",
     backgroundColor: BURGUNDY,
-    paddingVertical: SCREEN_HEIGHT * 0.02,
+    paddingVertical: 15,
     borderRadius: 14,
     alignItems: "center",
     marginTop: 10,
   },
-  btnPrimaryText: { color: "#fff", fontSize: SCREEN_WIDTH * 0.04, fontWeight: "700" },
-  resendText: { color: BURGUNDY, fontSize: 14, fontWeight: '600', textDecorationLine: 'underline' },
+  btnPrimaryText: { color: "#fff", fontWeight: "700" },
+  resendText: { color: BURGUNDY, fontWeight: '600', textDecorationLine: 'underline' },
   
   // Alert styles
   alertOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "center", alignItems: "center", paddingHorizontal: 28 },
-  alertCard: { width: "100%", backgroundColor: "#fff", borderRadius: 20, padding: 24, alignItems: "center" },
+  alertCard: { width: "100%", maxWidth: 360, backgroundColor: "#fff", borderRadius: 20, padding: 24, alignItems: "center" },
   alertIconWrap: { width: 56, height: 56, borderRadius: 28, backgroundColor: "#fdf1f4", alignItems: "center", justifyContent: "center", marginBottom: 14 },
-  alertTitle: { color: BURGUNDY, fontSize: SCREEN_WIDTH * 0.045, fontWeight: "700", marginBottom: 8, textAlign: "center" },
-  alertText: { color: "#555", fontSize: SCREEN_WIDTH * 0.036, textAlign: "center", marginBottom: 22 },
+  alertTitle: { color: BURGUNDY, fontWeight: "700", marginBottom: 8, textAlign: "center" },
+  alertText: { color: "#555", textAlign: "center", marginBottom: 22 },
   alertBtn: { width: "100%", paddingVertical: 13, borderRadius: 12, backgroundColor: BURGUNDY, alignItems: "center" },
-  alertBtnText: { color: "#fff", fontSize: SCREEN_WIDTH * 0.037, fontWeight: "700" },
+  alertBtnText: { color: "#fff", fontWeight: "700" },
 });

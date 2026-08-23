@@ -1149,7 +1149,7 @@ buyerBeranda: {
     catering: 'Katering',
     rantangan: 'Pek Makanan',
     giziPro: 'Gizi Pro',
-    biteCo: 'Bite Co',
+    biteCo: 'Bite Eco',
     bantuan: 'Bantuan',
     pengaturan: 'Tetapan',
   },

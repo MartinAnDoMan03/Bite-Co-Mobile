@@ -1148,7 +1148,7 @@ buyerBeranda: {
     catering: 'Catering',
     rantangan: 'Meal Plan',
     giziPro: 'Nutri Pro',
-    biteCo: 'Bite Co',
+    biteECo: 'Bite Eco',
     bantuan: 'Help',
     pengaturan: 'Settings',
   },

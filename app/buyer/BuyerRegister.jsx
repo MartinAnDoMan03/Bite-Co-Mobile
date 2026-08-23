@@ -10,6 +10,7 @@ import {
   ScrollView,
   Modal,
   Dimensions,
+  useWindowDimensions,
   Keyboard,
 } from "react-native";
 import React, { useState, useEffect } from "react";
@@ -17,15 +18,20 @@ import { useRouter } from "expo-router";
 import { Ionicons } from "@expo/vector-icons";
 import { useLanguage } from "../contexts/LanguageContext";
 import config from '../constants/config';
+import { contentMaxWidth } from '../constants/responsive';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get("window");
 const BURGUNDY = "#711330";
-const scale = (size) => (SCREEN_WIDTH / 375) * size;
-const CARD_MARGIN_H = Math.max(14, SCREEN_WIDTH * 0.045);
+
+const SCALE_BASE_WIDTH = Platform.OS === 'web' ? Math.min(SCREEN_WIDTH, 480) : SCREEN_WIDTH;
+const scale = (size) => (SCALE_BASE_WIDTH / 375) * size;
+const CARD_MARGIN_H = Math.max(14, SCALE_BASE_WIDTH * 0.045);
 
 const BuyerRegister = () => {
   const { t } = useLanguage();
   const router = useRouter();
+  const { width } = useWindowDimensions();
+  const isWideScreen = Platform.OS === 'web' && width >= 640;
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -184,8 +190,9 @@ const BuyerRegister = () => {
           scrollEnabled={isKeyboardVisible}
           bounces={false}
         >
+          <View style={isWideScreen ? styles.desktopCard : { flex: 1 }}>
           {/* Top section — burgundy header */}
-          <View style={styles.stepHeader}>
+             <View style={[styles.stepHeader, isWideScreen && styles.stepHeaderWide]}>
             <View style={styles.stepBadge}>
               <Ionicons name="person-add" size={22} color="#fff" />
             </View>
@@ -193,7 +200,7 @@ const BuyerRegister = () => {
           </View>
 
           {/* White card — form */}
-          <View style={styles.whiteCard}>
+          <View style={[styles.whiteCard, isWideScreen && styles.whiteCardWide]}>
             <Text style={styles.cardTitle}>{t('buyerRegister.card.title')}</Text>
 
             <Text style={styles.fieldLabel}>{t('buyerRegister.card.fields.name.label')}</Text>
@@ -289,6 +296,7 @@ const BuyerRegister = () => {
               </TouchableOpacity>
             </View>
           </View>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
@@ -358,6 +366,22 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: BURGUNDY,
   },
+  
+  desktopCard: {
+    flexDirection: "row",
+    width: "100%",
+    maxWidth: Math.min(contentMaxWidth, 920),
+    alignSelf: "center",
+    borderRadius: 28,
+    overflow: "hidden",
+    marginVertical: 40,
+    minHeight: 560,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12,
+    shadowRadius: 24,
+    elevation: 6,
+  },
 
   // Header
   stepHeader: {
@@ -366,6 +390,11 @@ const styles = StyleSheet.create({
     paddingTop: scale(20),
     paddingBottom: scale(22),
     paddingHorizontal: 28,
+  },
+  stepHeaderWide: {
+    flex: 1,
+    justifyContent: "center",
+    paddingHorizontal: 48,
   },
   stepBadge: {
     width: scale(50),
@@ -402,6 +431,13 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 10,
     elevation: 6,
+  },
+  whiteCardWide: {
+    borderTopLeftRadius: 0,
+    borderTopRightRadius: 0,
+    marginHorizontal: 0,
+    paddingHorizontal: 48,
+    maxWidth: undefined,
   },
   cardTitle: {
     color: BURGUNDY,

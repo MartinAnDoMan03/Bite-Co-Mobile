@@ -1177,7 +1177,7 @@ buyerBeranda: {
     catering: 'Catering',
     rantangan: 'Rantangan',
     giziPro: 'Gizi Pro',
-    biteCo: 'Bite Co',
+    biteECo: 'Bite Eco',
     bantuan: 'Bantuan',
     pengaturan: 'Pengaturan',
   },

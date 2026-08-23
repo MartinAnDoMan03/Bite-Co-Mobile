@@ -9,6 +9,8 @@ import {
   ActivityIndicator,
   RefreshControl,
   Alert,
+  Platform,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -18,31 +20,26 @@ import COLORS from '../constants/color';
 import config from '../constants/config';
 import { useLanguage } from '../contexts/LanguageContext';
 
-const screenWidth = Dimensions.get('window').width;
 
-const StatCard = ({ title, value, percentage, isPositive, loading, comparedText }) => (
-  <View style={styles.statCard}>
-    <Text style={styles.statTitle}>{title}</Text>
-    {loading ? (
-      <ActivityIndicator size="small" color={COLORS.PRIMARY} />
-    ) : (
-      <>
-        <Text style={styles.statValue}>{value}</Text>
-        {percentage !== null && (
-          <View style={styles.percentageContainer}>
-            <MaterialIcons
-              name={isPositive ? "arrow-upward" : "arrow-downward"}
-              size={12}
-              color={isPositive ? "#2E7D32" : "#C62828"}
-            />
-            <Text style={[styles.percentageText, { color: isPositive ? "#2E7D32" : "#C62828" }]}>
-              {percentage}%
-            </Text>
-            <Text style={styles.comparedText}>{comparedText}</Text>
-          </View>
-        )}
-      </>
-    )}
+const StatCard = ({ title, value, percentage, isPositive, loading, comparedText, widthPercent }) => (
+  <View style={{ width: `${widthPercent}%`, paddingHorizontal: 5, marginBottom: 10 }}>
+    <View style={styles.statCard}>
+      <Text style={styles.statTitle}>{title}</Text>
+      {loading ? (
+        <ActivityIndicator size="small" color={COLORS.PRIMARY} />
+      ) : (
+        <>
+          <Text style={styles.statValue}>{value}</Text>
+          {percentage !== null && (
+            <View style={styles.percentageContainer}>
+              <MaterialIcons name={isPositive ? "arrow-upward" : "arrow-downward"} size={12} color={isPositive ? "#2E7D32" : "#C62828"} />
+              <Text style={[styles.percentageText, { color: isPositive ? "#2E7D32" : "#C62828" }]}>{percentage}%</Text>
+              <Text style={styles.comparedText}>{comparedText}</Text>
+            </View>
+          )}
+        </>
+      )}
+    </View>
   </View>
 );
 
@@ -107,6 +104,16 @@ const formatRupiah = (amount) => {
 const Laporan = () => {
   const router = useRouter();
   const { t } = useLanguage();
+  const { width: liveWidth } = useWindowDimensions();
+  const isWeb = Platform.OS === 'web';
+  const isDesktop = isWeb && liveWidth >= 1024;
+  const contentMaxWidth = 700;
+  const effectiveWidth = isDesktop ? Math.min(liveWidth, contentMaxWidth) : liveWidth;
+
+  const statColumns = isDesktop ? 4 : 2;
+  const STAT_GAP = 10;
+  const statCardWidth = (effectiveWidth - 32 - STAT_GAP * (statColumns - 1)) / statColumns;
+
   const [timeRange, setTimeRange] = useState('week');
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -385,6 +392,7 @@ const Laporan = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[COLORS.PRIMARY]} />
         }
       >
+        <View style={isDesktop ? { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' } : undefined}>
         <SimpleChart
           data={reportData.chartData}
           labels={reportData.chartLabels}
@@ -401,6 +409,7 @@ const Laporan = () => {
             isPositive={reportData.revenue.change >= 0}
             loading={loading}
             comparedText={t('laporan.stats.comparedToLastPeriod')}
+            widthPercent={100 / statColumns}
           />
           <StatCard
             title={t('laporan.stats.totalOrders')}
@@ -409,6 +418,7 @@ const Laporan = () => {
             isPositive={reportData.orders.change >= 0}
             loading={loading}
             comparedText={t('laporan.stats.comparedToLastPeriod')}
+            widthPercent={100 / statColumns}
           />
           <StatCard
             title={t('laporan.stats.averageOrder')}
@@ -417,6 +427,7 @@ const Laporan = () => {
             isPositive={reportData.averageOrder.change >= 0}
             loading={loading}
             comparedText={t('laporan.stats.comparedToLastPeriod')}
+            widthPercent={100 / statColumns}
           />
           <StatCard
             title={t('laporan.stats.customers')}
@@ -425,6 +436,7 @@ const Laporan = () => {
             isPositive={reportData.customers.change >= 0}
             loading={loading}
             comparedText={t('laporan.stats.comparedToLastPeriod')}
+            widthPercent={100 / statColumns}
           />
         </View>
 
@@ -459,6 +471,7 @@ const Laporan = () => {
               <Text style={styles.emptyText}>{t('laporan.topItems.empty')}</Text>
             </View>
           )}
+        </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -593,13 +606,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginTop: 14,
-    gap: 10,
+    marginHorizontal: -5,
   },
   statCard: {
     backgroundColor: '#fff',
     padding: 14,
     borderRadius: 14,
-    width: (screenWidth - 32 - 10) / 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,

@@ -10,6 +10,8 @@ import {
   RefreshControl,
   Modal,
   TouchableWithoutFeedback,
+  useWindowDimensions,
+  Platform,
 } from "react-native";
 import React, { useState, useEffect, useCallback } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -33,6 +35,19 @@ const CateringList = () => {
   const [buyerLocation, setBuyerLocation] = useState(undefined); // undefined = not loaded yet, null = no location saved
   const [sortType, setSortType] = useState("distance"); // "distance" | "rating" | "halal"
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const { width: SCREEN_WIDTH } = useWindowDimensions();
+
+    const isWeb = Platform.OS === 'web';
+    const isTablet = isWeb && SCREEN_WIDTH >= 768 && SCREEN_WIDTH < 1024;
+    const isDesktop = isWeb && SCREEN_WIDTH >= 1024;
+    const numColumns = isDesktop ? 4 : isTablet ? 3 : 2;
+    const contentMaxWidth = 1200;
+
+    const GRID_GAP = 16; 
+    const effectiveGridWidth = Math.min(SCREEN_WIDTH, contentMaxWidth) - 32; 
+    const cardWidthOverride = (isTablet || isDesktop)
+      ? { width: (effectiveGridWidth - GRID_GAP * (numColumns - 1)) / numColumns }
+      : null;
 
   // Load buyer location from storage
   useEffect(() => {
@@ -225,7 +240,7 @@ const CateringList = () => {
     };
 
     return (
-      <TouchableOpacity style={styles.storeCard} onPress={handlePress}>
+      <TouchableOpacity style={[styles.storeCard, cardWidthOverride]} onPress={handlePress}>
         <View style={styles.storeLogoWrapperFull}>
           <Image source={Logo} style={styles.storeLogoFull} />
           <View style={styles.ratingBadgeFull}>
@@ -309,6 +324,7 @@ const CateringList = () => {
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
       >
+        <View style={isWeb ? { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' } : { flex: 1 }}>
         {/* Search bar + tombol filter di ujung kanan */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
@@ -373,8 +389,15 @@ const CateringList = () => {
                 seller={store}
               />
             ))}
+              {(isTablet || isDesktop) &&
+              Array.from({
+                length: (numColumns - (filteredStores.length % numColumns)) % numColumns,
+              }).map((_, i) => (
+                <View key={`filler-${i}`} style={cardWidthOverride} />
+              ))}
           </View>
         )}
+        </View>
       </ScrollView>
 
       {/* Popup filter: Jarak / Rating / Halal */}

@@ -5,14 +5,11 @@ import {
   Text,
   TouchableOpacity,
   View,
-  Dimensions,
 } from "react-native";
 import React from "react";
 import logo from "../assets/images/logo.png";
 import { useRouter } from "expo-router";
 import { useLanguage } from "./contexts/LanguageContext";
-
-const { height: SCREEN_HEIGHT, width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const Started = () => {
   const router = useRouter();
@@ -70,7 +67,7 @@ const styles = StyleSheet.create({
   },
 
   topSection: {
-    height: SCREEN_HEIGHT * 0.55,
+    flex: 1.1,
     backgroundColor: BURGUNDY,
     borderBottomLeftRadius: 40,
     borderBottomRightRadius: 40,
@@ -81,8 +78,10 @@ const styles = StyleSheet.create({
   },
 
   logo: {
-    width: SCREEN_WIDTH * 0.38,
-    height: SCREEN_WIDTH * 0.38,
+    width: 160,
+    height: 160,
+    maxWidth: "40%",
+    maxHeight: "40%",
     marginBottom: 24,
   },
 
@@ -105,13 +104,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "#ffffff",
     paddingHorizontal: 28,
-    paddingTop: 100,
+    paddingTop: 40,
     alignItems: "center",
     gap: 12,
   },
 
   button: {
     width: "100%",
+    maxWidth: 500,
     backgroundColor: BURGUNDY,
     paddingVertical: 16,
     borderRadius: 14,

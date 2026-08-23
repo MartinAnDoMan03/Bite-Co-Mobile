@@ -23,7 +23,7 @@ return (
 export default SellerHome
 
 const styles = StyleSheet.create({
-  contaiuner: {
+  container: {
     flex: 1,
     backgroundColor: '#f8f9fa'
   }

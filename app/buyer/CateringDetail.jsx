@@ -1,4 +1,10 @@
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  isDesktop,
+  isTablet,
+  horizontalPadding,
+  contentMaxWidth,
+} from '../constants/responsive';
 import banner2 from "../../assets/images/banner2.png";
 import { Image, Modal, ScrollView, StyleSheet, Text, TouchableOpacity, View, TextInput, Keyboard } from "react-native";
 import starSolid from "../../assets/images/starSolid.png";
@@ -940,6 +946,13 @@ const updateItemPax = (menuId, newQty) => {
         style={{ flex: 1, marginTop: headerHeight }}
         contentContainerStyle={{ paddingTop: 15, paddingBottom: 20, gap: 10 }}
       >
+        <View
+          style={{
+            width: '100%',
+            maxWidth: contentMaxWidth,
+            alignSelf: 'center',
+          }}
+        >
         {allContentLoaded && !orderable && outletStatus && (
           <View style={styles.closedNotice}>
             <MaterialIcons name="info" size={16} color="#B26A00" />
@@ -1040,6 +1053,7 @@ const updateItemPax = (menuId, newQty) => {
             </View>
           ))
         )}
+        </View>
       </ScrollView>
 
       {allContentLoaded && globalCart.items.length > 0 && (
