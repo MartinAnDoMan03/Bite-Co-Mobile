@@ -707,16 +707,8 @@ const updateItemPax = (menuId, newQty) => {
     }
   };
 
-  // ------------------------------------------------------------------
-  // Dipanggil khusus dari PackageSlotModal.onConfirm. Beda dari addToCart
-  // biasa: di sini kita TIDAK bergantung ke state `cart` (yang update-nya
-  // async lewat setCart) untuk nentuin isi final sebelum navigate — supaya
-  // gak ada race condition antara "nambah ke cart" dan "baca cart buat pergi
-  // ke Pembayaran". Semua dihitung dari array lokal, baru disimpan sekali,
-  // baru redirect. Efeknya: klik "Konfirmasi Pilihan" langsung ke halaman
-  // Pembayaran, gak balik dulu ke List Menu/keranjang.
-  // ------------------------------------------------------------------
-  const confirmPackageAndPay = async (pkg, selectedSlots) => {
+
+  const confirmPackageToCart = async (pkg, selectedSlots) => {
     if (!orderable) {
       showAlert('Outlet Tutup', outletStatus?.nextOpenLabel || 'Outlet sedang tutup, coba lagi nanti.', [{ text: 'OK' }], 'warning');
       return;
@@ -737,17 +729,10 @@ const updateItemPax = (menuId, newQty) => {
       await saveCartToStorage(items, store);
       await AsyncStorage.setItem('order_type', 'Catering');
 
-      // Sama seperti handleLanjutPembayaran: simpan lokasi & catatan
-      // sebelum pindah halaman supaya Pembayaran.jsx bisa langsung baca.
-      if (useCustomLocation && customLocation) {
-        await AsyncStorage.setItem(DELIVERY_LOCATION_OVERRIDE_KEY, JSON.stringify(customLocation));
-      } else {
-        await AsyncStorage.removeItem(DELIVERY_LOCATION_OVERRIDE_KEY);
-      }
-      await AsyncStorage.setItem(CART_NOTES_KEY, orderNotes || '');
-
+      // Tutup modal pilihan slot, lalu buka keranjang supaya buyer bisa
+      // cek/ubah jumlah pax dan menu lain dulu sebelum lanjut ke Pembayaran.
       setSlotModalPackage(null);
-      router.push('/buyer/Pembayaran');
+      setCartVisible(true);
     };
 
     // Cek dulu apakah ada cart aktif punya seller/tipe lain — kalau ada,
@@ -944,7 +929,14 @@ const updateItemPax = (menuId, newQty) => {
       <ScrollView
         showsVerticalScrollIndicator={false}
         style={{ flex: 1, marginTop: headerHeight }}
-        contentContainerStyle={{ paddingTop: 15, paddingBottom: 20, gap: 10 }}
+        contentContainerStyle={{
+          paddingTop: 15,
+          // Kasih ruang ekstra di bawah kalau floatingCartButton lagi muncul,
+          // supaya menu/paket paling bawah tidak ketutupan tombol itu dan
+          // tetap bisa di-scroll sampai habis.
+          paddingBottom: allContentLoaded && globalCart.items.length > 0 ? 110 : 20,
+          gap: 10,
+        }}
       >
         <View
           style={{
@@ -1262,7 +1254,7 @@ const updateItemPax = (menuId, newQty) => {
         categories={categories}
         onClose={() => setSlotModalPackage(null)}
         onConfirm={(selectedSlots) => {
-          confirmPackageAndPay(slotModalPackage, selectedSlots);
+          confirmPackageToCart(slotModalPackage, selectedSlots);
         }}
       />
 
