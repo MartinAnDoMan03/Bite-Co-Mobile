@@ -97,6 +97,7 @@ const CircleButton = ({
   iconColor,
   bordered,
   size = 56,
+  showBadge = false,
 }) => {
   const router = useRouter();
   const iconSize = Math.round(size * 0.5);
@@ -127,10 +128,13 @@ const CircleButton = ({
         ) : (
           <Image source={icon} style={[{ width: iconSize, height: iconSize }, iconStyle]} />
         )}
+        {showBadge && <View style={styles.categoryNewDot} />}
       </TouchableOpacity>
       <Text
+      numberOfLines={2}
         style={{
-          fontSize: size > 56 ? 15 : 14,
+          fontSize: size > 56 ? 15 : size < 56 ? 11.5 : 14,
+          width: size + 20,
           textAlign: "center",
           marginTop: 5,
         }}
@@ -378,6 +382,9 @@ const checkOverdueOrders = useCallback(async () => {
   const showBanner = overdueOrders.length > 0 && !bannerDismissed;
 
   const [promos, setPromos] = useState([]);
+   // Event aktif (mis. KMI Expo). Kalau null, kategori Event nggak dirender
+ // sama sekali — jadi user reguler (Medan, dll) nggak lihat apa-apa.
+ const [activeEvent, setActiveEvent] = useState(null);
 
   useEffect(() => {
   const fetchPromos = async () => {
@@ -392,8 +399,23 @@ const checkOverdueOrders = useCallback(async () => {
   fetchPromos();
   }, []);
 
+   useEffect(() => {
+   const fetchActiveEvent = async () => {
+     try {
+       const res = await fetch(`${config.API_URL}/events/active`);
+       const data = await res.json();
+       if (data.success && data.event) setActiveEvent(data.event);
+     } catch (e) {
+       // Gagal diam-diam — kalau endpoint belum ada / offline, kategori Event
+       // cukup nggak muncul, jangan ganggu Home.
+     }
+   };
+   fetchActiveEvent();
+ }, []);
   const flatListRef = useRef(null);
   const [currentBannerIndex, setCurrentBannerIndex] = useState(0);
+const eventActive = !!activeEvent;
+const iconSize = isDesktop ? 72 : 56;
 
   return (
     <View style={{ flex: 1 }}>
@@ -471,11 +493,28 @@ const checkOverdueOrders = useCallback(async () => {
 
         {/* Baris menu utama - selalu tampil */}
         <View style={styles.categoriesSection}>
-          <View style={[styles.categories, isDesktop && { gap: 56 }]}>
-            <CircleButton icon={iconCatering} text={t('buyerBeranda.categories.catering')} navigateTo="buyer/CateringList" size={isDesktop ? 72 : 56} />
-            <CircleButton icon={iconRantangan} text={t('buyerBeranda.categories.rantangan')} navigateTo="buyer/RantanganList" size={isDesktop ? 72 : 56} />
-            <CircleButton icon={gizipro} text={t('buyerBeranda.categories.giziPro')} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} size={isDesktop ? 72 : 56} />
-            <CircleButton icon={iconBiteEco} text={t('buyerBeranda.categories.biteECo')} navigateTo="buyer/BiteEco" iconStyle={{ tintColor: "white" }} size={isDesktop ? 72 : 56} />
+           <View style={[styles.categories, isDesktop && { gap: 56 }]}>
+           <CircleButton icon={iconCatering} text={t('buyerBeranda.categories.catering')} navigateTo="buyer/CateringList" size={iconSize} />
+           <CircleButton icon={iconRantangan} text={t('buyerBeranda.categories.rantangan')} navigateTo="buyer/RantanganList" size={iconSize} />
+           <CircleButton icon={gizipro} text={t('buyerBeranda.categories.giziPro')} navigateTo="buyer/GiziPro" iconStyle={{ tintColor: "white" }} size={iconSize} />
+           
+
+           {/* Kategori Event — cuma dirender selama ada event aktif */}
+           {eventActive && (
+             <CircleButton
+               iconType="material"
+               iconName="storefront"
+               text="Event"
+               size={iconSize}
+               showBadge
+               onPress={() =>
+                 router.push({
+                   pathname: 'buyer/EventList',
+                   params: { eventId: activeEvent.id },
+                 })
+               }
+             />
+           )}
 
             {isDesktop && (
               <>
@@ -501,6 +540,13 @@ const checkOverdueOrders = useCallback(async () => {
               only hidden on desktop web where all 6 already fit in one row above. */}
           {!isDesktop && menuExpanded && (
             <View style={[styles.categories, styles.categoriesSecondRow]}>
+              <CircleButton
+              icon={iconBiteEco}
+              text={t('buyerBeranda.categories.biteECo')}
+              navigateTo="buyer/BiteEco"
+              iconStyle={{ tintColor: "white" }}
+              size={56}
+            />
               <CircleButton
                 iconType="material"
                 iconName="live-help"
@@ -735,6 +781,17 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     marginTop: 14,
   },
+     categoryNewDot: {
+     position: 'absolute',
+     top: -2,
+     right: -2,
+     width: 12,
+     height: 12,
+     borderRadius: 6,
+     backgroundColor: '#E53935',
+     borderWidth: 2,
+     borderColor: '#F5F6FA',
+   },
   expandButtonCircle: {
     width: 44,
     height: 44,

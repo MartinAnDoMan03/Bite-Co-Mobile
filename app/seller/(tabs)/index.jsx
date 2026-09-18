@@ -138,6 +138,28 @@ const ExpandableMenu = () => {
   });
   const rotateAnim = useRef(new Animated.Value(0)).current;
   const router = useRouter();
+  // Event aktif (mis. KMI Expo) — dipakai buat banner ajakan daftar event
+ const [activeEvent, setActiveEvent] = useState(null);
+ const [eventBannerRatio, setEventBannerRatio] = useState(16 / 9);
+
+ const fetchActiveEvent = async () => {
+   try {
+     const res = await fetch(`${config.API_URL}/events/active`);
+     const data = await res.json();
+     if (data.success && data.event) setActiveEvent(data.event);
+   if (data.success && data.event) {
+     setActiveEvent(data.event);
+     if (data.event.sellerBannerImageUrl) {
+       Image.getSize(
+         data.event.sellerBannerImageUrl,
+         (w, h) => setEventBannerRatio(w / h),
+         () => {} // fallback ke rasio default 16:9 kalau gagal
+       );
+     }
+   }
+   } catch (e) {
+   }
+ };
 
   const toggleExpand = () => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
@@ -148,6 +170,7 @@ const ExpandableMenu = () => {
     setRefreshing(true);
     await fetchProfile();
     await fetchStats(); // This now includes fetchNotificationCount
+    await fetchActiveEvent();
     // Re-register the push token on relaunch too, not just fresh logins for relaunched apps
     (async () => {
       const token = await AsyncStorage.getItem("sellerToken");
@@ -271,6 +294,7 @@ const ExpandableMenu = () => {
   useEffect(() => {
     fetchProfile();
     fetchStats();
+    fetchActiveEvent();
   }, []);
 
   const rotate = rotateAnim.interpolate({
@@ -406,12 +430,15 @@ const ExpandableMenu = () => {
         <View style={styles.headerContainer}>
           <SafeAreaView style={styles.headerSafeArea}>
             <View style={styles.topBar}>
-              <View style={{ flex: 1, transform: [{ translateY: scale(24) }] }}>
+              <View style={{ flex: 1 }}>
                 <Text style={styles.welcomeText}>{t("beranda.welcome")}</Text>
                 <Text style={styles.storeNameText}>{storeName}!</Text>
+                <Text style={styles.dateText}>
+                  {new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                </Text>
               </View>
               <TouchableOpacity style={styles.notificationButton} onPress={() => router.push('/seller/notifikasi')}>
-                <MaterialIcons name="notifications" size={24} color="white" />
+                <MaterialIcons name="notifications" size={20} color="white" />
                 {stats.unreadNotifications > 0 && (
                   <View style={styles.notificationBadge}>
                     <Text style={styles.notificationBadgeText}>{stats.unreadNotifications}</Text>
@@ -419,9 +446,6 @@ const ExpandableMenu = () => {
                 )}
               </TouchableOpacity>
             </View>
-            <Text style={styles.dateText}>
-              {new Date().toLocaleDateString("id-ID", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-            </Text>
           </SafeAreaView>
         </View>
 
@@ -431,6 +455,25 @@ const ExpandableMenu = () => {
         onPress={() => router.push('seller/(tabs)/profile?edit=true')}
         />
       )}
+          {/* Banner ajakan ikut event — cuma muncul kalau ada event aktif dan
+        seller belum ikut event ini (events array-nya belum ada eventId ini) */}
+    {activeEvent && (
+      <TouchableOpacity
+        style={styles.eventBanner}
+        activeOpacity={0.85}
+        onPress={() => router.push({ pathname: 'seller/EventTerms', params: { eventId: activeEvent.id } })}
+      >
+        <View style={[styles.eventBannerImageWrap, { aspectRatio: eventBannerRatio }]}>
+          <Image source={{ uri: activeEvent.sellerBannerImageUrl }} style={styles.eventBannerImage} />
+        </View>
+        <View style={styles.eventBannerFooter}>
+          <View style={styles.eventBannerCta}>
+            <Text style={styles.eventBannerCtaText}>Yuk, Daftar Jadi Mitra</Text>
+            <MaterialIcons name="chevron-right" size={16} color={COLORS.PRIMARY} />
+          </View>
+        </View>
+      </TouchableOpacity>
+    )}
 
       {/* Menu Grid — di luar header burgundy, di atas background putih/abu-abu */}
       <View style={isDesktop ? { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' } : undefined}>
@@ -572,46 +615,40 @@ const styles = StyleSheet.create({
   },
   headerContainer: {
     backgroundColor: COLORS.PRIMARY,
-    borderBottomLeftRadius: scale(30),
-    borderBottomRightRadius: scale(30),
-    minHeight: SCREEN_HEIGHT * 0.16,
-    paddingBottom: scale(14),
+    borderBottomLeftRadius: scale(24),
+    borderBottomRightRadius: scale(24),
+    paddingTop: scale(4),
+    paddingBottom: scale(16),
   },
   headerSafeArea: {
-    flex: 1,
-    justifyContent: "center",
+    paddingHorizontal: scale(20),
   },
   topBar: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    paddingHorizontal: scale(20),
+    alignItems: "flex-start",
   },
   welcomeText: {
-    color: "white",
-    fontSize: scale(18),
-    fontWeight: "600",
+    color: "rgba(255,255,255,0.85)",
+    fontSize: scale(13),
+    fontWeight: "500",
   },
   storeNameText: {
     color: "white",
-    fontSize: scale(24),
+    fontSize: scale(19),
     fontWeight: "bold",
-    marginTop: scale(2),
+    marginTop: scale(1),
   },
   dateText: {
-    color: "rgba(255, 255, 255, 0.8)",
-    fontSize: scale(12.5),
-    textAlign: "right",
-    paddingHorizontal: scale(20),
-    marginTop: scale(14),
-    transform: [{ translateY: scale(14) }]
+    color: "rgba(255, 255, 255, 0.7)",
+    fontSize: scale(11),
+    marginTop: scale(6),
   },
   notificationButton: {
-    backgroundColor: "rgba(255, 255, 255, 0.2)",
-    borderRadius: scale(25),
-    padding: scale(12),
+    backgroundColor: "rgba(255, 255, 255, 0.18)",
+    borderRadius: scale(18),
+    padding: scale(8),
     position: "relative",
-    transform: [{ translateY: scale(18) }],
   },
   notificationBadge: {
     position: "absolute",
@@ -868,6 +905,42 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '700',
+  },
+  eventBanner: {
+    marginHorizontal: 16,
+    marginTop: 14,
+    marginBottom: -6,
+    borderRadius: 16,
+    overflow: 'hidden',
+    zIndex: 10,
+    backgroundColor: '#fff',
+  },
+  eventBannerImageWrap: {
+    width: '100%',
+    backgroundColor: '#faf5f7',
+  },
+  eventBannerImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'contain',
+  },
+  eventBannerFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    ustifyContent: 'flex-end',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  eventBannerCta: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  eventBannerCtaText: {
+    color: COLORS.PRIMARY,
+    fontSize: 12,
+    fontWeight: '700',
+    marginRight: 2,
   },
 });
 
