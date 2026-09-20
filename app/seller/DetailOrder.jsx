@@ -7,6 +7,7 @@ import config from '../constants/config';
 import COLORS from '../constants/color';
 import { MaterialIcons } from "@expo/vector-icons";
 import { useLanguage } from "../contexts/LanguageContext";
+import { shareInvoice } from "../utils/printInvoice";
 
 // Status -> warna pill (bg tint + teks), selaras dengan pola di JadwalPengantaran/PelangganDetails
 const STATUS_STYLES = {
@@ -261,21 +262,44 @@ const DetailOrder = () => {
         </View>
 
         {/* Order Summary Footer */}
-        <View style={[styles.card, styles.footerCard]}>
-          <View style={styles.footerRow}>
-            <Text style={styles.footerLabel}>{t("detailOrder.subtotal")}</Text>
-            <Text style={styles.footerValue}>
-              Rp {order.totalAmount?.toLocaleString()}
-            </Text>
+          <View style={[styles.card, styles.footerCard]}>
+            <View style={styles.footerRow}>
+              <Text style={styles.footerLabel}>{t("detailOrder.subtotal")}</Text>
+              <Text style={styles.footerValue}>
+                Rp {(order.subtotal ?? order.totalAmount)?.toLocaleString()}
+              </Text>
+            </View>
+            {order.discountAmount > 0 && (
+              <View style={styles.footerRow}>
+                <Text style={[styles.footerLabel, { color: '#2E7D32' }]}>
+                  Diskon{order.promoApplied?.title ? ` (${order.promoApplied.title})` : ''}
+                </Text>
+                <Text style={{ color: '#2E7D32', fontWeight: '700' }}>
+                  - Rp {order.discountAmount.toLocaleString()}
+                </Text>
+              </View>
+            )}
+            {order.adminFee > 0 && (
+              <View style={styles.footerRow}>
+                <Text style={styles.footerLabel}>Biaya Admin</Text>
+                <Text style={styles.footerValue}>Rp {order.adminFee.toLocaleString()}</Text>
+              </View>
+            )}
+            <View className="divider" style={styles.divider} />
+            <View style={styles.footerRow}>
+              <Text style={styles.footerTotalLabel}>{t("detailOrder.totalPayment")}</Text>
+              <Text style={styles.footerTotalValue}>
+                Rp {order.totalAmount?.toLocaleString()}
+              </Text>
+            </View>
           </View>
-          <View style={styles.divider} />
-          <View style={styles.footerRow}>
-            <Text style={styles.footerTotalLabel}>{t("detailOrder.totalPayment")}</Text>
-            <Text style={styles.footerTotalValue}>
-              Rp {order.totalAmount?.toLocaleString()}
-            </Text>
-          </View>
-        </View>
+
+          <TouchableOpacity
+            onPress={() => shareInvoice({ order: orderData, sellerName: seller?.outletName, viewerRole: 'seller' })}
+            style = {{ marginTop: 16, padding: 12, backgroundColor: '#711330', borderRadius: 8, alignItems: 'center'}}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Bagikan Invoice</Text>
+          </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

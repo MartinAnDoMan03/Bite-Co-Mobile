@@ -7,6 +7,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import config from '../constants/config';
 import COLORS from '../constants/color';
 import { MaterialIcons } from '@expo/vector-icons';
+import { shareInvoice } from '../utils/printInvoice';
 
 const RiwayatDetail = () => {
   const { orderId } = useLocalSearchParams();
@@ -209,12 +210,26 @@ const getStatusMeta = (statusProgress) => {
           </View>
         )}
 
+        {order.adminFee > 0 && (
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Biaya Admin</Text>
+            <Text style={styles.summaryValue}>Rp {order.adminFee.toLocaleString()}</Text>
+          </View>
+        )}
+
         <View style={styles.divider} />
 
         <View style={styles.summaryRow}>
           <Text style={styles.totalLabel}>Total Bayar</Text>
           <Text style={styles.totalValue}>Rp {order.totalAmount?.toLocaleString()}</Text>
         </View>
+
+        <TouchableOpacity
+         onPress={() => shareInvoice({ order, sellerName: seller?.outletName, viewerRole: 'buyer' })}
+         style = {{ marginTop: 16, padding: 12, backgroundColor: '#711330', borderRadius: 8, alignItems: 'center'}}
+         >
+          <Text style={{ color: '#fff', fontWeight: '600' }}>Bagikan Invoice</Text>
+        </TouchableOpacity>
       </ScrollView>
     </SafeAreaView>
   );

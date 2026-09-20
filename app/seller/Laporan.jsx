@@ -237,9 +237,11 @@ const Laporan = () => {
       return orderDate >= previousStartDate && orderDate <= previousEndDate && (order.status === 'success' || order.statusProgress === 'completed');
     });
 
+    const getSellerRevenue = (order) => (parseFloat(order.totalAmount) || 0) - (parseFloat(order.adminFee) || 0);
+
     // Calculate metrics
-    const currentRevenue = currentOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
-    const previousRevenue = previousOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
+    const currentRevenue = currentOrders.reduce((sum, order) => sum + getSellerRevenue(order), 0);
+    const previousRevenue = previousOrders.reduce((sum, order) => sum + getSellerRevenue(order), 0);
 
     const currentOrderCount = currentOrders.length;
     const previousOrderCount = previousOrders.length;
@@ -260,7 +262,7 @@ const Laporan = () => {
           const orderDate = new Date(order.createdAt || order.orderDate);
           return orderDate.getDay() === index;
         });
-        dayRevenue = dayOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
+        dayRevenue = dayOrders.reduce((sum, order) => sum + getSellerRevenue(order), 0);
       } else if (period === 'month') {
         const weekStart = index * 7 + 1;
         const weekEnd = Math.min((index + 1) * 7, endDate.getDate());
@@ -269,13 +271,13 @@ const Laporan = () => {
           const dayOfMonth = orderDate.getDate();
           return dayOfMonth >= weekStart && dayOfMonth <= weekEnd;
         });
-        dayRevenue = weekOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
+        dayRevenue = weekOrders.reduce((sum, order) => sum + getSellerRevenue(order), 0);
       } else if (period === 'year') {
         const monthOrders = currentOrders.filter(order => {
           const orderDate = new Date(order.createdAt || order.orderDate);
           return orderDate.getMonth() === index;
         });
-        dayRevenue = monthOrders.reduce((sum, order) => sum + (parseFloat(order.totalAmount) || 0), 0);
+        dayRevenue = monthOrders.reduce((sum, order) => sum + getSellerRevenue(order), 0);
       }
 
       return dayRevenue;

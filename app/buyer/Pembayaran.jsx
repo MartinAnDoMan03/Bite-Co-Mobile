@@ -29,6 +29,8 @@ const ALERT_TYPE_STYLES = {
   warning: { icon: 'warning', color: '#B26A00', bg: '#FFF3E0' },
 };
 
+const ADMIN_FEE = 2500;
+
 const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose }) => {
   const typeStyle = ALERT_TYPE_STYLES[type] || ALERT_TYPE_STYLES.info;
   return (
@@ -176,7 +178,7 @@ const estimatedDiscount = promoDiscount
     ? Math.round(total * (Number(promoDiscount.discountAmount) / 100))
     : Math.min(Number(promoDiscount.discountAmount), total))
     : 0;
-    const estimatedFinalTotal = total - estimatedDiscount;
+    const estimatedFinalTotal = total - estimatedDiscount + ADMIN_FEE;
 
 useEffect(() => {
     const fetchCart = async () => {
@@ -434,7 +436,8 @@ const handleCateringDatePicked = (date) => {
         {
           sellerId: store.id,
           items: cart,
-          totalAmount: total,
+          totalAmount: estimatedFinalTotal,
+          adminFee: ADMIN_FEE,
           deliveryAddress: finalAddress.address || '',
           kelurahan: finalAddress.kelurahan || '',
           kecamatan: finalAddress.kecamatan || '',
@@ -682,6 +685,10 @@ const handleCateringDatePicked = (date) => {
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>Rp {estimatedFinalTotal.toLocaleString('id-ID')}</Text>
+          </View>
+          <View style={styles.totalRow}>
+            <Text style={{ color: '#666', fontSize: 13 }}>Biaya Admin</Text>
+            <Text style={{ color: '#666', fontSize: 13 }}>Rp {ADMIN_FEE.toLocaleString('id-ID')}</Text>
           </View>
 
           <TouchableOpacity style={[styles.submitButton, submitting && { opacity: 0.6 }]} onPress={handlePesan} disabled={submitting}>

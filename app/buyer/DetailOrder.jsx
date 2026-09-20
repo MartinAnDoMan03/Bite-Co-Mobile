@@ -20,6 +20,7 @@ import COLORS from '../constants/color';
 import config from '../constants/config';
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useToast } from '../../components/ToastProvider';
+import { shareInvoice } from "../utils/printInvoice";
 
 const { width } = Dimensions.get('window');
 
@@ -257,6 +258,15 @@ const DetailOrder = () => {
               </>
             )}
 
+            {orderData.adminFee > 0 && (
+              <View style={styles.totalRow}>
+                <Text style={[styles.totalLabel, { color: '#2E7D32' }]}>Biaya Admin</Text>
+                <Text style={{ color: '#2E7D32', fontWeight: '700' }}>
+                  Rp {orderData.adminFee.toLocaleString()}
+                </Text>
+              </View>
+            )}
+
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total Pembayaran</Text>
               <Text style={styles.totalAmount}>
@@ -314,6 +324,13 @@ const DetailOrder = () => {
               </View>
             )}
           </View>
+
+          <TouchableOpacity
+            onPress={() => shareInvoice({ order: orderData, sellerName: sellerData?.outletName, viewerRole: 'buyer' })}
+            style = {{ marginTop: 16, padding: 12, backgroundColor: '#711330', borderRadius: 8, alignItems: 'center'}}
+          >
+            <Text style={{ color: '#fff', fontWeight: '600' }}>Bagikan Invoice</Text>
+          </TouchableOpacity>
 
           <View style={styles.sectionDivider} />
 
