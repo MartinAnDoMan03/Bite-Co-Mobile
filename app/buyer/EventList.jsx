@@ -18,6 +18,7 @@ import { StoreCardSkeleton } from "../../components/SkeletonLoader";
 import COLORS from "../constants/color";
 import config from "../constants/config";
 import storeIcon from "../../assets/images/store.png";
+import { LinearGradient } from 'expo-linear-gradient';
 
 const FILTER_CATEGORIES = [
   { key: "semua", label: "Semua", icon: null },
@@ -194,18 +195,13 @@ const EventList = () => {
       >
         <View style={isWeb ? { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' } : { flex: 1 }}>
 
-          {/* Banner event: background image + overlay + logo + info */}
+          {/* Banner event: blok burgundy solid di kiri (judul/logo/info), foto asli cuma di sisi kanan */}
           {!eventLoading && event && (
             <View style={styles.banner}>
-              <Image source={{ uri: event.backgroundImageUrl }} style={styles.bannerBg} />
-              <View style={styles.bannerOverlay} />
-              <View style={styles.bannerContent}>
+              <View style={styles.bannerLeft}>
                 <View style={styles.bannerBadgeRow}>
                   <View style={styles.bannerBadge}>
                     <MaterialIcons name="event" size={11} color="#fff" />
-                    <Text style={styles.bannerBadgeText}>{event.name}</Text>
-                  </View>
-                  <View style={styles.bannerBadge}>
                     <Text style={styles.bannerBadgeText}>
                       {formatDateRange(event.startDate, event.endDate)}
                     </Text>
@@ -219,14 +215,30 @@ const EventList = () => {
                     resizeMode="contain"
                   />
                 ) : (
-                  <Text style={styles.bannerFallbackTitle}>{event.name}</Text>
+                  <Text style={styles.bannerFallbackTitle} numberOfLines={2}>{event.name}</Text>
                 )}
 
-                <Text style={styles.bannerTagline}>{event.tagline}</Text>
+                <Text style={styles.bannerTagline} numberOfLines={2}>{event.tagline}</Text>
+
                 <View style={styles.bannerLocationRow}>
                   <MaterialIcons name="location-on" size={12} color="rgba(255,255,255,0.85)" />
-                  <Text style={styles.bannerLocationText}>{event.location}</Text>
+                  <Text style={styles.bannerLocationText} numberOfLines={1}>{event.location}</Text>
                 </View>
+              </View>
+
+              {/* Foto asli event, hanya menempati sisi kanan, dengan efek fade ke warna burgundy */}
+              <View style={styles.bannerImageWrapper}>
+                <Image
+                  source={{ uri: event.backgroundImageUrl }}
+                  style={styles.bannerImage}
+                  resizeMode="cover"
+                />
+                <LinearGradient
+                  colors={[COLORS.PRIMARY, 'rgba(0,0,0,0)']}
+                  start={{ x: 0, y: 0.5 }}
+                  end={{ x: 1, y: 0.5 }}
+                  style={styles.bannerImageFade}
+                />
               </View>
             </View>
           )}
@@ -326,74 +338,91 @@ const styles = StyleSheet.create({
   scrollContainer: { paddingBottom: 20 },
 
   // ---- Banner ----
+  // Sekarang: blok solid burgundy (PRIMARY) full width sebagai dasar,
+  // teks/logo di kiri, foto asli event cuma nongol di sisi kanan lalu
+  // memudar (fade) balik ke warna burgundy supaya menyatu, bukan blur penuh.
   banner: {
+    flexDirection: 'row',
     margin: 16,
     marginBottom: 8,
     borderRadius: 18,
     overflow: 'hidden',
-    height: 170,
+    height: 140,
     backgroundColor: COLORS.PRIMARY,
   },
-  bannerBg: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-    opacity: 0.55,
+  bannerLeft: {
+    flex: 1.25,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
+    justifyContent: 'center',
   },
-  bannerOverlay: {
-    position: 'absolute',
+  bannerImageWrapper: {
+    flex: 1,
+    position: 'relative',
+    minWidth: 90,
+  },
+  bannerImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: COLORS.PRIMARY,
-    opacity: 0.55,
+  },
+  bannerImageFade: {
+    position: 'absolute',
+    top: 0,
+    bottom: 0,
+    left: 0,
+    width: '65%',
   },
   bannerContent: {
     padding: 16,
   },
   bannerBadgeRow: {
     flexDirection: 'row',
-    gap: 6,
+    flexWrap: 'wrap',
+    gap: 5,
+    marginBottom: 6,
   },
   bannerBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 9,
-    paddingVertical: 3,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    paddingHorizontal: 7,
+    paddingVertical: 2,
     borderRadius: 20,
   },
   bannerBadgeText: {
     color: '#fff',
-    fontSize: 9.5,
+    fontSize: 8.5,
     fontWeight: '600',
   },
   eventLogo: {
-    width: '80%',
-    height: 60,
-    marginTop: 10,
+    width: '100%',
+    height: 46,
+    marginBottom: 2,
+    alignSelf: 'flex-start',
   },
   bannerFallbackTitle: {
     color: '#fff',
-    fontSize: 22,
+    fontSize: 17,
     fontWeight: '800',
-    marginTop: 10,
+    lineHeight: 20,
   },
   bannerTagline: {
     color: 'rgba(255,255,255,0.9)',
-    fontSize: 11.5,
-    marginTop: 6,
+    fontSize: 10,
+    marginTop: 4,
+    lineHeight: 12.5,
   },
   bannerLocationRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 3,
-    marginTop: 4,
+    marginTop: 5,
   },
   bannerLocationText: {
     color: 'rgba(255,255,255,0.8)',
     fontSize: 10.5,
+    flexShrink: 1,
   },
 
   // ---- Search ----
