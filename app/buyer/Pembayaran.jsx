@@ -147,7 +147,7 @@ const Pembayaran = () => {
   const [endDate, setEndDate] = useState(null);
   const [promoDiscount, setPromoDiscount] = useState(null);
   const [voucherInput, setVoucherInput] = useState('');
-  const [appliedVoucher, setAppliedVoucher] = useState('null');
+  const [appliedVoucher, setAppliedVoucher] = useState(null);
   const [voucherError, setVoucherError] = useState('');
   const [voucherChecking, setVoucherChecking] = useState(false);
   // ---- Catering delivery date & time (separate from Rantangan's)
@@ -190,7 +190,7 @@ useEffect(() => {
 
     const usingVoucher = voucherDiscountValue > autoPromoDiscount;
     const estimatedDiscount = usingVoucher ? voucherDiscountValue : autoPromoDiscount;
-    const activateDiscountLabel = usingVoucher ? `Voucher (${appliedVoucher.code})` : (promoDiscount ? promoDiscount.title : '');
+    const activeDiscountLabel = usingVoucher ? `Voucher (${appliedVoucher.code})` : (promoDiscount ? promoDiscount.title : '');
     const estimatedFinalTotal = total - estimatedDiscount + ADMIN_FEE;
 
 useEffect(() => {
@@ -510,6 +510,7 @@ const handleCateringDatePicked = (date) => {
         await AsyncStorage.removeItem('delivery_location_override');
         await AsyncStorage.removeItem('catering_delivery_location');
         await AsyncStorage.removeItem('cart_notes');
+        await AsyncStorage.removeItem('cart_event_id');
 
         setCountdown(CANCEL_WINDOW_SECONDS);
         setStage('confirming');
@@ -724,7 +725,7 @@ const handleCateringDatePicked = (date) => {
               <Text style={{ fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Kode Voucher</Text>
               <View style={{ flexDirection: 'row', gap: 8 }}>
                 <TextInput
-                  style={{ flex: 1, borderWidth: 1, borderColor: '#dddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}
+                  style={{ flex: 1, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}
                   placeholder="Masukkan kode"
                   autoCapitalize="characters"
                   value={voucherInput}
@@ -747,9 +748,9 @@ const handleCateringDatePicked = (date) => {
             </View>
           )}
 
-          {promoDiscount && (
+          {estimatedDiscount > 0 && (
             <View style={styles.totalRow}>
-              <Text style={{ color: '#2E7D32', fontWeight: '600', fontSize: 13 }}>Diskon ({promoDiscount.title})</Text>
+              <Text style={{ color: '#2E7D32', fontWeight: '600', fontSize: 13 }}>Diskon ({activeDiscountLabel})</Text>
               <Text style={{ color: '#2E7D32', fontWeight: '600', fontSize: 13 }}>- Rp {estimatedDiscount.toLocaleString('id-ID')}</Text>
             </View>
           )}
