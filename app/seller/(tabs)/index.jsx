@@ -146,8 +146,7 @@ const ExpandableMenu = () => {
    try {
      const res = await fetch(`${config.API_URL}/events/active`);
      const data = await res.json();
-     if (data.success && data.event) setActiveEvent(data.event);
-   if (data.success && data.event) {
+    if (data.success && data.event) {
      setActiveEvent(data.event);
      if (data.event.sellerBannerImageUrl) {
        Image.getSize(
@@ -927,7 +926,7 @@ const styles = StyleSheet.create({
   eventBannerFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    ustifyContent: 'flex-end',
+    justifyContent: 'flex-end',
     paddingHorizontal: 14,
     paddingVertical: 10,
     gap: 8,

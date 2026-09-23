@@ -134,7 +134,7 @@ const EventList = () => {
   const SellerCard = ({ seller }) => (
     <TouchableOpacity
       style={[styles.card, cardWidthOverride]}
-      onPress={() => router.push(`/buyer/CateringDetail?sellerid=${seller.id}`)}
+      onPress={() => router.push(`/buyer/CateringDetail?sellerid=${seller.id}&eventId=${eventId}`)}
       activeOpacity={0.85}
     >
       <View style={styles.cardImageWrapper}>

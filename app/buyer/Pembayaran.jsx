@@ -133,6 +133,7 @@ const Pembayaran = () => {
   const [orderId, setOrderId] = useState(null);
   const [countdown, setCountdown] = useState(CANCEL_WINDOW_SECONDS);
   const [cancelling, setCancelling] = useState(false);
+  const [cartEventId, setCartEventId] = useState(null); // optional event ID yang dipilih buyer di EventList.jsx, diteruskan ke backend saat bikin order Catering
 
   const [alert, setAlert] = useState({ visible: false, title: '', message: '', buttons: [{ text: 'OK' }], type: 'info' });
   const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
@@ -145,6 +146,10 @@ const Pembayaran = () => {
   const [startDate, setStartDate] = useState(null);
   const [endDate, setEndDate] = useState(null);
   const [promoDiscount, setPromoDiscount] = useState(null);
+  const [voucherInput, setVoucherInput] = useState('');
+  const [appliedVoucher, setAppliedVoucher] = useState('null');
+  const [voucherError, setVoucherError] = useState('');
+  const [voucherChecking, setVoucherChecking] = useState(false);
   // ---- Catering delivery date & time (separate from Rantangan's)
   const [cateringDateTime, setCateringDateTime] = useState(null);
   const [showCateringDatePicker, setShowCateringDatePicker] = useState(false);
@@ -173,11 +178,19 @@ useEffect(() => {
   fetchPromo();
 }, [store, orderType]);
 
-const estimatedDiscount = promoDiscount
-  ? (promoDiscount.discountType === 'percentage'
-    ? Math.round(total * (Number(promoDiscount.discountAmount) / 100))
-    : Math.min(Number(promoDiscount.discountAmount), total))
+  const autoPromoDiscount = promoDiscount
+    ? (promoDiscount.discountType === 'percentage'
+      ? Math.round(total * (Number(promoDiscount.discountAmount) / 100))
+      : Math.min(Number(promoDiscount.discountAmount), total))
     : 0;
+
+    const voucherDiscountValue = appliedVoucher
+      ? Math.round(total * (Number(appliedVoucher.discountAmount) / 100))
+      : 0;
+
+    const usingVoucher = voucherDiscountValue > autoPromoDiscount;
+    const estimatedDiscount = usingVoucher ? voucherDiscountValue : autoPromoDiscount;
+    const activateDiscountLabel = usingVoucher ? `Voucher (${appliedVoucher.code})` : (promoDiscount ? promoDiscount.title : '');
     const estimatedFinalTotal = total - estimatedDiscount + ADMIN_FEE;
 
 useEffect(() => {
@@ -194,48 +207,76 @@ useEffect(() => {
         const cartNotesData = await AsyncStorage.getItem('cart_notes');
         setCartNotes(cartNotesData || '');
 
+        const cartEventIdData = await AsyncStorage.getItem('cart_event_id');
+        setCartEventId(cartEventIdData || null);
+
         // Cek dulu apakah ada lokasi khusus untuk order Catering ini (dipilih di
         // CateringDetail.jsx). Kalau ada, pakai itu — kalau tidak, fallback ke
         // pinPoint tersimpan di profil (perilaku lama, tetap dipakai untuk Rantangan).
         const overrideRaw = await AsyncStorage.getItem('delivery_location_override');
-// PENTING: override cuma valid buat order Catering. Kalau order sekarang
-// Rantangan tapi override masih nyangkut dari sesi Catering sebelumnya,
-// abaikan — pakai pinPoint profil seperti biasa.
-const isCateringOrder = orderTypeData === 'Catering';
+        // PENTING: override cuma valid buat order Catering. Kalau order sekarang
+        // Rantangan tapi override masih nyangkut dari sesi Catering sebelumnya,
+        // abaikan — pakai pinPoint profil seperti biasa.
+        const isCateringOrder = orderTypeData === 'Catering';
 
-if (overrideRaw && isCateringOrder) {
-  const override = JSON.parse(overrideRaw);
-  if (override.lat && override.lng) {
-    setBuyerLocation({ lat: override.lat, lng: override.lng });
-  }
-  if (override.address) {
-    setDeliveryOverride({
-      address: override.address || '',
-      kelurahan: override.addressComponents?.kelurahan || '',
-      kecamatan: override.addressComponents?.kecamatan || '',
-      provinsi: override.addressComponents?.provinsi || '',
-      kodepos: override.addressComponents?.kodepos || '',
-    });
-  }
-} else {
-  const buyerLocationData = await AsyncStorage.getItem('pinPoint');
-  if (buyerLocationData) {
-    const pinPoint = JSON.parse(buyerLocationData);
-    if (pinPoint.lat && pinPoint.lng) {
-      setBuyerLocation({ lat: pinPoint.lat, lng: pinPoint.lng });
-    }
-  }
-}
-      } catch (e) {
-        setCart([]);
-        setStore(null);
-        setOrderType('');
-        setBuyerLocation(null);
-        setCartNotes('');
+        if (overrideRaw && isCateringOrder) {
+          const override = JSON.parse(overrideRaw);
+          if (override.lat && override.lng) {
+            setBuyerLocation({ lat: override.lat, lng: override.lng });
+          }
+          if (override.address) {
+            setDeliveryOverride({
+              address: override.address || '',
+              kelurahan: override.addressComponents?.kelurahan || '',
+              kecamatan: override.addressComponents?.kecamatan || '',
+              provinsi: override.addressComponents?.provinsi || '',
+              kodepos: override.addressComponents?.kodepos || '',
+            });
+          }
+        } else {
+          const buyerLocationData = await AsyncStorage.getItem('pinPoint');
+          if (buyerLocationData) {
+            const pinPoint = JSON.parse(buyerLocationData);
+            if (pinPoint.lat && pinPoint.lng) {
+              setBuyerLocation({ lat: pinPoint.lat, lng: pinPoint.lng });
+            }
+          }
+        }
+              } catch (e) {
+                setCart([]);
+                setStore(null);
+                setOrderType('');
+                setBuyerLocation(null);
+                setCartNotes('');
+              }
+            };
+            fetchCart();
+          }, []);
+
+  const handleApplyVoucher = async () => {
+    if (!voucherInput.trim()) return;
+    setVoucherChecking(true);
+    setVoucherError('');
+    try {
+      const token = await AsyncStorage.getItem('buyerToken');
+      const res = await axios.post(
+        `${config.API_URL}/buyer/vouchers/validate`,
+        { code: voucherInput.trim(), eventId: cartEventId, sellerId: store?.id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      if (res.data.valid) {
+        setAppliedVoucher(res.data);
+      } else {
+        setAppliedVoucher(null);
+        setVoucherError(res.data.message || 'Kode tidak valid');
       }
-    };
-    fetchCart();
-  }, []);
+    } catch (e) {
+      setAppliedVoucher(null);
+      setVoucherError('Gagal memeriksa kode voucher');
+    } finally {
+      setVoucherChecking(false);
+    }
+  };
 
   const isRantanganOrder = orderType === 'Rantangan' || orderType.includes('Rantangan');
   const isCateringOrder = orderType === 'Catering' || orderType.includes('Catering');
@@ -453,6 +494,8 @@ const handleCateringDatePicked = (date) => {
           endDate: isRantanganOrder && endDate ? endDate.toISOString() : null,
           packageType: isRantanganOrder ? getPackageType(orderType) : null,
           eventDateTime: isCateringOrder && cateringDateTime ? cateringDateTime.toISOString() : null,
+          voucherCode: usingVoucher && appliedVoucher ? appliedVoucher.code : null,
+          eventId: cartEventId || null,
         },
         token ? { headers: { Authorization: `Bearer ${token}` } } : undefined
       );
@@ -673,6 +716,34 @@ const handleCateringDatePicked = (date) => {
               <Text style={{ fontSize: 11.5, color: '#999', marginTop: 4 }}>
                 Pesanan Catering minimal dipesan H-1 (paling cepat besok).
               </Text>
+            </View>
+          )}
+
+          {cartEventId && (
+            <View style={{ marginBottom: 16 }}>
+              <Text style={{ fontSize: 13, fontWeight: '600', marginBottom: 6 }}>Kode Voucher</Text>
+              <View style={{ flexDirection: 'row', gap: 8 }}>
+                <TextInput
+                  style={{ flex: 1, borderWidth: 1, borderColor: '#dddd', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 10 }}
+                  placeholder="Masukkan kode"
+                  autoCapitalize="characters"
+                  value={voucherInput}
+                  onChangeText={setVoucherInput}
+                  />
+                  <TouchableOpacity
+                    onPress={handleApplyVoucher}
+                    disabled={voucherChecking}
+                    style={{ backgroundColor: COLORS.PRIMARY, paddingHorizontal: 16, justifyContent: 'center', borderRadius: 8 }}
+                    >
+                      <Text style={{ color: '#fff', fontWeight: '600' }}>{voucherChecking ? '...' : 'Terapkan'}</Text>
+                  </TouchableOpacity>
+              </View>
+              {voucherError ? <Text style={{ color: '#D32F2F', fontSize: 12, marginTop:4 }}>{voucherError}</Text> : null}
+              {appliedVoucher && !voucherError ? (
+                <Text style={{ color: '#2E7D32', fontSize:12, marginTop: 4 }}>
+                  Kode "{appliedVoucher.code}" berhasil diterapkan{!usingVoucher ? ' (tapi promo otomatis lebih hemat, jadi itu yang dipakai) ' : ''}
+                </Text>
+              ) : null}
             </View>
           )}
 

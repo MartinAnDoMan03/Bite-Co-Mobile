@@ -49,7 +49,7 @@ const EventRegisterForm = () => {
       Alert.alert(
         "Pendaftaran Berhasil",
         res.data.message || "Kamu berhasil terdaftar di event ini.",
-        [{ text: "OK", onPress: () => router.replace("seller/(tabs)") }]
+        [{ text: "OK", onPress: () => router.replace({ pathname: "seller/EventMenuSelect", params: { eventId } }) }]
       );
     } catch (e) {
       const errMsg = e.response?.data?.error || "Gagal mendaftar. Coba lagi.";

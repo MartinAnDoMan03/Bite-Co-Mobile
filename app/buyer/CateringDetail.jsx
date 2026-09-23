@@ -38,6 +38,9 @@ const DELIVERY_LOCATION_OVERRIDE_KEY = 'delivery_location_override';
 // dibaca ulang sama Pembayaran.jsx pas bikin order lalu dikirim sebagai field `notes`.
 const CART_NOTES_KEY = 'cart_notes';
 
+// ID event yang lagi dipilih buyer (kalau ada) — dipakai buat tracking di backend
+const CART_EVENT_ID_KEY = 'cart_event_id';
+
 const ALERT_TYPE_STYLES = {
   info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
   success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
@@ -312,7 +315,7 @@ const getSlotItems = (slot, categories) => {
 };
 
 const CateringDetail = () => {
-  const { sellerid } = useLocalSearchParams();
+  const { sellerid, eventId } = useLocalSearchParams();
   const insets = useSafeAreaInsets();
   const [store, setStore] = useState(null);
   const [categories, setCategories] = useState([]);
@@ -489,9 +492,10 @@ const loadBuyerAddress = async () => {
 
       try {
         let apiUrl = `${config.API_URL}/seller/detail/${sellerid}`;
-        if (buyerLocation) {
-          apiUrl += `?buyerLat=${buyerLocation.lat}&buyerLng=${buyerLocation.lng}`;
-        }
+        const qs = [];
+        if (buyerLocation) qs.push(`buyerLat=${buyerLocation.lat}`, `buyerLng=${buyerLocation.lng}`);
+        if (eventId) qs.push(`eventId=${eventId}`);
+        if(qs.length) apiUrl += `?${qs.join('&')}`;
 
         const res = await axios.get(apiUrl);
         console.log("Detail Catering Response:", res.data);
@@ -686,6 +690,12 @@ const updateItemPax = (menuId, newQty) => {
       await AsyncStorage.setItem('cart_total', JSON.stringify(getTotal()));
       await AsyncStorage.setItem('cart_store', JSON.stringify(store));
       await AsyncStorage.setItem('order_type', 'Catering');
+
+      if (eventId) {
+        await AsyncStorage.setItem(CART_EVENT_ID_KEY, eventId);
+      } else {
+        await AsyncStorage.removeItem(CART_EVENT_ID_KEY);
+      }
 
       // Simpan pilihan lokasi pengantaran khusus untuk order Catering ini.
       // Kalau buyer pilih "Lokasi Lain", override ini dibaca Pembayaran.jsx

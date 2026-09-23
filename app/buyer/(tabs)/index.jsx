@@ -423,6 +423,7 @@ const iconSize = isDesktop ? 72 : 56;
         <SafeAreaView edges={['top']} style={styles.header}>
           <View style={{ alignItems: 'center' }}>
           {promos.length > 0 ? (
+            <>
             <FlatList
               ref={flatListRef}
               data={promos} // <-- Langsung pakai data promos saja
@@ -434,25 +435,33 @@ const iconSize = isDesktop ? 72 : 56;
                 setCurrentBannerIndex(index);
               }}
               keyExtractor={(item) => item.id}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={{ width: effectiveWidth, alignItems: 'center', paddingVertical: 10 }}
-                  activeOpacity={item.sellerId ? 0.85 : 1}
-                  onPress={() => {
-                    if (!item.sellerId) return;
-
-                    if (item.promoFor === 'catering' || item.promoFor === 'both') {
-                      router.push({ pathname: '/buyer/CateringDetail', params: { sellerid: item.sellerId } });
-                    } else if (item.promoFor === 'rantangan') {
-                      router.push({ pathname: '/buyer/RantanganDetail', params: { sellerid: item.sellerId } });
-                    }
-                  }}
-                >
-                  {/* Karena data pasti ada isinya, langsung render gambarnya */}
-                  <Image source={{ uri: item.imageUrl }} style={styles.bannerImage} />
-                </TouchableOpacity>
-              )}
+                renderItem={({ item }) => (
+                  <TouchableOpacity
+                    style={{ width: effectiveWidth, alignItems: 'center', paddingVertical: 10 }}
+                    activeOpacity={item.sellerId ? 0.85 : 1}
+                    onPress={() => {
+                      if (!item.sellerId) return;
+                      if (item.promoFor === 'catering' || item.promoFor === 'both') {
+                        router.push({ pathname: '/buyer/CateringDetail', params: { sellerid: item.sellerId } });
+                      } else if (item.promoFor === 'rantangan') {
+                        router.push({ pathname: '/buyer/RantanganDetail', params: { sellerid: item.sellerId } });
+                      }
+                    }}
+                  >
+                    <View style={styles.bannerImageWrapper}>
+                      <Image source={{ uri: item.imageUrl }} style={styles.bannerImage} resizeMode="cover" />
+                    </View>
+                  </TouchableOpacity>
+                )}
             />
+            {promos.length > 1 && (
+              <View style={styles.dotsRow}>
+              {promos.map((_, i) => (
+                <View key={i} style= {[styles.dot, i === currentBannerIndex && styles.dotActive]}/>
+              )) }
+              </View>
+            )}
+          </>
           ) : (
              <View style={[styles.emptyHeaderPlaceholder, { width: '100%', maxWidth: contentMaxWidth }]}>
             { /* --- TAMPILAN JIKA TIDAK ADA PROMO --- */ }
@@ -732,10 +741,32 @@ const styles = StyleSheet.create({
     alignItems: "center",
     paddingVertical: 10,
   },
-  bannerImage: {
+  bannerImageWrapper: {
     width: "90%",
     aspectRatio: 16 / 9,
-    resizeMode: "contain",
+    borderRadius: 16,
+    overflow: "hidden",
+    backgroundColor: "rgba(255,255,255,0.1)",
+  },
+  bannerImage: {
+    width: "100%",
+    height: "100%",
+  },
+  dotsRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: "rgba(255,255,255,0.4)",
+  },
+  dotActive: {
+    backgroundColor: "#fff",
+    width: 16,
   },
   searchContainer: {
     flexDirection: "row",
