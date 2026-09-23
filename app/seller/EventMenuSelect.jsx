@@ -1,4 +1,4 @@
-import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, ActivityIndicator, StyleSheet, TextInput } from "react-native";
 import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import HeaderTitleBack from "../../components/HeaderTitleBack";
@@ -15,6 +15,8 @@ export default function EventMenuSelect() {
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [registrationInfo, setRegistrationInfo] = useState(null);
+  const [standNumber, setStandNumber] = useState('');
 
 useEffect(() => {
   const load = async () => {
@@ -28,7 +30,17 @@ useEffect(() => {
       setCategories(menuResult.data || []);
 
       const regResult = await regRes.json();
-      setSelectedIds(new Set(regResult.registration?.eventItemIds || []));
+          setRegistrationInfo(regResult.registration || null);
+          setStandNumber(regResult.registration?.standNumber || '');
+    if (regResult.registration?.eventItemIds) {
+      setSelectedIds(new Set(regResult.registration.eventItemIds));
+    } else {
+      // Belum pernah atur pilihan — default semua item outlet ke-checklist (opt-out)
+      const allItemIds = (menuResult.data || []).flatMap((cat) =>
+        (cat.items || []).map((item) => item.id)
+      );
+      setSelectedIds(new Set(allItemIds));
+    }
     } catch (e) {
         //empty state 
     } finally {
@@ -53,7 +65,7 @@ useEffect(() => {
       const res = await fetch(`${config.API_URL}/seller/events/${eventId}/register`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ itemIds: Array.from(selectedIds) }),
+        body: JSON.stringify({ itemIds: Array.from(selectedIds), standNumber: standNumber.trim() || null })
       });
       const data = await res.json();
       if (data.success) {
@@ -75,6 +87,22 @@ useEffect(() => {
         <ActivityIndicator style={{ marginTop: 40 }} color={COLORS.PRIMARY} />
       ) : (
         <ScrollView contentContainerStyle={{ padding: 16 }}>
+           {registrationInfo && (
+           <View style={styles.standInfoBox}>
+             <Text style={styles.standInfoText}>
+               Kategori: {(registrationInfo.eventCategory || []).join(", ") || "-"}
+             </Text>
+           </View>
+         )}
+        +         <Text style={styles.categoryTitle}>Nomor Stand</Text>
+        <Text style={styles.hint}>Isi sesuai nomor stand yang diberikan panitia di lokasi event (opsional, bisa diubah kapan saja).</Text>
+        <TextInput
+          style={styles.standInput}
+          placeholder="Mis. A7"
+          value={standNumber}
+          onChangeText={setStandNumber}
+        />
+
           <Text style={styles.hint}>
             Pilih menu yang akan kamu bawa/jual di stand event. Buyer yang datang lewat halaman event cuma akan lihat menu yang kamu centang di sini.
           </Text>
@@ -103,6 +131,22 @@ useEffect(() => {
 
 const styles = StyleSheet.create({
   hint: { fontSize: 13, color: '#666', marginBottom: 16, lineHeight: 18 },
+   standInfoBox: {
+   backgroundColor: '#F7EAEF',
+   borderRadius: 10,
+   padding: 10,
+   marginBottom: 12,
+ },
+ standInfoText: { fontSize: 12.5, color: COLORS.PRIMARY, fontWeight: '700' },
+  standInput: {
+   borderWidth: 1,
+   borderColor: '#e5e5e5',
+   borderRadius: 10,
+   padding: 12,
+   fontSize: 14,
+   color: '#23272f',
+   marginBottom: 16,
+ },
   categoryTitle: { fontSize: 15, fontWeight: '700', color: '#23272f', marginBottom: 8 },
   itemRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, gap: 10 },
   itemName: { fontSize: 14, color: '#23272f' },

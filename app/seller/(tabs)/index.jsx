@@ -141,6 +141,7 @@ const ExpandableMenu = () => {
   // Event aktif (mis. KMI Expo) — dipakai buat banner ajakan daftar event
  const [activeEvent, setActiveEvent] = useState(null);
  const [eventBannerRatio, setEventBannerRatio] = useState(16 / 9);
+ const [sellerEventDetails, setSellerEventDetails] = useState({});
 
  const fetchActiveEvent = async () => {
    try {
@@ -206,6 +207,7 @@ const ExpandableMenu = () => {
           response.data.pinAddress ||
           t("beranda.defaultAddress")
       );
+      setSellerEventDetails(response.data.eventDetails || {});
     } catch (err) {
       console.error("Error fetching profile:", err);
       setStoreName(t("beranda.defaultStoreName"));
@@ -412,6 +414,31 @@ const ExpandableMenu = () => {
     </TouchableOpacity>
   </View>
   );
+ const getEventBannerConfig = () => {
+   if (!activeEvent) return null;
+   const status = sellerEventDetails?.[activeEvent.id]?.status;
+
+   if (!status) {
+     return {
+       text: "Yuk, Daftar Jadi Mitra",
+       clickable: true,
+       onPress: () =>
+         router.push({ pathname: "seller/EventTerms", params: { eventId: activeEvent.id } }),
+     };
+   }
+   if (status === "pending") {
+     return { text: "Menunggu Konfirmasi", clickable: false, onPress: null };
+   }
+   if (status === "approved") {
+     return {
+       text: "Kelola Menu Standmu",
+       clickable: true,
+       onPress: () =>
+         router.push({ pathname: "seller/EventMenuSelect", params: { eventId: activeEvent.id } }),
+     };
+   }
+   return null; // rejected -> banner disembunyikan
+ };
 
   return (
     <ScrollView
@@ -456,23 +483,30 @@ const ExpandableMenu = () => {
       )}
           {/* Banner ajakan ikut event — cuma muncul kalau ada event aktif dan
         seller belum ikut event ini (events array-nya belum ada eventId ini) */}
-    {activeEvent && (
-      <TouchableOpacity
-        style={styles.eventBanner}
-        activeOpacity={0.85}
-        onPress={() => router.push({ pathname: 'seller/EventTerms', params: { eventId: activeEvent.id } })}
-      >
-        <View style={[styles.eventBannerImageWrap, { aspectRatio: eventBannerRatio }]}>
-          <Image source={{ uri: activeEvent.sellerBannerImageUrl }} style={styles.eventBannerImage} />
-        </View>
-        <View style={styles.eventBannerFooter}>
-          <View style={styles.eventBannerCta}>
-            <Text style={styles.eventBannerCtaText}>Yuk, Daftar Jadi Mitra</Text>
-            <MaterialIcons name="chevron-right" size={16} color={COLORS.PRIMARY} />
-          </View>
-        </View>
-      </TouchableOpacity>
-    )}
+    
+    {(() => {
+     const bannerConfig = getEventBannerConfig();
+     if (!bannerConfig) return null;
+     return (
+       <TouchableOpacity
+         style={styles.eventBanner}
+         activeOpacity={bannerConfig.clickable ? 0.85 : 1}
+         onPress={bannerConfig.clickable ? bannerConfig.onPress : undefined}
+       >
+         <View style={[styles.eventBannerImageWrap, { aspectRatio: eventBannerRatio }]}>
+           <Image source={{ uri: activeEvent.sellerBannerImageUrl }} style={styles.eventBannerImage} />
+         </View>
+         <View style={styles.eventBannerFooter}>
+           <View style={styles.eventBannerCta}>
+             <Text style={styles.eventBannerCtaText}>{bannerConfig.text}</Text>
+             {bannerConfig.clickable && (
+               <MaterialIcons name="chevron-right" size={16} color={COLORS.PRIMARY} />
+             )}
+           </View>
+         </View>
+       </TouchableOpacity>
+     );
+   })()}
 
       {/* Menu Grid — di luar header burgundy, di atas background putih/abu-abu */}
       <View style={isDesktop ? { width: '100%', maxWidth: contentMaxWidth, alignSelf: 'center' } : undefined}>
