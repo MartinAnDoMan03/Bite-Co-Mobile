@@ -76,6 +76,7 @@ const AddMenuPage = () => {
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [customAlert, setCustomAlert] = useState({ visible: false, title: '', message: '', buttons: [], type: 'info' });
+  const [eventOnly, setEventOnly] = useState(false);
   const router = useRouter();
 
   const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
@@ -207,6 +208,7 @@ const AddMenuPage = () => {
       formData.append('description', description.trim());
       formData.append('price', Number(price));
       formData.append('category_id', selectedCategory.id);
+      formData.append('eventOnly', eventOnly.toString());
 
       if (image) {
         if (Platform.OS === 'web') {
@@ -399,6 +401,12 @@ const AddMenuPage = () => {
               </Text>
             )}
           </View>
+
+          {/* Event Only */}
+          <TouchableOpacity onPress={() => setEventOnly(!eventOnly)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 8 }}>
+            <MaterialIcons name={eventOnly ? 'check-box' : 'check-box-outline-blank'} size={22} color={eventOnly ? COLORS.PRIMARY : '#bbb'}/>
+            <Text style = {{ fontSize: 13, color: '#23272f' }}>Khusus untuk event (sembunyikan darri menu biasa)</Text>
+          </TouchableOpacity>
 
           {/* Tips Section */}
           <View style={styles.tipsSection}>

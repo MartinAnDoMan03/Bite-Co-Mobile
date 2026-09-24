@@ -680,6 +680,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
   const [editDescription, setEditDescription] = useState("");
   const [editPrice, setEditPrice] = useState("");
   const [editImage, setEditImage] = useState(null);
+  const [editEventOnly, setEditEventOnly] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -689,6 +690,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
     setEditDescription(item.description);
     setEditPrice(item.price.toString());
     setEditImage(item.image);
+    setEditEventOnly(item.editEventOnly || false);
     setShowEditModal(true);
   };
 
@@ -699,6 +701,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
     setEditDescription("");
     setEditPrice("");
     setEditImage(null);
+    setEditEventOnly(false);
   };
 
   const handleDeleteMenu = async (item) => {
@@ -764,6 +767,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
       formData.append("price", editPrice);
       formData.append("category_id", selectedCategory.id);
       formData.append("menu_id", editingItem.id);
+      formData.append('eventOnly', editEventOnly.toString());
 
       if (editImage && editImage !== editingItem.image) {
         if (Platform.OS === 'web') {
@@ -909,6 +913,11 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
               onChangeText={setEditPrice}
               keyboardType="numeric"
             />
+
+            <TouchableOpacity onPress={() => setEditEventOnly(!editEventOnly)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 8 }}>
+              <MaterialIcons name={editEventOnly ? 'check-box' : 'check-box-outline-blank'} size={22} color={editEventOnly ? COLORS.PRIMARY : '#bbb'}/>
+              <Text style={{ fontSize: 13, color: '#23272f' }}>Khusus untuk event (sembunyikan dari menu biasa)</Text>
+            </TouchableOpacity>
 
             <View style={styles.modalButtonContainer}>
               <TouchableOpacity

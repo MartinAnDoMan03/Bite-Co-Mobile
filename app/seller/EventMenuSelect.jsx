@@ -115,6 +115,9 @@ useEffect(() => {
                   <TouchableOpacity key={item.id} style={styles.itemRow} onPress={() => toggleItem(item.id)} activeOpacity={0.7}>
                     <MaterialIcons name={checked ? 'check-box' : 'check-box-outline-blank'} size={22} color={checked ? COLORS.PRIMARY : '#bbb'} />
                     <Text style={styles.itemName}>{item.name}</Text>
+                    {item.eventOnly && (
+                      <Text style={{ fontSize: 10, color: COLORS.PRIMARY, fontWeight: '700', marginLeft: 6 }}>KHUSUS EVENT</Text>
+                    )}
                   </TouchableOpacity>
                 );
               })}
