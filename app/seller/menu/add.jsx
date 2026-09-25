@@ -21,6 +21,7 @@ import { useRouter } from 'expo-router';
 import config from '../../constants/config';
 import COLORS from '../../constants/color';
 import { useLanguage } from '../../contexts/LanguageContext';
+import { useLocalSearchParams } from 'expo-router';
 
 const ALERT_TYPE_STYLES = {
   info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
