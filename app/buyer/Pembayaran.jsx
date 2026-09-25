@@ -185,7 +185,10 @@ useEffect(() => {
     : 0;
 
     const voucherDiscountValue = appliedVoucher
-      ? Math.round(total * (Number(appliedVoucher.discountAmount) / 100))
+      ? Math.min(
+          Math.round(total * (Number(appliedVoucher.discountAmount) / 100)),
+          appliedVoucher.maxDiscountAmount ?? Infinity
+        )
       : 0;
 
     const usingVoucher = voucherDiscountValue > autoPromoDiscount;
