@@ -132,6 +132,7 @@ const ScreenTambahMenu = ({
   const [price, setPrice] = useState("");
   const [image, setImage] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [eventOnly, setEventOnly] = useState(false);
 
   const pickImage = async () => {
     let result = await ImagePicker.launchImageLibraryAsync({
@@ -166,6 +167,7 @@ const ScreenTambahMenu = ({
       formData.append("description", description);
       formData.append("price", price);
       formData.append("category_id", selectedCategory.id);
+      formData.append('eventOnly', eventOnly.toString());
 
       if (image) {
         if (Platform.OS === 'web') {
@@ -269,6 +271,11 @@ const ScreenTambahMenu = ({
               onChangeText={setPrice}
               keyboardType="numeric"
             />
+
+            <TouchableOpacity onPress={() => setEventOnly(!eventOnly)} style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginVertical: 8 }}>
+              <MaterialIcons name={eventOnly ? 'check-box' : 'check-box-outline-blank'} size={22} color={eventOnly ? COLORS.PRIMARY : '#bbb'} />
+              <Text style={{ fontSize: 13, color: '#23272f' }}>Khusus untuk event (sembunyikan dari menu biasa)</Text>
+            </TouchableOpacity>
           </View>
 
           <TouchableOpacity
@@ -690,7 +697,7 @@ const ScreenMenu = ({ selectedCategory, state, setState, fetchCategories, showAl
     setEditDescription(item.description);
     setEditPrice(item.price.toString());
     setEditImage(item.image);
-    setEditEventOnly(item.editEventOnly || false);
+    setEditEventOnly(item.eventOnly || false);
     setShowEditModal(true);
   };
 

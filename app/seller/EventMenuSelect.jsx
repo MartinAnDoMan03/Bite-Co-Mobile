@@ -94,7 +94,7 @@ useEffect(() => {
              </Text>
            </View>
          )}
-        +         <Text style={styles.categoryTitle}>Nomor Stand</Text>
+        <Text style={styles.categoryTitle}>Nomor Stand</Text>
         <Text style={styles.hint}>Isi sesuai nomor stand yang diberikan panitia di lokasi event (opsional, bisa diubah kapan saja).</Text>
         <TextInput
           style={styles.standInput}
@@ -106,6 +106,16 @@ useEffect(() => {
           <Text style={styles.hint}>
             Pilih menu yang akan kamu bawa/jual di stand event. Buyer yang datang lewat halaman event cuma akan lihat menu yang kamu centang di sini.
           </Text>
+
+          
+          <TouchableOpacity
+            onPress={() => router.push({ pathname: 'seller/menu/add', params: { eventOnly: 'true', returnEventId: eventId } })}
+            style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 16 }}
+          >
+            <MaterialIcons name="add-circle-outline" size={20} color={COLORS.PRIMARY} />
+            <Text style={{ color: COLORS.PRIMARY, fontWeight: '600', fontSize: 13 }}>Tambah menu khusus event ini</Text>
+          </TouchableOpacity>
+          
           {categories.map(cat => (
             <View key={cat.id} style={{ marginBottom: 20 }}>
               <Text style={styles.categoryTitle}>{cat.name}</Text>

@@ -76,7 +76,8 @@ const AddMenuPage = () => {
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [customAlert, setCustomAlert] = useState({ visible: false, title: '', message: '', buttons: [], type: 'info' });
-  const [eventOnly, setEventOnly] = useState(false);
+  const { eventOnly: eventOnlyParam } = useLocalSearchParams();
+  const [eventOnly, setEventOnly] = useState(eventOnlyParam === 'true'); // Convert string to boolean
   const router = useRouter();
 
   const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
