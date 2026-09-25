@@ -261,7 +261,7 @@ useEffect(() => {
       const token = await AsyncStorage.getItem('buyerToken');
       const res = await axios.post(
         `${config.API_URL}/buyer/vouchers/validate`,
-        { code: voucherInput.trim(), eventId: cartEventId, sellerId: store?.id },
+        { code: voucherInput.trim(), eventId: cartEventId, sellerId: store?.id, orderAmount: total },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       if (res.data.valid) {
