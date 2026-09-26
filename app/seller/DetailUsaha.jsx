@@ -518,9 +518,11 @@ const openCameraFor = async (isKtp) => {
           { compress: 0.6, format: ImageManipulator.SaveFormat.JPEG }
         );
         compressedAsset = { ...result.assets[0], uri: manipResult.uri };
-      } catch (err) {
-        console.error('Image compression failed, using original:', err);
-      }
+        } catch (err) {
+          console.error('Image compression failed:', err);
+          Alert.alert('Gagal Memproses Foto', 'Silakan coba ambil foto lagi.');
+          return;
+        }
 
       if (isKtp) {
         // Validate KTP before accepting
@@ -587,23 +589,28 @@ const openCameraFor = async (isKtp) => {
     const base64 = await FileSystem.readAsStringAsync(imageUri, {
       encoding: FileSystem.EncodingType.Base64,
     });
-    const visionResponse = await axios.post(
-      `https://vision.googleapis.com/v1/images:annotate?key=${config.GOOGLE_MAPS_API_KEY}`,
-      {
-        requests: [{
-          image: { content: base64 },
-          features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
-        }]
-      }
-    );
+      const visionResponse = await axios.post(
+        `https://vision.googleapis.com/v1/images:annotate?key=${config.GOOGLE_MAPS_API_KEY}`,
+        {
+          requests: [{
+            image: { content: base64 },
+            features: [{ type: 'TEXT_DETECTION', maxResults: 1 }]
+          }]
+        },
+        { timeout: 15000 }
+      );
+
     const detectedText = visionResponse.data.responses[0]?.fullTextAnnotation?.text?.toUpperCase() || '';
     const ktpKeywords = ['NIK', 'NAMA', 'TEMPAT', 'LAHIR', 'ALAMAT', 'JENIS', 'KELAMIN', 'KECAMATAN', 'PEKERJAAN', 'KEWARGANEGARAAN'];
     const matchCount = ktpKeywords.filter(keyword => detectedText.includes(keyword)).length;
     return matchCount >= 3;
-  } catch (error) {
-    console.error('Error validating KTP image:', error);
-    return null;
-  }
+    } catch (error) {
+      console.error('Error validating KTP image:', error);
+      if (error.code === 'ECONNABORTED') {
+        Alert.alert('Koneksi Terlalu Lambat', 'Coba lagi dengan koneksi internet yang lebih stabil.');
+      }
+      return null;
+    }
 };
 
 // Validasi selfie dengan KTP menggunakan Google Vision API
@@ -621,16 +628,20 @@ const validateSelfieWithKTP = async (imageUri) => {
             { type: 'FACE_DETECTION', maxResults: 5 },
           ]
         }]
-      }
+      },
+      { timeout: 15000 }
     );
     const response = visionResponse.data.responses[0];
     const faces = response.faceAnnotations || [];
     const hasFace = faces.length > 0;
-    return { hasFace, hasKTPText: true }; // always pass KTP text check
-  } catch (error) {
-    console.error('Error validating selfie:', error);
-    return null;
-  }
+    return { hasFace, hasKTPText: true }; 
+    } catch (error) {
+      console.error('Error validating selfie:', error);
+      if (error.code === 'ECONNABORTED') {
+        Alert.alert('Koneksi Terlalu Lambat', 'Coba lagi dengan koneksi internet yang lebih stabil.');
+      }
+      return null;
+    }
 };
 
   const requestPickImage = async (isKtp) => {
