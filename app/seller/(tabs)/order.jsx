@@ -224,6 +224,7 @@ const CardStatus = ({
   startDate,
   endDate,
   eventDateTime,
+  eventId,
   dailyDeliveryLogs = [],
 }) => {
   const { t } = useLanguage();
@@ -267,7 +268,10 @@ const CardStatus = ({
       const disabled = actionLoading || todayDone;
       const label = todayDone
         ? t('pesanan.actions.completedToday')
-        : actionLoading ? t('pesanan.actions.pleaseWait') : isBiteEco ? t('pesanan.actions.completeOrderBiteEco') : t('pesanan.actions.completeOrder');
+        : actionLoading ? t('pesanan.actions.pleaseWait')
+        : eventId ? 'Konfirmasi Pengambilan'
+        : isBiteEco ? t('pesanan.actions.completeOrderBiteEco')
+        : t('pesanan.actions.completeOrder');
       return (
         <TouchableOpacity
           style={[styles.progressBtn, disabled && styles.btnDisabled]}
@@ -624,6 +628,7 @@ const SellerOrder = () => {
                 startDate={order.startDate}
                 endDate={order.endDate}
                 eventDateTime={order.eventDateTime}
+                eventId={order.eventId}
                 dailyDeliveryLogs={order.dailyDeliveryLogs || []}
               />
             ))

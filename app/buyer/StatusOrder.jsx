@@ -157,6 +157,14 @@
     { key: "completed", label: t('buyerStatusOrder.steps.default.completed'), icon: "check-circle", color: COLORS.GREEN3 },
   ];
 
+  //  Status step for event orders
+  const getStatusSteps_Event = (t) => [
+    { key: "awaiting_seller_approval", label: t('buyerStatusOrder.steps.default.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
+    { key: "processing", label: t('buyerStatusOrder.steps.default.processing'), icon: "autorenew", color: COLORS.ORANGE || "#FFA726" },
+    { key: "delivery", label: "Siap Diambil", icon: "storefront", color: COLORS.GREEN4 },
+    { key: "completed", label: t('buyerStatusOrder.steps.default.completed'), icon: "check-circle", color: COLORS.GREEN3 },
+  ];
+
   // Rantangan Harian status steps
   const getRantanganHarianSteps = (t) => [
     { key: "awaiting_seller_approval", label: t('buyerStatusOrder.steps.rantanganHarian.waitingApproval'), icon: "hourglass-empty", color: COLORS.BLUE2 },
@@ -217,7 +225,10 @@
   };
 
   // Helper function to get appropriate status steps based on order type
-  const getStatusSteps = (t, orderType, packageType) => {
+  const getStatusSteps = (t, orderType, packageType, eventId) => {
+    if (eventId) {
+      return getStatusSteps_Event(t);
+    }
     if (orderType === 'Bite Eco') {
       return getBiteEcoSteps(t);
     }
@@ -268,7 +279,7 @@
     }
   }
 
-  const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endDate, dailyDeliveryLogs = [] }) => {
+  const StatusStepper = ({ statusProgress, orderType, packageType, startDate, endDate, dailyDeliveryLogs = [], eventId }) => {
   const { t, language } = useLanguage();
   const dateLocale = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' }[language] || 'id-ID';
     // FIX: dulu di sini ada blok icon X + teks "Dibatalkan" gede di tengah,
@@ -280,7 +291,7 @@
       return null;
     }
 
-    const steps = getStatusSteps(t, orderType, packageType);
+    const steps = getStatusSteps(t, orderType, packageType, eventId);
     const activeStep = getStepIndex(statusProgress, orderType, packageType);
 
     const daysRemaining = (startDate && endDate) ? calculateDaysRemaining(startDate, endDate, dailyDeliveryLogs) : 0;
@@ -498,6 +509,7 @@
     endDate,
     packageType,
     dailyDeliveryLogs,
+    eventId,
   }) => {
     const { t, language } = useLanguage();
     const dateLocale = { en: 'en-US', id: 'id-ID', ms: 'ms-MY' }[language] || 'id-ID';
@@ -563,6 +575,7 @@
                 startDate={startDate}
                 endDate={endDate}
                 dailyDeliveryLogs={dailyDeliveryLogs}
+                eventId={eventId}
               />
             </View>
           )}
@@ -959,6 +972,7 @@
                     endDate={order.endDate}
                     packageType={order.packageType}
                     dailyDeliveryLogs={order.dailyDeliveryLogs}
+                    eventId={order.eventId}
                   />
                 </TouchableOpacity>
               ))

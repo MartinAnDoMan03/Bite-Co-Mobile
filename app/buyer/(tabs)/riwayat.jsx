@@ -28,7 +28,10 @@ const STATUS_PROGRESS_META = {
   payment_expired: { icon: 'schedule', bg: '#FDECEA', text: '#D32F2F', label: 'Pembayaran Kadaluarsa', isFailed: true },
 };
 
-const getStatusMeta = (statusProgress) => {
+const getStatusMeta = (statusProgress, isEvent = false) => {
+  if (statusProgress === 'delivery' && isEvent) {
+    return { icon: 'storefront', bg: '#F1F1F3', text: '#3A3F47', label: 'Siap Diambil', isFailed: false };
+  }
   return STATUS_PROGRESS_META[statusProgress] || { icon: 'help-outline', bg: '#F1F1F3', text: '#3A3F47', label: 'Menunggu', isFailed: false };
 };
 
@@ -328,7 +331,7 @@ const Riwayat = () => {
             <Text style={styles.sectionTitle}>{t('buyerRiwayat.sectionTitle', { count: filteredOrders.length })}</Text>
             {filteredOrders.map(order => {
               const expired = isPaymentExpired(order, now);
-              const meta = expired ? STATUS_PROGRESS_META.payment_expired : getStatusMeta(order.statusProgress);
+              const meta = expired ? STATUS_PROGRESS_META.payment_expired : getStatusMeta(order.statusProgress, !!order.eventId);
               const overdue = isApprovalOverdue(order, now);
               const isQrisRejected =
                 order.paymentMethod === 'manual_qris' && order.paymentStatus === 'rejected';
