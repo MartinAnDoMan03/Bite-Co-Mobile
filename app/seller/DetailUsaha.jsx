@@ -89,7 +89,7 @@ const Success = () => {
         style={styles.successBtn}
         // NOTE: sesuaikan route ini dengan route beranda seller di project-mu,
         // contoh: "/seller/home" atau "/(seller)/dashboard"
-        onPress={() => router.replace("/seller/SellerHome")}
+        onPress={() => router.replace("/seller/SellerIndex")}
       >
         <Text style={styles.successBtnText}>{t('detailUsaha.success.button')}</Text>
       </TouchableOpacity>

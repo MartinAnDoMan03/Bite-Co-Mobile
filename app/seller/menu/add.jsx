@@ -17,11 +17,10 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as ImageManipulator from 'expo-image-manipulator';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import config from '../../constants/config';
 import COLORS from '../../constants/color';
 import { useLanguage } from '../../contexts/LanguageContext';
-import { useLocalSearchParams } from 'expo-router';
 
 const ALERT_TYPE_STYLES = {
   info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
@@ -68,6 +67,7 @@ const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose 
 
 const AddMenuPage = () => {
   const { t } = useLanguage();
+  const { eventOnly: eventOnlyParam } = useLocalSearchParams();
   const [categories, setCategories] = useState([]);
   const [selectedCategory, setSelectedCategory] = useState(null);
   const [menuName, setMenuName] = useState('');
@@ -77,8 +77,15 @@ const AddMenuPage = () => {
   const [loading, setLoading] = useState(false);
   const [categoriesLoading, setCategoriesLoading] = useState(true);
   const [customAlert, setCustomAlert] = useState({ visible: false, title: '', message: '', buttons: [], type: 'info' });
-  const { eventOnly: eventOnlyParam } = useLocalSearchParams();
-  const [eventOnly, setEventOnly] = useState(eventOnlyParam === 'true'); // Convert string to boolean
+  const [eventOnly, setEventOnly] = useState(eventOnlyParam === 'true');
+  const [showAddCategoryModal, setShowAddCategoryModal] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [addingCategory, setAddingCategory] = useState(false);
+  const [showEditCategoryModal, setShowEditCategoryModal] = useState(false);
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [savingCategoryEdit, setSavingCategoryEdit] = useState(false);
+  const [deletingCategory, setDeletingCategory] = useState(false);
   const router = useRouter();
 
   const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
@@ -122,6 +129,158 @@ const AddMenuPage = () => {
     } finally {
       setCategoriesLoading(false);
     }
+  };
+
+    const closeAddCategoryModal = () => {
+    setShowAddCategoryModal(false);
+    setNewCategoryName('');
+  };
+
+  const handleAddCategory = async () => {
+    if (!newCategoryName.trim()) {
+      showAlert(t('common.error'), t('addMenu.category.modal.nameRequired'), [{ text: t('common.ok') }], 'error');
+      return;
+    }
+
+    try {
+      setAddingCategory(true);
+      const token = await AsyncStorage.getItem('sellerToken');
+      if (!token) {
+        showAlert(t('common.error'), t('addMenu.alerts.noToken'), [{ text: t('common.ok') }], 'error');
+        return;
+      }
+
+      const response = await fetch(`${config.API_URL}/seller/categories`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: newCategoryName.trim(), type: 'catering' }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to add category');
+      }
+
+      const newCategory = result.category;
+      const categoryWithItems = { ...newCategory, items: newCategory.items || [] };
+      setCategories((prev) => [...prev, categoryWithItems]);
+      setSelectedCategory(categoryWithItems);
+      closeAddCategoryModal();
+    } catch (error) {
+      console.error('Error adding category:', error);
+      showAlert(t('common.error'), t('addMenu.category.modal.addFailed'), [{ text: t('common.ok') }], 'error');
+    } finally {
+      setAddingCategory(false);
+    }
+  };
+
+  const openEditCategoryModal = (category) => {
+    setEditingCategory(category);
+    setEditCategoryName(category.name);
+    setShowEditCategoryModal(true);
+  };
+
+  const closeEditCategoryModal = () => {
+    setShowEditCategoryModal(false);
+    setEditingCategory(null);
+    setEditCategoryName('');
+  };
+
+  const handleUpdateCategory = async () => {
+    if (!editCategoryName.trim()) {
+      showAlert(t('common.error'), t('addMenu.category.modal.nameRequired'), [{ text: t('common.ok') }], 'error');
+      return;
+    }
+
+    try {
+      setSavingCategoryEdit(true);
+      const token = await AsyncStorage.getItem('sellerToken');
+      if (!token) {
+        showAlert(t('common.error'), t('addMenu.alerts.noToken'), [{ text: t('common.ok') }], 'error');
+        return;
+      }
+
+      const response = await fetch(`${config.API_URL}/seller/categories/${editingCategory.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        body: JSON.stringify({ name: editCategoryName.trim(), type: editingCategory.type || 'catering' }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || 'Failed to update category');
+      }
+
+      const updated = result.category;
+      setCategories((prev) => prev.map((cat) => (cat.id === updated.id ? { ...cat, ...updated } : cat)));
+      setSelectedCategory((prev) => (prev?.id === updated.id ? { ...prev, ...updated } : prev));
+      closeEditCategoryModal();
+    } catch (error) {
+      console.error('Error updating category:', error);
+      showAlert(t('common.error'), t('addMenu.category.editModal.updateFailed'), [{ text: t('common.ok') }], 'error');
+    } finally {
+      setSavingCategoryEdit(false);
+    }
+  };
+
+  const handleDeleteCategory = () => {
+    if (!editingCategory) return;
+    const categoryToDelete = editingCategory;
+
+    showAlert(
+      t('addMenu.category.deleteConfirm.title'),
+      t('addMenu.category.deleteConfirm.message'),
+      [
+        { text: t('common.cancel'), style: 'cancel' },
+        {
+          text: t('common.delete'),
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              setDeletingCategory(true);
+              const token = await AsyncStorage.getItem('sellerToken');
+              if (!token) {
+                showAlert(t('common.error'), t('addMenu.alerts.noToken'), [{ text: t('common.ok') }], 'error');
+                return;
+              }
+
+              const response = await fetch(`${config.API_URL}/seller/categories/${categoryToDelete.id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` },
+              });
+
+              if (!response.ok) {
+                const result = await response.json().catch(() => ({}));
+                throw new Error(result.message || 'Failed to delete category');
+              }
+
+              setCategories((prev) => {
+                const remaining = prev.filter((cat) => cat.id !== categoryToDelete.id);
+                setSelectedCategory((prevSelected) =>
+                  prevSelected?.id === categoryToDelete.id ? (remaining[0] || null) : prevSelected
+                );
+                return remaining;
+              });
+              closeEditCategoryModal();
+            } catch (error) {
+              console.error('Error deleting category:', error);
+              showAlert(t('common.error'), t('addMenu.category.deleteConfirm.deleteFailed'), [{ text: t('common.ok') }], 'error');
+            } finally {
+              setDeletingCategory(false);
+            }
+          },
+        },
+      ],
+      'warning'
+    );
   };
 
   const pickImage = async () => {
@@ -264,7 +423,14 @@ const AddMenuPage = () => {
 
   const CategorySelector = () => (
     <View style={styles.categorySection}>
-      <Text style={styles.label}>{t('addMenu.category.label')}</Text>
+      <View style={styles.categoryLabelRow}>
+        <Text style={styles.label}>{t('addMenu.category.label')}</Text>
+        {!categoriesLoading && categories.length > 0 && (
+          <TouchableOpacity onPress={() => setShowAddCategoryModal(true)} activeOpacity={0.7}>
+            <Text style={styles.addCategoryLink}>{t('addMenu.category.addNew')}</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       {categoriesLoading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color={COLORS.PRIMARY} />
@@ -273,11 +439,10 @@ const AddMenuPage = () => {
       ) : categories.length === 0 ? (
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyText}>{t('addMenu.category.empty')}</Text>
+          <Text style={styles.emptyHint}>{t('addMenu.category.emptyInfo')}</Text>
           <TouchableOpacity
             style={styles.createCategoryButton}
-            onPress={() => {
-              showAlert(t('common.info'), t('addMenu.category.emptyInfo'), [{ text: t('common.ok') }], 'info');
-            }}
+            onPress={() => setShowAddCategoryModal(true)}
             activeOpacity={0.85}
           >
             <Text style={styles.createCategoryText}>{t('addMenu.category.createButton')}</Text>
@@ -295,12 +460,30 @@ const AddMenuPage = () => {
               onPress={() => setSelectedCategory(category)}
               activeOpacity={0.85}
             >
-              <Text style={[
-                styles.categoryText,
-                selectedCategory?.id === category.id && styles.categoryTextSelected
-              ]}>
-                {category.name}
-              </Text>
+              <View style={styles.categoryItemHeader}>
+                <Text
+                  style={[
+                    styles.categoryText,
+                    selectedCategory?.id === category.id && styles.categoryTextSelected,
+                    styles.categoryTextFlex,
+                  ]}
+                  numberOfLines={1}
+                >
+                  {category.name}
+                </Text>
+                <TouchableOpacity
+                  style={styles.categoryEditBtn}
+                  onPress={() => openEditCategoryModal(category)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityLabel={t('addMenu.category.editButton')}
+                >
+                  <MaterialIcons
+                    name="edit"
+                    size={13}
+                    color={selectedCategory?.id === category.id ? '#fff' : COLORS.PRIMARY}
+                  />
+                </TouchableOpacity>
+              </View>
               <Text style={[
                 styles.categoryCount,
                 selectedCategory?.id === category.id && styles.categoryCountSelected
@@ -456,6 +639,108 @@ const AddMenuPage = () => {
         type={customAlert.type}
         onClose={closeAlert}
       />
+
+      <Modal visible={showAddCategoryModal} transparent animationType="fade" onRequestClose={closeAddCategoryModal}>
+        <KeyboardAvoidingView
+          style={styles.alertOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.alertContent}>
+            <Text style={styles.alertTitle}>{t('addMenu.category.modal.title')}</Text>
+            <TextInput
+              style={styles.categoryModalInput}
+              placeholder={t('addMenu.category.modal.placeholder')}
+              placeholderTextColor="#aaa"
+              value={newCategoryName}
+              onChangeText={setNewCategoryName}
+              maxLength={30}
+              autoFocus
+            />
+            <View style={styles.alertButtons}>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertButtonOutline]}
+                onPress={closeAddCategoryModal}
+                disabled={addingCategory}
+              >
+                <Text style={[styles.alertButtonText, styles.alertButtonTextOutline]}>
+                  {t('addMenu.category.modal.cancel')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertButtonSolid]}
+                onPress={handleAddCategory}
+                disabled={addingCategory}
+              >
+                {addingCategory ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.alertButtonText, styles.alertButtonTextSolid]}>
+                    {t('addMenu.category.modal.save')}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      <Modal visible={showEditCategoryModal} transparent animationType="fade" onRequestClose={closeEditCategoryModal}>
+        <KeyboardAvoidingView
+          style={styles.alertOverlay}
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View style={styles.alertContent}>
+            <Text style={styles.alertTitle}>{t('addMenu.category.editModal.title')}</Text>
+            <TextInput
+              style={styles.categoryModalInput}
+              placeholder={t('addMenu.category.modal.placeholder')}
+              placeholderTextColor="#aaa"
+              value={editCategoryName}
+              onChangeText={setEditCategoryName}
+              maxLength={30}
+              autoFocus
+            />
+            <View style={styles.alertButtons}>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertButtonOutline]}
+                onPress={closeEditCategoryModal}
+                disabled={savingCategoryEdit || deletingCategory}
+              >
+                <Text style={[styles.alertButtonText, styles.alertButtonTextOutline]}>
+                  {t('addMenu.category.modal.cancel')}
+                </Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.alertButton, styles.alertButtonSolid]}
+                onPress={handleUpdateCategory}
+                disabled={savingCategoryEdit || deletingCategory}
+              >
+                {savingCategoryEdit ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text style={[styles.alertButtonText, styles.alertButtonTextSolid]}>
+                    {t('addMenu.category.modal.save')}
+                  </Text>
+                )}
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.deleteCategoryLink}
+              onPress={handleDeleteCategory}
+              disabled={savingCategoryEdit || deletingCategory}
+              activeOpacity={0.7}
+            >
+              {deletingCategory ? (
+                <ActivityIndicator size="small" color="#C62828" />
+              ) : (
+                <Text style={styles.deleteCategoryLinkText}>
+                  {t('addMenu.category.editModal.deleteButton')}
+                </Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -497,6 +782,17 @@ const styles = StyleSheet.create({
   categorySection: {
     marginBottom: 20,
   },
+  categoryLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  addCategoryLink: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: COLORS.PRIMARY,
+  },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -518,6 +814,12 @@ const styles = StyleSheet.create({
   emptyText: {
     color: '#888',
     fontSize: 13,
+    marginBottom: 4,
+  },
+  emptyHint: {
+    color: '#aaa',
+    fontSize: 12,
+    textAlign: 'center',
     marginBottom: 12,
   },
   createCategoryButton: {
@@ -541,7 +843,20 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderWidth: 1,
     borderColor: '#e5e5e5',
-    minWidth: 100,
+    minWidth: 110,
+    maxWidth: 150,
+  },
+  categoryItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  categoryTextFlex: {
+    flex: 1,
+    textAlign: 'left',
+  },
+  categoryEditBtn: {
+    marginLeft: 6,
   },
   categoryItemSelected: {
     backgroundColor: COLORS.PRIMARY,
@@ -559,7 +874,7 @@ const styles = StyleSheet.create({
   categoryCount: {
     fontSize: 11,
     color: '#888',
-    textAlign: 'center',
+    textAlign: 'left',
     marginTop: 4,
   },
   categoryCountSelected: {
@@ -752,6 +1067,27 @@ const styles = StyleSheet.create({
   },
   alertButtonTextOutline: {
     color: '#777',
+  },
+  categoryModalInput: {
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    padding: 12,
+    fontSize: 14,
+    borderWidth: 1,
+    borderColor: '#e5e5e5',
+    color: '#23272f',
+    width: '100%',
+    marginBottom: 20,
+  },
+  deleteCategoryLink: {
+    marginTop: 14,
+    alignItems: 'center',
+    paddingVertical: 4,
+  },
+  deleteCategoryLinkText: {
+    color: '#C62828',
+    fontSize: 13,
+    fontWeight: '700',
   },
 });
 

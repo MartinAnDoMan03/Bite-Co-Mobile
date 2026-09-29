@@ -694,7 +694,7 @@ termsBuyerContent: {
   success: {
     title: 'Congratulations!',
     message: 'You have successfully registered as a seller on Bite&Co. Please wait for confirmation from our team. If you have any questions, please contact us at info@biteandco.com',
-    button: 'Go to Seller Home',
+    button: 'Back to Login',
   },
 },
 started: {
@@ -850,9 +850,29 @@ addMenu: {
     label: 'Menu Category',
     loading: 'Loading categories...',
     empty: 'No categories available',
-    emptyInfo: 'Please create a category first in the Menu List',
+    emptyInfo: 'Create your first category to start adding menu items.',
     createButton: 'Create Category',
+    addNew: '+ New Category',
+    editButton: 'Edit category',
     itemCount: '{{count}} items',
+    modal: {
+      title: 'Create New Category',
+      placeholder: 'E.g. Main Course, Drinks...',
+      cancel: 'Cancel',
+      save: 'Save',
+      nameRequired: 'Category name cannot be empty',
+      addFailed: 'Failed to create category, please try again',
+    },
+    editModal: {
+      title: 'Edit Category',
+      updateFailed: 'Failed to update category, please try again',
+      deleteButton: 'Delete This Category',
+    },
+    deleteConfirm: {
+      title: 'Delete Category?',
+      message: 'All menu items in this category will also be deleted. This cannot be undone.',
+      deleteFailed: 'Failed to delete category, please try again',
+    },
   },
   photo: {
     label: 'Menu Photo',

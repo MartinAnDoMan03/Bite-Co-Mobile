@@ -722,7 +722,7 @@ termsBuyerContent: {
   success: {
     title: 'Selamat!',
     message: 'Anda telah berhasil mendaftar sebagai penjual di Bite&Co. Silakan tunggu konfirmasi dari tim kami. Jika ada pertanyaan, silakan hubungi kami di info@biteandco.com',
-    button: 'Masuk ke Beranda Seller',
+    button: 'Kembali ke Login',
   },
 },
 started: {
@@ -879,9 +879,29 @@ addMenu: {
     label: 'Kategori Menu',
     loading: 'Memuat kategori...',
     empty: 'Tidak ada kategori tersedia',
-    emptyInfo: 'Buat kategori terlebih dahulu di menu Daftar Menu',
+    emptyInfo: 'Buat kategori pertama Anda untuk mulai menambahkan menu.',
     createButton: 'Buat Kategori',
+    addNew: '+ Kategori Baru',
+    editButton: 'Ubah kategori',
     itemCount: '{{count}} item',
+    modal: {
+      title: 'Buat Kategori Baru',
+      placeholder: 'Mis. Makanan Utama, Minuman...',
+      cancel: 'Batal',
+      save: 'Simpan',
+      nameRequired: 'Nama kategori tidak boleh kosong',
+      addFailed: 'Gagal membuat kategori, coba lagi',
+    },
+    editModal: {
+      title: 'Ubah Kategori',
+      updateFailed: 'Gagal mengubah kategori, coba lagi',
+      deleteButton: 'Hapus Kategori Ini',
+    },
+    deleteConfirm: {
+      title: 'Hapus Kategori?',
+      message: 'Semua menu di dalam kategori ini akan ikut terhapus. Tindakan ini tidak bisa dibatalkan.',
+      deleteFailed: 'Gagal menghapus kategori, coba lagi',
+    },
   },
   photo: {
     label: 'Foto Menu',

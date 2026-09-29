@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Alert } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, TextInput, ScrollView, ActivityIndicator, Modal } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { MaterialIcons } from "@expo/vector-icons";
@@ -14,12 +14,61 @@ const CATEGORY_OPTIONS = [
   { key: "snack", label: "Snack", icon: "cookie" },
 ];
 
+const ALERT_TYPE_STYLES = {
+  info: { icon: 'info', color: COLORS.PRIMARY, bg: '#F7EAEF' },
+  success: { icon: 'check-circle', color: '#2E7D32', bg: '#E8F5E9' },
+  error: { icon: 'error', color: '#C62828', bg: '#FFEBEE' },
+  warning: { icon: 'warning', color: '#B26A00', bg: '#FFF3E0' },
+};
+
+const CustomAlert = ({ visible, title, message, buttons, type = 'info', onClose }) => {
+  const typeStyle = ALERT_TYPE_STYLES[type] || ALERT_TYPE_STYLES.info;
+  return (
+    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+      <View style={styles.alertOverlay}>
+        <View style={styles.alertContent}>
+          <View style={[styles.alertIconCircle, { backgroundColor: typeStyle.bg }]}>
+            <MaterialIcons name={typeStyle.icon} size={26} color={typeStyle.color} />
+          </View>
+          <Text style={styles.alertTitle}>{title}</Text>
+          {!!message && <Text style={styles.alertMessage}>{message}</Text>}
+          <View style={styles.alertButtons}>
+            {buttons.map((btn, index) => {
+              const isCancel = btn.style === 'cancel';
+              return (
+                <TouchableOpacity
+                  key={index}
+                  style={[styles.alertButton, isCancel ? styles.alertButtonOutline : styles.alertButtonSolid]}
+                  onPress={() => {
+                    onClose();
+                    btn.onPress && btn.onPress();
+                  }}
+                >
+                  <Text style={[styles.alertButtonText, isCancel ? styles.alertButtonTextOutline : styles.alertButtonTextSolid]}>
+                    {btn.text}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+};
+
 const EventRegisterForm = () => {
   const router = useRouter();
   const { eventId } = useLocalSearchParams();
   const [categories, setCategories] = useState([]);
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [customAlert, setCustomAlert] = useState({ visible: false, title: '', message: '', buttons: [], type: 'info' });
+
+  const showAlert = (title, message, buttons = [{ text: 'OK' }], type = 'info') => {
+    setCustomAlert({ visible: true, title, message, buttons, type });
+  };
+  const closeAlert = () => setCustomAlert((prev) => ({ ...prev, visible: false }));
 
   const toggleCategory = (key) => {
     setCategories((prev) =>
@@ -29,11 +78,11 @@ const EventRegisterForm = () => {
 
   const handleSubmit = async () => {
     if (categories.length === 0) {
-      Alert.alert("Lengkapi Data", "Pilih minimal 1 kategori produk kamu.");
+      showAlert("Lengkapi Data", "Pilih minimal 1 kategori produk kamu.", [{ text: "OK" }], "warning");
       return;
     }
     if (!description.trim()) {
-      Alert.alert("Lengkapi Data", "Deskripsi produk wajib diisi.");
+      showAlert("Lengkapi Data", "Deskripsi produk wajib diisi.", [{ text: "OK" }], "warning");
       return;
     }
 
@@ -46,14 +95,15 @@ const EventRegisterForm = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      Alert.alert(
+      showAlert(
         "Pendaftaran Berhasil",
-        res.data.message || "Kamu berhasil terdaftar di event ini.",
-        [{ text: "OK", onPress: () => router.replace({ pathname: "seller/EventMenuSelect", params: { eventId } }) }]
+        (res.data.message || "Kamu berhasil terdaftar di event ini.") + " Kategori dan deskripsi produkmu sudah tersimpan.",
+        [{ text: "OK", onPress: () => router.replace({ pathname: "seller/EventMenuSelect", params: { eventId } }) }],
+        "success"
       );
     } catch (e) {
       const errMsg = e.response?.data?.error || "Gagal mendaftar. Coba lagi.";
-      Alert.alert("Gagal", errMsg);
+      showAlert("Gagal", errMsg, [{ text: "OK" }], "error");
     } finally {
       setSubmitting(false);
     }
@@ -125,6 +175,15 @@ const EventRegisterForm = () => {
           )}
         </TouchableOpacity>
       </View>
+
+      <CustomAlert
+        visible={customAlert.visible}
+        title={customAlert.title}
+        message={customAlert.message}
+        buttons={customAlert.buttons}
+        type={customAlert.type}
+        onClose={closeAlert}
+      />
     </SafeAreaView>
   );
 };
@@ -203,4 +262,71 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   submitButtonText: { color: "#fff", fontWeight: "700", fontSize: 15 },
+
+  alertOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 32,
+  },
+  alertContent: {
+    backgroundColor: 'white',
+    borderRadius: 18,
+    padding: 22,
+    width: '100%',
+    maxWidth: 340,
+    alignItems: 'center',
+  },
+  alertIconCircle: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  alertTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#23272f',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  alertMessage: {
+    fontSize: 13.5,
+    color: '#777',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 20,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 10,
+    width: '100%',
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 30,
+    alignItems: 'center',
+  },
+  alertButtonSolid: {
+    backgroundColor: COLORS.PRIMARY,
+  },
+  alertButtonOutline: {
+    backgroundColor: '#fff',
+    borderWidth: 1.5,
+    borderColor: '#e5e5e5',
+  },
+  alertButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  alertButtonTextSolid: {
+    color: '#fff',
+  },
+  alertButtonTextOutline: {
+    color: '#777',
+  },
 });

@@ -694,7 +694,7 @@ termsBuyerContent: {
   success: {
     title: 'Tahniah!',
     message: 'Anda telah berjaya mendaftar sebagai penjual di Bite&Co. Sila tunggu pengesahan daripada pasukan kami. Jika ada sebarang pertanyaan, sila hubungi kami di info@biteandco.com',
-    button: 'Masuk ke Laman Utama Penjual',
+    button: 'Kembali ke Login',
   },
 },
 started: {
@@ -851,9 +851,29 @@ addMenu: {
     label: 'Kategori Menu',
     loading: 'Sedang memuatkan kategori...',
     empty: 'Tiada kategori tersedia',
-    emptyInfo: 'Sila buat kategori terlebih dahulu di menu Senarai Menu',
+    emptyInfo: 'Buat kategori pertama anda untuk mula menambah menu.',
     createButton: 'Buat Kategori',
+    addNew: '+ Kategori Baharu',
+    editButton: 'Sunting kategori',
     itemCount: '{{count}} item',
+    modal: {
+      title: 'Buat Kategori Baharu',
+      placeholder: 'Cth. Makanan Utama, Minuman...',
+      cancel: 'Batal',
+      save: 'Simpan',
+      nameRequired: 'Nama kategori tidak boleh kosong',
+      addFailed: 'Gagal membuat kategori, sila cuba lagi',
+    },
+    editModal: {
+      title: 'Sunting Kategori',
+      updateFailed: 'Gagal mengemaskini kategori, sila cuba lagi',
+      deleteButton: 'Padam Kategori Ini',
+    },
+    deleteConfirm: {
+      title: 'Padam Kategori?',
+      message: 'Semua menu dalam kategori ini turut akan dipadam. Tindakan ini tidak boleh dibatalkan.',
+      deleteFailed: 'Gagal memadam kategori, sila cuba lagi',
+    },
   },
   photo: {
     label: 'Foto Menu',
