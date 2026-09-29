@@ -18,6 +18,7 @@ import axios from 'axios';
 import { StoreCardSkeleton } from '../../../components/SkeletonLoader';
 import OutletStatusBadge from '../../../components/OutletStatusBadge';
 import { getOutletStatus } from '../../services/OutletStatusService';
+import { notificationService } from '../../services/NotificationService';
 import { FlatList } from "react-native";
 
 // Aktifkan LayoutAnimation di Android (sama seperti di halaman seller)
@@ -259,7 +260,13 @@ const checkOverdueOrders = useCallback(async () => {
   useFocusEffect(
     useCallback(() => {
       checkOverdueOrders();
-      setBannerDismissed(false); // reset dismiss tiap kali Home dibuka ulang
+      setBannerDismissed(false);
+      (async () => {
+        const token = await AsyncStorage.getItem('buyerToken');
+        if (token) {
+          notificationService.registerPushToken('buyer', null, token).catch(() => {});
+        }
+      })();
     }, [checkOverdueOrders])
   );
 

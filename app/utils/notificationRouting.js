@@ -19,6 +19,10 @@ export function getBuyerNotificationRoute(data) {
 }
 
 export function getSellerNotificationRoute(data) {
+  if (data?.eventId && !data?.orderId) {
+    return `/seller/EventMenuSelect?eventId=${data.eventId}`;
+  }
+
   if (!data?.orderId) return null;
 
   if (data.status === 'awaiting_seller_approval') {

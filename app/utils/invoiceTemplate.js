@@ -2,10 +2,10 @@ import { LOGO_BASE64 } from './logoBase64';
 
 export function buildInvoiceHTML({ order, sellerName, viewerRole }) {
   const items = order.items || [];
-  const subtotal = order.subtotal ?? order.totalAmount ?? 0;
-  const discount = order.discountAmount || 0;
   const adminFee = order.adminFee || 0;
   const total = order.totalAmount || 0;
+  const subtotal = items.reduce((sum, item) => sum + (item.price || 0) * (item.qty || item.quantity || 1), 0);
+  const discount = Math.max(0, subtotal + adminFee - total);
   const netForSeller = total - adminFee;
 
   const itemRows = items.map(item => `

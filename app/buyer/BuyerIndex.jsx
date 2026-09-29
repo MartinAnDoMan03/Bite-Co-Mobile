@@ -18,6 +18,7 @@ import { useBuyerAuth } from '../hooks/useBuyerAuth.js';
 import config from '../constants/config';
 import logo from "../../assets/images/logo.png";
 import { Ionicons } from "@expo/vector-icons";
+import { notificationService } from "../services/NotificationService";
 
 const BURGUNDY = "#711330";
 
@@ -80,6 +81,7 @@ const BuyerIndex = () => {
 
       // Use the auth hook to handle login
       await login(result.token);
+      notificationService.registerPushToken('buyer', null, result.token).catch(() => {});
 
       // Navigate to buyer tabs
       router.push("/buyer/(tabs)");
