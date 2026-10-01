@@ -138,9 +138,13 @@ const SellerIndex = () => {
 
             {/* Belum punya akun? Daftar */}
             <View style={styles.registerWrap}>
-              <Text style={styles.registerText}>{t("sellerLogin.noAccount")}</Text>
-              <TouchableOpacity onPress={() => router.push("/seller/DetailUsaha")}>
-                <Text style={styles.registerLink}>{t("sellerLogin.register")}</Text>
+              <Text style={styles.registerCaption}>{t("sellerLogin.noAccount")}</Text>
+              <TouchableOpacity
+                style={styles.btnSecondary}
+                onPress={() => router.push("/seller/DetailUsaha")}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.btnSecondaryText}>{t("sellerLogin.register")}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -185,21 +189,30 @@ const styles = StyleSheet.create({
     backgroundColor: BURGUNDY,
   },
   registerWrap: {
-  flexDirection: "row",
-  justifyContent: "center",
-  alignItems: "center",
-  marginTop: 8,
-},
-registerText: {
-  color: "#666",
-  fontSize: 14,
-},
-registerLink: {
-  color: BURGUNDY,
-  fontSize: 14,
-  fontWeight: "700",
-  textDecorationLine: "underline"
-},
+    width: "100%",
+    alignItems: "center",
+    marginTop: 4,
+  },
+  registerCaption: {
+    color: "#888",
+    fontSize: 13,
+    marginBottom: 10,
+  },
+  btnSecondary: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: BURGUNDY,
+    paddingVertical: 15,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  btnSecondaryText: {
+    color: BURGUNDY,
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: 0.3,
+  },
   topSection: {
     height: 300,
     width: "100%",
