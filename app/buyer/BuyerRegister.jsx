@@ -291,8 +291,12 @@ const BuyerRegister = () => {
 
             <View style={styles.loginPrompt}>
               <Text style={styles.loginPromptText}>{t('buyerRegister.card.loginPrompt')}</Text>
-              <TouchableOpacity onPress={() => router.back()}>
-                <Text style={styles.loginLink}>{t('buyerRegister.card.loginLink')}</Text>
+              <TouchableOpacity
+                style={styles.btnSecondary}
+                onPress={() => router.back()}
+                activeOpacity={0.85}
+              >
+                <Text style={styles.btnSecondaryText}>{t('buyerRegister.card.loginLink')}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -500,20 +504,29 @@ const styles = StyleSheet.create({
 
   // Login prompt
   loginPrompt: {
-    flexDirection: "row",
-    justifyContent: "center",
+    width: "100%",
     alignItems: "center",
     marginTop: 14,
   },
   loginPromptText: {
     color: "#666",
     fontSize: scale(13),
+    marginBottom: 10,
   },
-  loginLink: {
+  btnSecondary: {
+    width: "100%",
+    backgroundColor: "#fff",
+    borderWidth: 1.5,
+    borderColor: BURGUNDY,
+    paddingVertical: 14,
+    borderRadius: 14,
+    alignItems: "center",
+  },
+  btnSecondaryText: {
     color: BURGUNDY,
-    fontSize: scale(13),
+    fontSize: scale(15),
     fontWeight: "700",
-    textDecorationLine: "underline",
+    letterSpacing: 0.3,
   },
 
   // Alert / success modal
